@@ -662,6 +662,31 @@ body {
   flex-direction: column;
   gap: 6px;
 }
+/* Light mode: stronger contrast so the drop zone doesn't get lost */
+#bulkDropZone {
+  border-width: 2px;
+  border-color: var(--border-strong);
+  background: var(--bg-row-alt);
+}
+#bulkDropZone:hover {
+  border-color: var(--accent);
+  background: var(--bg-input);
+}
+#bulkDropZone.loaded {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+[data-theme="dark"] #bulkDropZone {
+  border-width: 2px;
+  border-color: var(--border);
+  background: transparent;
+}
+[data-theme="dark"] #bulkDropZone:hover {
+  background: transparent;
+}
+[data-theme="dark"] #bulkDropZone.loaded {
+  background: var(--green-bg);
+}
 .bulk-right-bottom {
   flex: 1;
   min-height: 0;
