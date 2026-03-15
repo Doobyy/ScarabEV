@@ -661,10 +661,39 @@ body {
   text-align: center;
   flex-direction: column;
   gap: 6px;
+  position: relative;
+}
+.bulk-drop-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  z-index: 2;
+}
+.bulk-spinner-wheel {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  animation: bulk-spin 0.8s linear infinite;
+}
+.bulk-spinner-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+@keyframes bulk-spin {
+  to { transform: rotate(360deg); }
 }
 /* Light mode: stronger contrast so the drop zone doesn't get lost */
 #bulkDropZone {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: var(--border-strong);
   background: var(--bg-row-alt);
 }
@@ -677,7 +706,7 @@ body {
   background: var(--green-bg);
 }
 [data-theme="dark"] #bulkDropZone {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: var(--border);
   background: transparent;
 }
@@ -686,6 +715,22 @@ body {
 }
 [data-theme="dark"] #bulkDropZone.loaded {
   background: var(--green-bg);
+}
+.bulk-clear-image-btn {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.bulk-clear-image-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
 }
 .bulk-right-bottom {
   flex: 1;
@@ -1281,16 +1326,21 @@ body {
         <div class="bulk-drop-wrap">
           <label class="bulk-label">Listing image (drag, paste, or click)</label>
           <div id="bulkDropZone" class="logger-upload">
+            <div id="bulkDropZoneSpinner" class="bulk-drop-spinner" style="display:none">
+              <div class="bulk-spinner-wheel"></div>
+              <div class="bulk-spinner-label">Parsing…</div>
+            </div>
             <input id="bulkImageInput" type="file" accept="image/*" style="display:none" onchange="handleBulkImage(event)">
             <div id="bulkDropText">Drop a TFT listing screenshot here, paste with Ctrl+V, or click to browse.</div>
             <div id="bulkDropHint" style="font-size:11px;color:var(--text-3)">Tab must be on Bulk Buy Analyzer for paste to work.</div>
+            <button type="button" id="bulkClearImageBtn" class="bulk-clear-image-btn" style="display:none" onclick="event.stopPropagation(); clearBulkImage();" title="Clear image and load a new one">✕ Clear image</button>
           </div>
         </div>
         <div class="bulk-right-bottom">
           <div class="bulk-inputs-row">
             <div class="bulk-field">
               <label class="bulk-label">Asking price (chaos)</label>
-              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" />
+              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { const v = parseFloat(this.value); if (Number.isFinite(v) && v > 0) runBulkFromImage(); } }" />
               <div class="bulk-hint">Use the seller's total chaos cost for the lot. If it's in div + chaos, convert to pure chaos first.</div>
             </div>
             <div class="bulk-field">
@@ -3538,6 +3588,18 @@ function initBulkGeminiKey() {
   } catch(e) {}
 }
 
+function clearBulkImage() {
+  _bulkImageFile = null;
+  const zone = document.getElementById('bulkDropZone');
+  const textEl = document.getElementById('bulkDropText');
+  const clearBtn = document.getElementById('bulkClearImageBtn');
+  const fileInput = document.getElementById('bulkImageInput');
+  if (zone) zone.classList.remove('loaded');
+  if (textEl) textEl.textContent = 'Drop a TFT listing screenshot here, paste with Ctrl+V, or click to browse.';
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+}
+
 function handleBulkImage(event) {
   const file = event.dataTransfer ? event.dataTransfer.files[0] : event.target.files[0];
   if (!file) return;
@@ -3547,8 +3609,13 @@ function handleBulkImage(event) {
   }
   const zone = document.getElementById('bulkDropZone');
   const textEl = document.getElementById('bulkDropText');
+  const clearBtn = document.getElementById('bulkClearImageBtn');
   if (zone) zone.classList.add('loaded');
   if (textEl) textEl.textContent = `Loaded: ${file.name}`;
+  if (clearBtn) clearBtn.style.display = '';
+  // Clear CSV when a new image is set so "Analyze image" repopulates with fresh data
+  const csvEl = document.getElementById('bulkCsv');
+  if (csvEl) csvEl.value = '';
 }
 
 // Enable drag-and-drop and paste for images when Bulk tab is active
@@ -3693,10 +3760,12 @@ async function runBulkFromImage() {
   }
 
   const btn = document.getElementById('bulkAnalyzeImageBtn');
+  const spinnerEl = document.getElementById('bulkDropZoneSpinner');
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Analyzing image…';
   }
+  if (spinnerEl) spinnerEl.style.display = 'flex';
 
   try {
     const dataUrl = await new Promise((resolve, reject) => {
@@ -3707,30 +3776,43 @@ async function runBulkFromImage() {
     });
     const base64 = String(dataUrl).split(',')[1];
 	
-	const modelId = 'gemini-2.5-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1/models/${modelId}:generateContent?key=` + encodeURIComponent(apiKey);
-    const body = {
-      contents: [
-        {
-          parts: [
-            {
-              text:
-                'This is a Path of Exile TFT bulk scarab listing screenshot. ' +
-                'From the image, extract every scarab row as CSV in the exact format: Name,Qty . ' +
-                'Use the abbreviated names exactly as they appear (e.g. "Horned of Bloodlines", "of Wisps", "Cartography Scarab"). ' +
-                'Only include scarab rows. Do NOT include headers, totals, currency rates, or any explanation. ' +
-                'Return ONLY the CSV rows, one per line.'
-            },
-            {
-              inline_data: {
-                mime_type: _bulkImageFile.type || 'image/png',
-                data: base64
-              }
-            }
-          ]
-        }
-      ]
-    };
+	const modelId = 'gemini-2.5-flash-lite';
+	// Using v1beta for advanced system_instruction support
+	const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=` + encodeURIComponent(apiKey);
+
+	const body = {
+	  system_instruction: {
+		parts: [{
+		  text: "You are a specialized PoE OCR tool for TFT bulk scarab listings. " +
+				"I will provide two types of screenshots: one with Qty on the right, and one with Qty on the left (e.g., '69x Ambush').\n\n" +
+				"YOUR JOB: Extract data into strictly 'Name,Qty' CSV format.\n\n" +
+				"EXTRACTION RULES:\n" +
+				"1. IF THE LINE SAYS '69x Name': The Qty is 69. The Name is Name. Strip the 'x'.\n" +
+				"2. IF THE LINE SAYS 'Name Qty': Use Name as Name and Qty as Qty.\n" +
+				"3. PRICE DATA: Completely ignore currency values (e.g., '33.8d', '10.51', '1.2c'). These are NOT quantities.\n" +
+				"4. OUTPUT FORMAT: Strictly 'Name,Qty' per line. Example: 'Ambush,69'.\n" +
+				"5. NO extras: No headers, no markdown blocks, no intro text, no total rows."
+		}]
+	  },
+	  contents: [
+		{
+		  parts: [
+			{ text: "Extract Name,Qty from this TFT listing." },
+			{
+			  inline_data: {
+				mime_type: _bulkImageFile.type || 'image/png',
+				data: base64
+			  }
+			}
+		  ]
+		}
+	  ],
+	  generationConfig: {
+		temperature: 0, // Forces the model to be deterministic and literal
+		topP: 0.1,
+		responseMimeType: "text/plain" // Ensures it doesn't wrap the CSV in markdown blocks
+	  }
+	};
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -3750,14 +3832,16 @@ async function runBulkFromImage() {
 
     document.getElementById('bulkCsv').value = text;
     runBulkFromCsv();
+    clearBulkImage();
   } catch (e) {
     errEl.textContent = 'Gemini parse failed: ' + (e.message || e);
     errEl.style.display = 'block';
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = 'Analyze image via Gemini';
+      btn.textContent = 'Analyze Image';
     }
+    if (spinnerEl) spinnerEl.style.display = 'none';
   }
 }
 
