@@ -787,6 +787,34 @@ body {
   width: 100%;
   max-width: 260px;
 }
+
+.help-box {
+  background: var(--bg-group);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.help-box h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-box ol {
+  padding-left: 18px;
+  color: var(--text-3);
+}
+.help-box li { margin-bottom: 4px; }
+.help-box a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.help-box a:hover { text-decoration: underline; }
+
 .bulk-gemini-key:focus { border-color: var(--accent); }
 
 @media (max-width: 780px) {
@@ -1150,9 +1178,11 @@ body {
     <div class="bulk-intro">
       <div class="bulk-title">Bulk Buy Analyzer</div>
       <div class="bulk-sub">
-        Paste a Gemini CSV in the format <code>Name,Qty</code> for each scarab in a TFT bulk lot,
-        enter the seller's total asking price in chaos, and this tool will compare it against your
-        current harmonic EV and poe.ninja prices to estimate profitability.
+        <p class="bulk-sub">
+			Evaluate TFT bulk listings instantly. Upload a screenshot to parse data via AI (requires a free 
+			<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent); font-weight: 600; text-decoration: none;">Gemini API Key</a>) 
+			or paste a CSV in <code>Name,Qty</code> format. Enter the asking price to compare the lot against real-time harmonic EV and poe.ninja market data.
+		</p>
       </div>
     </div>
 
@@ -1162,7 +1192,8 @@ body {
         <textarea id="bulkCsv" class="bulk-textarea" placeholder="Name,Qty&#10;Horned of Bloodlines,3&#10;Breach of Instability,21&#10;Ultimatum of Catalysing,1&#10;..."></textarea>
       </div>
       <div class="bulk-side">
-        <div class="bulk-field">
+        
+		<div class="bulk-field">
           <label class="bulk-label">Gemini API key</label>
           <input id="bulkGeminiKey" class="bulk-gemini-key" type="password" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)">
           <div class="bulk-hint">Stored locally in your browser. Used only to call Gemini for image parsing.</div>
@@ -1181,7 +1212,7 @@ body {
             Use the seller's total chaos cost for the lot. If it's in div + chaos, convert to pure chaos first.
           </div>
         </div>
-        <button id="bulkAnalyzeImageBtn" class="btn bulk-analyze-btn" onclick="runBulkFromImage()">Analyze image via Gemini</button>
+        <button id="bulkAnalyzeImageBtn" class="btn bulk-analyze-btn" onclick="runBulkFromImage()">Analyze Image</button>
         <button id="bulkAnalyzeBtn" class="btn bulk-analyze-btn" onclick="runBulkFromCsv()">Analyze CSV only</button>
         <div id="bulkError" class="bulk-error" style="display:none"></div>
       </div>
