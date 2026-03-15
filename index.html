@@ -1,0 +1,3756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PoE Scarab Pool — 3.28 Vendor EV</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── LIGHT THEME ── */
+:root {
+  --bg: #dde1e9;
+  --bg-card: #ffffff;
+  --bg-row-alt: #f8f9fb;
+  --bg-input: #eef0f4;
+  --bg-table-head: #eef0f4;
+  --bg-group: #f0f2f6;
+  --border: #d0d4de;
+  --border-strong: #b0b5c4;
+  --text: #0e1118;
+  --text-2: #363a4a;
+  --text-3: #727890;
+  --accent: #4b6cf7;
+  --accent-dim: #dde3fd;
+  --green: #1e9c52;
+  --green-bg: #e8f8ef;
+  --green-border: #8ed9b0;
+  --red: #d63a2c;
+  --amber: #d4700e;
+  --amber-bg: #fef3e4;
+  --chaos: #a03ec8;
+  --chaos-bg: #f3e8fd;
+  --chaos-border: #cc98ee;
+  --header-bg: #141620;
+  --row-hover: #eaedfc;
+  --vendor-row: #e6f7ee;
+  --vendor-row-hover: #d5f0e2;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.10);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+  --tab-inactive: #868c9e;
+  --tab-active-bg: #ffffff;
+  --bg-outer: #b8bdc9;
+  --ninja-accent: #d4900a;
+  --ninja-bg: #fff9ee;
+  --ninja-border: #ead898;
+}
+
+/* ── DARK THEME ── */
+[data-theme="dark"] {
+  --bg: #13151f;
+  --bg-card: #1e2235;
+  --bg-row-alt: #222840;
+  --bg-input: #141828;
+  --bg-table-head: #191d30;
+  --bg-group: #1b1f32;
+  --border: #2e3450;
+  --border-strong: #424a68;
+  --text: #e8ecf8;
+  --text-2: #9aa4c4;
+  --text-3: #525c7a;
+  --accent: #7090ff;
+  --accent-dim: #1a2560;
+  --green: #36d87e;
+  --green-bg: #0e2418;
+  --green-border: #1e5c38;
+  --red: #ff5f50;
+  --amber: #f0a830;
+  --amber-bg: #251c08;
+  --chaos: #d080f8;
+  --chaos-bg: #1e1030;
+  --chaos-border: #5e2880;
+  --header-bg: #0e1020;
+  --row-hover: #222a50;
+  --vendor-row: #0e2418;
+  --vendor-row-hover: #163322;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+  --tab-inactive: #525c7a;
+  --tab-active-bg: #1e2235;
+  --bg-outer: #0a0c14;
+  --ninja-accent: #f5b830;
+  --ninja-bg: #1e1a0e;
+  --ninja-border: #4a3c10;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  background: var(--bg-outer);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ── NAV ── */
+.topnav {
+  background: var(--header-bg);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 46px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.nav-logo { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+.nav-logo span { color: #c870e8; }
+.nav-tag {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  background: rgba(200,112,232,0.18); color: #d090ee; padding: 2px 7px; border-radius: 3px;
+}
+.nav-sep { flex: 1; }
+
+/* Tabs in nav */
+.nav-tabs { display: flex; gap: 2px; }
+.nav-tab {
+  font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 14px;
+  border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.45);
+  border-bottom: 2px solid transparent; transition: all 0.15s; letter-spacing: 0.01em;
+  margin-bottom: -1px;
+}
+.nav-tab:hover { color: rgba(255,255,255,0.75); }
+.nav-tab.active { color: #fff; border-bottom-color: #c870e8; }
+.nav-tab.ninja-tab.active { border-bottom-color: var(--ninja-accent); color: var(--ninja-accent); }
+
+/* Dark mode toggle */
+.theme-toggle {
+  background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px;
+  width: 44px; height: 22px; cursor: pointer; position: relative; transition: all 0.2s;
+  flex-shrink: 0;
+}
+.theme-toggle::before {
+  content: ''; position: absolute; top: 2px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(255,255,255,0.7); transition: transform 0.2s, background 0.2s;
+}
+[data-theme="dark"] .theme-toggle { border-color: rgba(255,255,255,0.25); background: rgba(107,135,249,0.2); }
+[data-theme="dark"] .theme-toggle::before { transform: translateX(20px); background: #6b87f9; }
+.theme-icon { font-size: 11px; color: rgba(255,255,255,0.5); }
+
+/* ── LAYOUT ── */
+.page {
+  max-width: 1120px; margin: 0 auto; padding: 20px 20px 80px;
+  background: var(--bg); border-radius: 10px;
+  box-shadow: 0 2px 24px rgba(0,0,0,0.18);
+  min-height: calc(100vh - 46px);
+}
+
+/* Tab panes */
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 13px 15px; box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s;
+}
+.stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+.stat-value.ev, .stat-value.thresh { color: var(--chaos); }
+.stat-value.green { color: var(--green); }
+.stat-sub { font-size: 10px; color: var(--text-3); margin-top: 3px; }
+
+/* ── EV NOTE ── */
+.ev-note { display: none; }
+.ev-note.show { display: none; }
+
+/* ── INFO BAR (replaces ev-note) ── */
+.info-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; margin-bottom: 14px; font-size: 11px;
+  color: var(--text-3); transition: background 0.2s;
+}
+.info-bar-text { flex: 1; }
+.info-bar-text strong { color: var(--text-2); }
+.info-bar-import {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 4px 11px;
+  border: 1px solid var(--border); border-radius: 4px; background: transparent;
+  color: var(--text-2); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.info-bar-import:hover { border-color: var(--accent); color: var(--accent); }
+.info-bar-clear {
+  font-family: inherit; font-size: 11px; padding: 4px 8px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--text-3);
+  cursor: pointer; transition: all 0.15s;
+}
+.info-bar-clear:hover { color: var(--red); border-color: var(--red); }
+
+.ev-override-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  background: var(--amber-bg); border: 1px solid #f5d78e; border-radius: 6px;
+  margin-bottom: 14px; font-size: 12px; flex-wrap: wrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+[data-theme="dark"] .ev-override-bar { background: #2a2010; border-color: #6a5010; }
+.ev-override-bar label { font-weight: 600; color: var(--amber); white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; }
+.ev-override-input {
+  width: 80px; padding: 4px 8px; border: 1px solid #f5d78e; border-radius: 4px;
+  background: var(--bg-card); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--amber); text-align: center; outline: none;
+  -moz-appearance: textfield;
+}
+.ev-override-input::-webkit-outer-spin-button,
+.ev-override-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.ev-override-input:focus { border-color: var(--amber); }
+.ev-override-hint { font-size: 11px; color: var(--text-3); }
+.ev-override-active { color: var(--amber); font-size: 11px; font-weight: 600; }
+.ev-clear-btn {
+  font-family: inherit; font-size: 11px; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid #f5d78e; background: transparent; color: var(--amber);
+  cursor: pointer; transition: all 0.15s; margin-left: auto;
+}
+.ev-clear-btn:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+/* ── REGEX PANEL ── */
+.regex-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.regex-header {
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.regex-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.char-pill { font-size: 10px; font-weight: 500; padding: 1px 7px; border-radius: 10px; font-variant-numeric: tabular-nums; color: var(--text-3); background: var(--bg); border: 1px solid var(--border); }
+.char-pill.ok  { color: var(--text-3); background: var(--bg); border-color: var(--border); }
+.char-pill.warn { color: var(--amber); background: var(--amber-bg); border-color: var(--border); }
+.char-pill.over { color: var(--red); background: var(--bg); border-color: var(--border); }
+.copy-btn-sm {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 4px 11px;
+  border: 1px solid var(--accent); border-radius: 4px; background: var(--accent-dim);
+  color: var(--accent); cursor: pointer; transition: all 0.15s; margin-left: auto;
+}
+.copy-btn-sm:hover { background: var(--accent); color: #fff; }
+.copy-btn-sm.copied { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.regex-body {
+  padding: 14px 16px; font-family: 'Courier New', monospace; font-size: 13px; font-weight: 600;
+  color: var(--chaos); word-break: break-all; line-height: 1.7; cursor: pointer;
+  min-height: 42px; user-select: all; transition: background 0.2s;
+  letter-spacing: 0.01em;
+}
+[data-theme="dark"] .regex-body { color: #d080f8; }
+.regex-empty-msg { color: var(--text-3); font-family: inherit; font-style: italic; font-size: 12px; cursor: default; font-weight: 400; }
+.regex-warn { padding: 7px 14px; background: #fdecea; border-top: 1px solid #f5b8b3; font-size: 11px; color: var(--red); display: none; }
+[data-theme="dark"] .regex-warn { background: #2a1010; border-color: #6a2020; }
+.regex-warn.show { display: block; }
+
+/* ── TOOLBAR ── */
+.toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 300px; }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 12px; pointer-events: none; }
+.search-input {
+  width: 100%; padding: 6px 9px 6px 28px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg-card); font-family: inherit; font-size: 12px; color: var(--text);
+  outline: none; transition: border-color 0.15s, background 0.2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-3); }
+
+.btn {
+  font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 13px; border-radius: 5px;
+  cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2);
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn:hover { background: var(--bg-row-alt); border-color: var(--border-strong); color: var(--text); }
+.btn.danger:hover { color: var(--red); border-color: var(--red); }
+
+.view-toggle { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; background: var(--bg-card); }
+.view-toggle button {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 5px 11px;
+  border: none; cursor: pointer; background: transparent; color: var(--text-3); transition: all 0.15s;
+}
+.view-toggle button.active { background: var(--accent); color: #fff; }
+.view-toggle button.ninja-active { background: var(--ninja-accent); color: #fff; }
+
+.sort-arrow { font-size: 9px; color: var(--text-3); opacity: 0.5; }
+.sort-arrow.active { color: var(--accent); opacity: 1; }
+.th:hover .sort-arrow { opacity: 1; }
+
+/* Inline override cell */
+.price-cell {
+  position: relative; display: inline-flex; align-items: center; justify-content: flex-end;
+  cursor: pointer; gap: 5px;
+}
+.price-cell:hover .price-val:not(.overridden) { text-decoration: underline dotted; }
+.price-val { font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; display: inline-block; }
+.price-val.overridden { color: var(--amber); font-weight: 600; }
+/* Trash always shown next to overridden price */
+.price-trash {
+  font-size: 11px; padding: 1px 3px; border: none;
+  background: transparent; color: var(--text-3); cursor: pointer; line-height: 1; flex-shrink: 0;
+  transition: color 0.1s;
+}
+.price-trash:hover { color: var(--red); }
+.override-inputs { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+.override-qty, .override-cost {
+  width: 42px; padding: 2px 4px; border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--bg-card); font-family: inherit; font-size: 11px; color: var(--text);
+  text-align: center; outline: none; -moz-appearance: textfield;
+}
+.override-qty::-webkit-outer-spin-button, .override-qty::-webkit-inner-spin-button,
+.override-cost::-webkit-outer-spin-button, .override-cost::-webkit-inner-spin-button { -webkit-appearance: none; }
+.override-qty::placeholder, .override-cost::placeholder { color: var(--text-3); font-style: italic; }
+.override-sep { font-size: 11px; color: var(--text-3); }
+.override-confirm {
+  font-size: 10px; padding: 2px 5px; border-radius: 3px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; cursor: pointer; font-family: inherit; font-weight: 600;
+}
+.override-confirm:hover { opacity: 0.85; }
+.override-clear {
+  font-size: 11px; padding: 1px 3px; border: none;
+  background: transparent; color: var(--text-3); cursor: pointer; font-family: inherit;
+}
+.override-clear:hover { color: var(--red); }
+
+/* ── THRESHOLD SLIDER ── */
+.threshold-bar {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 12px 16px; margin-bottom: 14px;
+  box-shadow: var(--shadow-sm); transition: background 0.2s, border-color 0.2s;
+}
+.threshold-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.threshold-left { display: flex; align-items: center; gap: 10px; }
+.threshold-right { display: flex; align-items: center; gap: 10px; }
+.threshold-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.threshold-value { font-size: 18px; font-weight: 700; color: var(--chaos); font-variant-numeric: tabular-nums; min-width: 48px; }
+.threshold-mode { font-size: 11px; color: var(--text-3); }
+.threshold-roi { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.threshold-roi.roi-good { color: var(--green); }
+.threshold-roi.roi-warn { color: var(--amber); }
+.threshold-roi.roi-bad  { color: var(--red); }
+.slider-wrap { margin-bottom: 6px; }
+.slider-track-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); margin-bottom: 4px; }
+.breakeven-label { color: var(--green); font-weight: 600; }
+.threshold-slider {
+  width: 100%; cursor: pointer; height: 6px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--border); border-radius: 3px; outline: none;
+}
+.threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 22px; border-radius: 4px;
+  background: var(--chaos); cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  transition: opacity 0.1s;
+}
+.threshold-slider::-webkit-slider-thumb:hover { opacity: 0.85; }
+.threshold-slider::-moz-range-thumb {
+  width: 14px; height: 22px; border-radius: 4px;
+  background: var(--chaos); cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.threshold-slider::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px; background: var(--border);
+}
+.threshold-slider::-moz-range-track {
+  height: 6px; border-radius: 3px; background: var(--border);
+}
+.slider-breakeven-marker {
+  position: absolute; top: -6px; width: 2px; height: calc(100% + 6px);
+  background: var(--green); border-radius: 1px; pointer-events: none;
+  transform: translateX(-50%); opacity: 0.7;
+}
+.slider-breakeven-marker::before {
+  content: attr(data-label);
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; color: var(--green); white-space: nowrap; font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.slider-roi-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 6px; margin-left: 7px; margin-right: 7px; }
+.slider-roi-segment { height: 4px; transition: width 0.15s; border-radius: 1px; }
+/* ── SESSION LOGGER ── */
+.logger-intro { margin-bottom: 16px; }
+.logger-intro-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.logger-intro-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 680px; }
+.logger-form { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+.logger-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.logger-field { display: flex; flex-direction: column; gap: 6px; }
+.logger-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.logger-upload { display: flex; align-items: center; justify-content: center; padding: 10px 14px; border: 1.5px dashed var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-3); transition: all 0.15s; text-align: center; }
+.logger-upload:hover { border-color: var(--accent); color: var(--accent); }
+.logger-upload.loaded { border-color: var(--green); border-style: solid; color: var(--green); }
+.logger-regex-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-card); font-family: 'Courier New', monospace; font-size: 12px; color: var(--chaos); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+.logger-regex-input:focus { border-color: var(--accent); }
+.logger-regex-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; min-height: 16px; }
+.logger-submit-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 20px; border: 1px solid var(--accent); border-radius: 5px; background: var(--accent); color: #fff; cursor: pointer; transition: all 0.15s; }
+.logger-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.logger-submit-btn:not(:disabled):hover { opacity: 0.85; }
+.logger-submit-status { font-size: 12px; color: var(--text-3); }
+.logger-preview { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
+.logger-preview-header { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+.logger-stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.logger-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+.logger-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.logger-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.logger-stat-value.green { color: var(--green); }
+.logger-stat-value.red { color: var(--red); }
+.logger-section-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.logger-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); }
+.logger-history-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 20px; }
+
+/* ── EV CHART PANEL ── */
+.ev-chart-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px; transition: background 0.2s; }
+.ev-chart-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--bg-table-head); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+.ev-chart-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.ev-chart-meta { font-size: 11px; color: var(--text-3); flex: 1; }
+.ev-chart-body { padding: 12px 16px; }
+.ev-chart-panel.collapsed .ev-chart-body { display: none; }
+.ev-chart-panel.collapsed .estimator-chevron { transform: rotate(-90deg); }
+
+/* ── ESTIMATOR PANEL ── */
+.estimator-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden;
+  margin-bottom: 14px; transition: background 0.2s, border-color 0.2s;
+}
+.estimator-header {
+  display: flex; align-items: center; padding: 9px 14px; gap: 0;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.estimator-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); flex: 1; min-width: 0; }
+.estimator-subtitle { font-size: 11px; color: var(--text-3); }
+.estimator-chevron { font-size: 10px; color: var(--text-3); transition: transform 0.15s; margin-left: 8px; }
+.estimator-panel.collapsed .estimator-chevron { transform: rotate(-90deg); }
+.estimator-panel.collapsed .estimator-body { display: none; }
+.estimator-body { padding: 14px 16px; }
+.estimator-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.estimator-label { font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.estimator-input {
+  width: 100px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg-input); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text); outline: none; text-align: center; transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.estimator-input::-webkit-outer-spin-button,
+.estimator-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.estimator-input:focus { border-color: var(--accent); }
+.estimator-hint { font-size: 11px; color: var(--text-3); line-height: 1.6; }
+.estimator-results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.estimator-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 11px 13px; text-align: center;
+}
+.estimator-card-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; }
+.estimator-card-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.estimator-card-value.val-return { color: var(--accent); }
+.estimator-card-value.val-profit { color: var(--green); }
+.estimator-card-value.val-roi    { color: var(--chaos); }
+.estimator-card-sub { font-size: 10px; color: var(--text-3); margin-top: 4px; }
+.estimator-note { font-size: 11px; color: var(--text-2); line-height: 1.4; padding-top: 8px; border-top: 1px solid var(--border); }
+.estimator-top-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.estimator-qty-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+
+/* ── TABLE ── */
+.table-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.table-head {
+  display: grid; grid-template-columns: 48px 1fr 110px 130px 100px 92px 80px;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border);
+}
+.th { padding: 7px 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.th.right { text-align: right; }
+.th.center { text-align: center; }
+
+/* Ninja tab — 6 columns (no qty:chaos input col), higher specificity to beat .table-head and .scarab-row */
+.table-head.ninja-head { grid-template-columns: 48px 1fr 110px 110px 100px 90px; }
+.scarab-row.ninja-row  { grid-template-columns: 48px 1fr 110px 110px 100px 90px; }
+
+.group-header {
+  display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+  background: var(--bg-group); border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border); cursor: pointer; user-select: none;
+  transition: background 0.2s;
+}
+.group-header:first-child { border-top: none; }
+.group-name { font-size: 11px; font-weight: 600; color: var(--text-2); }
+.group-count { font-size: 10px; color: var(--text-3); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1px 6px; }
+.group-ev-badge { font-size: 10px; color: var(--chaos); background: var(--chaos-bg); border: 1px solid var(--chaos-border); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+.group-chevron { margin-left: auto; color: var(--text-3); font-size: 10px; transition: transform 0.15s; }
+.group-header.collapsed .group-chevron { transform: rotate(-90deg); }
+
+.scarab-row {
+  display: grid; grid-template-columns: 48px 1fr 110px 130px 100px 92px 80px;
+  border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s;
+}
+.scarab-row:last-child { border-bottom: none; }
+.scarab-row:hover { background: var(--row-hover); }
+.scarab-row.vendor-target { background: var(--vendor-row); }
+.scarab-row.vendor-target:hover { background: var(--vendor-row-hover); }
+
+.td { padding: 6px 10px; font-size: 12px; color: var(--text); }
+.td.right { text-align: right; }
+.td.center { text-align: center; }
+.td.icon-cell { padding: 4px 6px 4px 10px; display: flex; align-items: center; justify-content: center; }
+
+/* Scarab icon — render at 2× then scale down so the browser
+   downsamples from a higher resolution, giving crisp results
+   at small display size without any pixelation. */
+.icon-wrap {
+  width: 28px; height: 28px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.scarab-icon {
+  width: 56px; height: 56px;
+  object-fit: contain;
+  transform: scale(0.5);
+  transform-origin: center center;
+  image-rendering: auto;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+}
+[data-theme="dark"] .scarab-icon { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)) brightness(1.1); }
+
+.scarab-name-cell { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.vendor-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; display: none; }
+.scarab-row.vendor-target .vendor-dot { display: block; }
+.scarab-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.new-badge { font-size: 9px; font-weight: 700; color: #2563eb; background: #dbeafe; border-radius: 3px; padding: 1px 4px; letter-spacing: 0.04em; flex-shrink: 0; }
+[data-theme="dark"] .new-badge { color: #90b8ff; background: #1a2a50; }
+
+.ratio-wrap { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+.ratio-input {
+  width: 62px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-input); font-family: inherit; font-size: 12px; color: var(--text);
+  text-align: center; outline: none; transition: border-color 0.15s, background 0.2s;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.ratio-input::-webkit-outer-spin-button,
+.ratio-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ratio-input:focus { border-color: var(--accent); background: var(--bg-card); }
+.scarab-row.vendor-target .ratio-input { background: var(--bg-card); }
+.ratio-sep { color: var(--text-3); font-size: 11px; }
+
+.chaos-ea { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--chaos); font-weight: 500; }
+.ev-diff { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
+.ev-diff.below { color: var(--green); font-weight: 500; }
+.ev-diff.above { color: var(--red); }
+
+.vendor-badge { display: none; font-size: 10px; font-weight: 500; color: var(--green); background: transparent; border: 1px solid var(--green-border); border-radius: 3px; padding: 2px 6px; white-space: nowrap; opacity: 0.75; }
+.scarab-row.vendor-target .vendor-badge { display: inline-block; }
+
+.empty-row { padding: 36px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ── NINJA TAB SPECIFIC ── */
+.ninja-banner {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--ninja-bg); border: 1px solid var(--ninja-border);
+  border-radius: 7px; margin-bottom: 14px; font-size: 12px; color: var(--text-2);
+  transition: background 0.2s, border-color 0.2s;
+}
+.ninja-banner strong { color: var(--ninja-accent); }
+.ninja-badge { font-size: 10px; font-weight: 700; background: var(--ninja-accent); color: #fff; border-radius: 4px; padding: 2px 7px; letter-spacing: 0.05em; }
+.ninja-status { font-size: 11px; color: var(--text-3); }
+.ninja-status.loading { color: var(--text-3); }
+.ninja-status.loaded  { color: var(--text-3); }
+.ninja-status.error   { color: var(--red); }
+
+.refresh-btn {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 4px 11px;
+  border: 1px solid var(--ninja-border); border-radius: 4px; background: var(--ninja-bg);
+  color: var(--ninja-accent); cursor: pointer; transition: all 0.15s;
+}
+.refresh-btn:hover { background: var(--ninja-accent); color: #fff; border-color: var(--ninja-accent); }
+.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Comparison delta in ninja tab */
+.delta-badge { font-size: 11px; font-variant-numeric: tabular-nums; }
+.delta-badge.pos { color: var(--green); }
+.delta-badge.neg { color: var(--red); }
+.delta-badge.same { color: var(--text-3); }
+.delta-badge.no-data { color: var(--text-3); font-style: italic; }
+
+/* ── COMPARISON BAR ── */
+.compare-bar {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.compare-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
+  padding: 12px 14px; box-shadow: var(--shadow-sm);
+}
+.compare-label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+.compare-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.compare-val.manual { color: var(--chaos); }
+.compare-val.ninja { color: var(--ninja-accent); }
+.compare-delta { font-size: 11px; margin-top: 4px; color: var(--text-3); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: #1a1d28; color: #fff; font-family: inherit; font-size: 12px; font-weight: 500;
+  padding: 8px 18px; border-radius: 6px; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 9999;
+}
+[data-theme="dark"] .toast { background: #0e1020; border: 1px solid var(--border); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── LEAGUE SELECTOR ── */
+.league-select {
+  font-family: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border);
+  border-radius: 5px; background: var(--bg-card); color: var(--text); outline: none; cursor: pointer;
+  transition: border-color 0.15s, background 0.2s;
+}
+.league-select:focus { border-color: var(--ninja-accent); }
+
+/* ── BULK BUY ANALYZER ── */
+.bulk-intro { margin-bottom: 14px; }
+.bulk-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.bulk-sub { font-size: 12px; color: var(--text-3); max-width: 720px; line-height: 1.6; }
+
+.bulk-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1.2fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.bulk-field { display: flex; flex-direction: column; gap: 6px; }
+.bulk-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.bulk-textarea {
+  min-height: 160px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--chaos);
+  outline: none;
+}
+.bulk-textarea::placeholder { color: var(--text-3); opacity: 0.7; }
+.bulk-textarea:focus { border-color: var(--accent); }
+
+.bulk-input {
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  max-width: 180px;
+}
+.bulk-input:focus { border-color: var(--accent); }
+.bulk-hint { font-size: 11px; color: var(--text-3); max-width: 260px; }
+.bulk-side { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.bulk-analyze-btn { margin-top: 2px; }
+.bulk-error {
+  font-size: 11px;
+  color: var(--red);
+  background: rgba(214,58,44,0.08);
+  border: 1px solid rgba(214,58,44,0.5);
+  padding: 6px 8px;
+  border-radius: 5px;
+}
+
+.bulk-summary-card {
+  background: var(--bg-card);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  padding: 11px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.bulk-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.bulk-summary-item-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: 3px;
+}
+.bulk-summary-item-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.bulk-summary-item-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.bulk-summary-profit-pos { color: var(--green); }
+.bulk-summary-profit-neg { color: var(--red); }
+
+.bulk-table-card {
+  background: var(--bg-card);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.bulk-head-row,
+.bulk-body-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1.8fr) 70px 80px 80px 90px;
+  align-items: center;
+  padding: 6px 10px;
+  column-gap: 8px;
+  font-size: 12px;
+}
+.bulk-head-row {
+  background: var(--bg-table-head);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.bulk-body-row:nth-child(odd) { background: var(--bg-row-alt); }
+.bulk-body-row:hover { background: var(--row-hover); }
+.bulk-td-right { text-align: right; font-variant-numeric: tabular-nums; }
+.bulk-icon-wrap {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.5);
+  background: #000;
+}
+.bulk-icon-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bulk-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.bulk-pill-vendor {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid var(--green-border);
+}
+.bulk-pill-keep {
+  background: var(--chaos-bg);
+  color: var(--chaos);
+  border: 1px solid var(--chaos-border);
+}
+.bulk-diff-pos { color: var(--green); }
+.bulk-diff-neg { color: var(--red); }
+
+.bulk-unmatched {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: 6px;
+  border: 1px solid #f5d78e;
+  padding: 7px 10px;
+}
+.bulk-unmatched strong { color: var(--amber); }
+.bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
+
+.bulk-gemini-key {
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  max-width: 260px;
+}
+.bulk-gemini-key:focus { border-color: var(--accent); }
+
+@media (max-width: 780px) {
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .table-head, .scarab-row { grid-template-columns: 36px 1fr 105px 80px 70px; }
+
+@media (max-width: 780px) {
+  .bulk-controls { grid-template-columns: 1fr; }
+  .bulk-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bulk-head-row,
+  .bulk-body-row {
+    grid-template-columns: 24px minmax(0, 1.7fr) 52px 70px 70px 74px;
+    font-size: 11px;
+  }
+  .table-head, .scarab-row { grid-template-columns: 36px 1fr 105px 80px 70px; }
+  .table-head.ninja-head, .scarab-row.ninja-row { grid-template-columns: 36px 1fr 80px 70px 70px; }
+  .table-head .th:nth-child(4), .table-head .th:nth-child(7),
+  .scarab-row .td:nth-child(4), .scarab-row .td:nth-child(7) { display: none; }
+  .table-head.ninja-head .th:nth-child(4), .scarab-row.ninja-row .td:nth-child(4) { display: none; }
+  .compare-bar { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="nav-logo">poe<span>pool</span></span>
+  <span class="nav-tag">3.28</span>
+  <div class="nav-tabs">
+    <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
+    <button class="nav-tab" onclick="switchTab('logger')">Session Logger</button>
+    <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
+  </div>
+  <span class="nav-sep"></span>
+  <span class="theme-icon">☀</span>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode"></button>
+  <span class="theme-icon">🌙</span>
+</nav>
+
+<div class="page">
+
+  <!-- ════════════════════════════ MANUAL TAB (hidden — overrides now inline on ninja tab) ════════════════════════════ -->
+  <div class="tab-pane" id="tab-manual" style="display:none!important">
+
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-label">Conservative EV</div><div class="stat-value ev" id="m-statEV">—</div><div class="stat-sub">chaos per 3→1 trade</div></div>
+      <div class="stat-card"><div class="stat-label">Priced Scarabs</div><div class="stat-value" id="m-statPool">—</div><div class="stat-sub">types with prices entered</div></div>
+      <div class="stat-card"><div class="stat-label">Vendor Targets</div><div class="stat-value green" id="m-statTargets">—</div><div class="stat-sub">scarabs ≤ EV threshold</div></div>
+      <div class="stat-card"><div class="stat-label">Threshold</div><div class="stat-value thresh" id="m-statThresh">—</div><div class="stat-sub">max c/ea to vendor</div></div>
+      <div class="stat-card"><div class="stat-label">Est. Profit / 3 Vendored</div><div class="stat-value green" id="m-statProfit">—</div><div class="stat-sub" id="m-statProfitSub">per vendor trade</div></div>
+    </div>
+
+    <div class="ev-note" id="m-evNote"></div>
+
+    <div class="ev-override-bar">
+      <label>⚡ EV OVERRIDE</label>
+      <input class="ev-override-input" type="number" step="0.01" min="0"
+        id="evOverrideInput" placeholder="auto"
+        oninput="setEVOverride(this.value)" onchange="setEVOverride(this.value)">
+      <span class="ev-override-hint">Leave blank to use calculated EV — or enter a custom threshold in chaos</span>
+      <span class="ev-override-active" id="evOverrideActive" style="display:none"></span>
+      <button class="ev-clear-btn" id="evClearBtn" style="display:none" onclick="clearEVOverride()">✕ Clear override</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+      <button class="btn" onclick="exportPrices()" title="Download prices as JSON">⬇ Export prices</button>
+      <label class="btn" style="cursor:pointer" title="Load prices from JSON file">⬆ Import prices<input type="file" accept=".json" style="display:none" onchange="importPrices(event)"></label>
+      <span style="font-size:11px;color:var(--text-3)">Prices auto-save to browser localStorage</span>
+    </div>
+
+    <div class="regex-panel">
+      <div class="regex-header">
+        <span class="regex-title">Item Filter Regex</span>
+        <span class="char-pill ok" id="m-charPill">0 / 250</span>
+        <button class="copy-btn-sm" id="m-copyBtn" onclick="copyRegex('manual')">Copy</button>
+      </div>
+      <div class="regex-body" id="m-regexBody" onclick="copyRegex('manual')">
+        <span class="regex-empty-msg">Enter prices to generate regex</span>
+      </div>
+      <div class="regex-warn" id="m-regexWarn">⚠ Regex exceeds 250 characters.</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" id="m-filter" placeholder="Filter scarabs..." oninput="renderManual()">
+      </div>
+      <div class="view-toggle">
+        <button id="m-viewAll" class="active" onclick="setManualView('all')">All</button>
+        <button id="m-viewVendor" onclick="setManualView('vendor')">Vendor</button>
+        <button id="m-viewKeep" onclick="setManualView('keep')">Keep</button>
+      </div>
+      <div class="view-toggle">
+        <button id="sortIngame" class="active" onclick="setSortMode('ingame')">In-game order</button>
+        <button id="sortAlpha" onclick="setSortMode('alpha')">Alphabetical</button>
+      </div>
+      <button class="btn danger" onclick="resetPrices()">Reset prices</button>
+      <span class="toolbar-hint">Enter <strong>qty : chaos</strong> per scarab</span>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head">
+        <div class="th"></div>
+        <div class="th">Scarab</div>
+        <div class="th">Group</div>
+        <div class="th right">Qty&nbsp;:&nbsp;Chaos</div>
+        <div class="th right">c / each</div>
+        <div class="th center">vs EV</div>
+        <div class="th center">Action</div>
+      </div>
+      <div id="m-tableBody"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ NINJA TAB ════════════════════════════ -->
+  <div class="tab-pane active" id="tab-ninja">
+
+    <div class="ninja-banner">
+      <span class="ninja-status" id="ninjaStatus">Loading prices…</span>
+      <span style="flex:1"></span>
+      <select class="league-select" id="leagueSelect" onchange="fetchNinja()">
+        <option value="Mirage">Mirage (current)</option>
+        <option value="Standard">Standard</option>
+        <option value="Mercenaries">Mercenaries</option>
+        <option value="Keepers">Keepers</option>
+      </select>
+      <button class="refresh-btn" id="refreshBtn" onclick="fetchNinja()" style="display:none">↻ Refresh</button>
+    </div>
+
+    <!-- Debug panel — shows raw API names for diagnosis -->
+    <div id="debugPanel" style="display:none;margin-bottom:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:14px;font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto">
+      <strong style="color:var(--text-2)">Raw API names (first 40):</strong>
+      <div id="debugContent" style="margin-top:8px;color:var(--text-3);font-family:monospace;font-size:10px;columns:2;gap:16px"></div>
+      <div style="margin-top:10px"><strong style="color:var(--text-2)">Unmatched (in our list, missing from API):</strong>
+      <div id="debugUnmatched" style="margin-top:4px;color:var(--red);font-family:monospace;font-size:10px"></div></div>
+    </div>
+
+
+    <!-- THRESHOLD SLIDER -->
+    <div class="threshold-bar" id="thresholdBar">
+      <div class="threshold-top">
+        <div class="threshold-left">
+          <span class="threshold-label">Vendor Threshold</span>
+          <span class="threshold-value" id="sliderValueDisplay">—</span>
+          <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
+        </div>
+        <div class="threshold-right">
+          <span class="threshold-roi" id="sliderROI"></span>
+          <button class="ev-clear-btn" id="sliderResetBtn" style="display:none" onclick="resetSlider()">↺ Reset to auto EV</button>
+        </div>
+      </div>
+      <div class="slider-wrap">
+        <div class="slider-track-labels">
+          <span>0.00c</span>
+          <span></span>
+          <span>1.00c</span>
+        </div>
+        <div style="position:relative;padding-bottom:4px">
+          <input type="range" id="thresholdSlider" class="threshold-slider"
+            min="0" max="100" step="1" value="38"
+            oninput="onSliderChange(this.value)">
+          <div class="slider-breakeven-marker" id="sliderMarker"></div>
+        </div>
+      </div>
+      <div class="slider-roi-bar">
+        <div class="slider-roi-segment" style="background:var(--green)" id="roiSegGreen"></div>
+        <div class="slider-roi-segment" style="background:var(--amber)" id="roiSegAmber"></div>
+        <div class="slider-roi-segment" style="background:var(--red)" id="roiSegRed"></div>
+      </div>
+    </div>
+
+    <!-- EV HISTORY CHART -->
+    <div class="ev-chart-panel" id="evChartPanel">
+      <div class="ev-chart-header" onclick="toggleEVChart()">
+        <span class="ev-chart-title">EV Trend</span>
+        <span class="ev-chart-meta" id="evChartMeta"></span>
+        <span class="estimator-chevron" id="evChartChevron">▼</span>
+      </div>
+      <div class="ev-chart-body" id="evChartBody">
+        <div style="position:relative;width:100%;height:140px">
+          <canvas id="evHistoryChart"></canvas>
+        </div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:6px">Daily EV snapshot at 7PM UTC · 90 day window</div>
+      </div>
+    </div>
+
+    <!-- PROFIT ESTIMATOR — sits where stat cards were -->
+    <div class="estimator-panel" id="estimatorPanel">
+      <div class="estimator-header" onclick="toggleEstimator()">
+        <span class="estimator-title">Vendor Profit Estimator</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;padding-left:12px" onclick="event.stopPropagation()">
+          <label class="info-bar-import" title="Export from Wealthy Exile and import here">
+            ⬆ Import Wealthy Exile CSV
+            <input type="file" accept=".csv" style="display:none" onchange="importWealthyCSV(event)">
+          </label>
+          <button class="info-bar-clear" id="csvClearBtn" style="display:none" onclick="clearCSV()">✕ CSV</button>
+        </div>
+        <span class="estimator-chevron" style="margin-left:10px">▼</span>
+      </div>
+      <div class="estimator-body">
+
+        <div class="estimator-results">
+          <div class="estimator-card">
+            <div class="estimator-card-label">Scarabs to Vendor</div>
+            <div class="estimator-card-value val-roi" id="est-input">7,500</div>
+            <div class="estimator-card-sub" id="est-input-sub">placeholder — import CSV for real data</div>
+          </div>
+          <div class="estimator-card">
+            <div class="estimator-card-label">Est. Return</div>
+            <div class="estimator-card-value val-return" id="est-return">—</div>
+            <div class="estimator-card-sub">keeper value</div>
+          </div>
+          <div class="estimator-card">
+            <div class="estimator-card-label">Est. Profit</div>
+            <div class="estimator-card-value val-profit" id="est-profit">—</div>
+            <div class="estimator-card-sub">vs selling at market</div>
+          </div>
+        </div>
+
+        <div id="csvBreakdown" style="display:none;margin-top:10px">
+          <div id="csvStatus" onclick="toggleCSVBreakdown()" style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">
+            <span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s">▶</span>
+          </div>
+          <div id="csvBreakdownTable" style="font-size:11px;line-height:1.9;color:var(--text-3);display:none"></div>
+        </div>
+
+        <div class="estimator-note">
+          <div>Import your Wealthy Exile CSV to calculate estimates based on your actual inventory. Results update live as you adjust the threshold slider.</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="color:var(--text-3);font-size:10px">Estimates derived from observed vendor session data. Variance is expected — treat these as directional, not exact.</span>
+            <span style="color:var(--text-3);font-size:10px;white-space:nowrap;margin-left:12px" id="est-divine-rate-wrap"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="regex-panel">
+      <div class="regex-header">
+        <span class="regex-title">Auto Regex</span>
+        <span class="char-pill ok" id="n-charPill">0 / 250</span>
+        <button class="copy-btn-sm" id="n-copyBtn" onclick="copyRegex('ninja')">Copy</button>
+      </div>
+      <div class="regex-body" id="n-regexBody" onclick="copyRegex('ninja')">
+        <span class="regex-empty-msg">Load poe.ninja data to generate regex</span>
+      </div>
+      <div class="regex-warn" id="n-regexWarn">⚠ Regex exceeds 250 characters.</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" id="n-filter" placeholder="Filter scarabs..." oninput="renderNinja()">
+      </div>
+      <div class="view-toggle">
+        <button id="n-viewAll" class="active" onclick="setNinjaView('all')">All</button>
+        <button id="n-viewVendor" onclick="setNinjaView('vendor')">Vendor</button>
+        <button id="n-viewKeep" onclick="setNinjaView('keep')">Keep</button>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head ninja-head">
+        <div class="th"></div>
+        <div class="th" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Scarab</span>
+          <span id="n-headerMeta" style="font-size:10px;color:var(--text-3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px"></span>
+        </div>
+        <div class="th" id="n-th-group" onclick="setNinjaSort('group')" style="cursor:pointer;user-select:none">Group <span class="sort-arrow" id="n-sa-group"></span></div>
+        <div class="th right" id="n-th-cea" onclick="setNinjaSort('cea')" style="cursor:pointer;user-select:none"><span class="sort-arrow" id="n-sa-cea"></span> ninja c/ea</div>
+        <div class="th center" id="n-th-diff" onclick="setNinjaSort('diff')" style="cursor:pointer;user-select:none">vs EV <span class="sort-arrow" id="n-sa-diff"></span></div>
+        <div class="th center">Action</div>
+      </div>
+      <div id="n-tableBody"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ SESSION LOGGER TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-logger">
+
+    <div class="logger-intro">
+      <div class="logger-intro-title">Session Logger</div>
+      <div class="logger-intro-sub">Upload two Wealthy Exile CSV snapshots — before and after a vendor session — plus the regex you used. The tool will parse the deltas correctly, accounting for the fact that vendor-targeted scarabs were consumed then partially recovered.</div>
+    </div>
+
+    <div class="logger-form">
+      <div class="logger-row">
+        <div class="logger-field">
+          <div class="logger-label">Snapshot 1 — Before trade</div>
+          <label class="logger-upload" id="snap1Label">
+            <span id="snap1Text">Choose CSV file</span>
+            <input type="file" accept=".csv" id="snap1Input" onchange="handleSnap(1, event)" style="display:none">
+          </label>
+        </div>
+        <div class="logger-field">
+          <div class="logger-label">Snapshot 2 — After trade</div>
+          <label class="logger-upload" id="snap2Label">
+            <span id="snap2Text">Choose CSV file</span>
+            <input type="file" accept=".csv" id="snap2Input" onchange="handleSnap(2, event)" style="display:none">
+          </label>
+        </div>
+      </div>
+
+      <div class="logger-field" style="margin-top:12px">
+        <div class="logger-label">Regex used during this session</div>
+        <input class="logger-regex-input" type="text" id="loggerRegex" placeholder='e.g. "lk|dg|rus|arr|nsc"'>
+        <div class="logger-regex-hint" id="loggerRegexHint"></div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+        <button class="logger-submit-btn" id="loggerSubmitBtn" onclick="submitSession()" disabled>Submit Session</button>
+        <span class="logger-submit-status" id="loggerSubmitStatus"></span>
+      </div>
+    </div>
+
+    <!-- Preview panel — shows after both CSVs + regex loaded -->
+    <div class="logger-preview" id="loggerPreview" style="display:none">
+      <div class="logger-preview-header">Session Preview</div>
+
+      <div class="logger-stats-row" id="loggerStats"></div>
+
+      <div style="margin-top:14px">
+        <div class="logger-section-label">Vendor targets — consumed &amp; recovered</div>
+        <div class="table-card" style="margin-top:6px">
+          <div class="table-head" style="grid-template-columns:1fr 80px 80px 80px 80px 80px">
+            <div class="th">Scarab</div>
+            <div class="th right">Consumed</div>
+            <div class="th right">Recovered</div>
+            <div class="th right">Net</div>
+            <div class="th right">ninja c/ea</div>
+            <div class="th right">Input value</div>
+          </div>
+          <div id="loggerVendorTable"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="logger-section-label">Keeper outputs — net gains</div>
+        <div class="table-card" style="margin-top:6px">
+          <div class="table-head" style="grid-template-columns:1fr 80px 80px 80px">
+            <div class="th">Scarab</div>
+            <div class="th right">Received</div>
+            <div class="th right">ninja c/ea</div>
+            <div class="th right">Output value</div>
+          </div>
+          <div id="loggerKeeperTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session history -->
+    <div class="logger-history" id="loggerHistory" style="margin-top:20px">
+      <div class="logger-preview-header" style="margin-bottom:10px">Session History</div>
+      <div id="loggerHistoryTable"></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════ BULK BUY ANALYZER TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-bulk">
+
+    <div class="bulk-intro">
+      <div class="bulk-title">Bulk Buy Analyzer</div>
+      <div class="bulk-sub">
+        Paste a Gemini CSV in the format <code>Name,Qty</code> for each scarab in a TFT bulk lot,
+        enter the seller's total asking price in chaos, and this tool will compare it against your
+        current harmonic EV and poe.ninja prices to estimate profitability.
+      </div>
+    </div>
+
+    <div class="bulk-controls">
+      <div class="bulk-field">
+        <label class="bulk-label">Gemini CSV (name,qty)</label>
+        <textarea id="bulkCsv" class="bulk-textarea" placeholder="Name,Qty&#10;Horned of Bloodlines,3&#10;Breach of Instability,21&#10;Ultimatum of Catalysing,1&#10;..."></textarea>
+      </div>
+      <div class="bulk-side">
+        <div class="bulk-field">
+          <label class="bulk-label">Gemini API key</label>
+          <input id="bulkGeminiKey" class="bulk-gemini-key" type="password" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)">
+          <div class="bulk-hint">Stored locally in your browser. Used only to call Gemini for image parsing.</div>
+        </div>
+        <div class="bulk-field">
+          <label class="bulk-label">Listing image (optional)</label>
+          <label class="logger-upload" id="bulkImageLabel" style="max-width:260px;justify-content:flex-start">
+            <input type="file" accept="image/*" style="display:none" onchange="handleBulkImage(event)">
+            <span id="bulkImageText">Click to upload TFT listing screenshot</span>
+          </label>
+        </div>
+        <div class="bulk-field">
+          <label class="bulk-label">Asking price (chaos)</label>
+          <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" />
+          <div class="bulk-hint">
+            Use the seller's total chaos cost for the lot. If it's in div + chaos, convert to pure chaos first.
+          </div>
+        </div>
+        <button id="bulkAnalyzeImageBtn" class="btn bulk-analyze-btn" onclick="runBulkFromImage()">Analyze image via Gemini</button>
+        <button id="bulkAnalyzeBtn" class="btn bulk-analyze-btn" onclick="runBulkFromCsv()">Analyze CSV only</button>
+        <div id="bulkError" class="bulk-error" style="display:none"></div>
+      </div>
+    </div>
+
+    <div id="bulkSummary" class="bulk-summary-card" style="display:none">
+      <div class="bulk-summary-grid">
+        <div>
+          <div class="bulk-summary-item-label">Cost</div>
+          <div id="bulkCost" class="bulk-summary-item-value">—</div>
+          <div id="bulkCostSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Expected return</div>
+          <div id="bulkReturn" class="bulk-summary-item-value">—</div>
+          <div id="bulkReturnSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Net</div>
+          <div id="bulkNet" class="bulk-summary-item-value">—</div>
+          <div id="bulkNetSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Margin</div>
+          <div id="bulkMargin" class="bulk-summary-item-value">—</div>
+          <div id="bulkMarginSub" class="bulk-summary-item-sub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bulkTableWrap" class="bulk-table-card" style="display:none">
+      <div class="bulk-head-row">
+        <div></div>
+        <div>Scarab</div>
+        <div class="bulk-td-right">Qty</div>
+        <div class="bulk-td-right">c / ea</div>
+        <div class="bulk-td-right">Decision</div>
+        <div class="bulk-td-right">Value</div>
+      </div>
+      <div id="bulkTableBody"></div>
+    </div>
+
+    <div id="bulkUnmatched" class="bulk-unmatched" style="display:none">
+      <strong>Note:</strong> Some rows could not be matched to known scarabs.
+      <div class="bulk-unmatched-list" id="bulkUnmatchedList"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ══════════════════════════════════════════════════
+// SCARAB DATA — PoE 3.28 with poedb CDN icons
+// ══════════════════════════════════════════════════
+const CDN = 'https://web.poecdn.com/image/Art/2DItems/Currency/Scarabs/';
+
+const SCARAB_LIST = [
+  // ── COLUMN 1 ──────────────────────────────────
+  // CARTOGRAPHY
+  { name:"Cartography Scarab of Escalation", group:"Cartography", icon:"LesserScarabMaps.webp" },
+  { name:"Cartography Scarab of Risk", group:"Cartography", icon:"NormalScarabMaps.webp" },
+  { name:"Cartography Scarab of Corruption", group:"Cartography", icon:"GreaterScarabMaps.webp" },
+  { name:"Cartography Scarab of the Multitude", group:"Cartography", icon:"AltNormalScarabMaps.webp" },
+  // DIVINATION
+  { name:"Divination Scarab of The Cloister", group:"Divination", icon:"LesserScarabDivination.webp" },
+  { name:"Divination Scarab of Plenty", group:"Divination", icon:"NormalScarabDivination.webp" },
+  { name:"Divination Scarab of Pilfering", group:"Divination", icon:"GreaterScarabDivination.webp" },
+  // BESTIARY
+  { name:"Bestiary Scarab", group:"Bestiary", icon:"LesserScarabBeasts.webp" },
+  { name:"Bestiary Scarab of the Herd", group:"Bestiary", icon:"NormalScarabBeasts.webp" },
+  { name:"Bestiary Scarab of Duplicating", group:"Bestiary", icon:"GreaterScarabBeasts.webp" },
+  // BETRAYAL
+  { name:"Betrayal Scarab", group:"Betrayal", icon:"LesserScarabBetrayal.webp" },
+  { name:"Betrayal Scarab of the Allflame", group:"Betrayal", icon:"NormalScarabBetrayal.webp" },
+  { name:"Betrayal Scarab of Reinforcements", group:"Betrayal", icon:"GreaterScarabBetrayal.webp" },
+  { name:"Betrayal Scarab of Unbreaking", group:"Betrayal", icon:"Tier4ScarabBetrayal.webp", isNew:true },
+  // INCURSION
+  { name:"Incursion Scarab", group:"Incursion", icon:"LesserScarabIncursion.webp" },
+  { name:"Incursion Scarab of Invasion", group:"Incursion", icon:"NormalScarabIncursion.webp" },
+  { name:"Incursion Scarab of Champions", group:"Incursion", icon:"GreaterScarabIncursion.webp" },
+  { name:"Incursion Scarab of Timelines", group:"Incursion", icon:"Tier4ScarabIncursion.webp" },
+  // SULPHITE
+  { name:"Sulphite Scarab", group:"Sulphite", icon:"LesserScarabSulphite.webp" },
+  { name:"Sulphite Scarab of Fumes", group:"Sulphite", icon:"GreaterScarabSulphite.webp" },
+  // AMBUSH
+  { name:"Ambush Scarab", group:"Ambush", icon:"LesserScarabStrongboxes.webp" },
+  { name:"Ambush Scarab of Hidden Compartments", group:"Ambush", icon:"NormalScarabStrongboxes.webp" },
+  { name:"Ambush Scarab of Potency", group:"Ambush", icon:"GreaterScarabStrongboxes.webp" },
+  { name:"Ambush Scarab of Discernment", group:"Ambush", icon:"AltTier4ScarabStrongboxes.webp" },
+  { name:"Ambush Scarab of Containment", group:"Ambush", icon:"Tier4ScarabStrongboxes.webp" },
+  // ANARCHY
+  { name:"Anarchy Scarab", group:"Anarchy", icon:"LesserScarabAnarchy.webp" },
+  { name:"Anarchy Scarab of Gigantification", group:"Anarchy", icon:"NormalScarabAnarchy.webp" },
+  { name:"Anarchy Scarab of Partnership", group:"Anarchy", icon:"GreaterScarabAnarchy.webp" },
+  { name:"Anarchy Scarab of the Exceptional", group:"Anarchy", icon:"GreaterScarabAnarchy.webp", isNew:true },
+  // BEYOND
+  { name:"Beyond Scarab", group:"Beyond", icon:"LesserScarabBeyond.webp" },
+  { name:"Beyond Scarab of Haemophilia", group:"Beyond", icon:"NormalScarabBeyond.webp" },
+  { name:"Beyond Scarab of Resurgence", group:"Beyond", icon:"AltGreaterScarabBeyond.webp" },
+  { name:"Beyond Scarab of the Invasion", group:"Beyond", icon:"Tier4ScarabBeyond.webp" },
+  // DOMINATION
+  { name:"Domination Scarab", group:"Domination", icon:"LesserScarabDomination.webp" },
+  { name:"Domination Scarab of Apparitions", group:"Domination", icon:"NormalScarabDomination.webp" },
+  { name:"Domination Scarab of Evolution", group:"Domination", icon:"GreaterScarabDomination.webp" },
+  { name:"Domination Scarab of Terrors", group:"Domination", icon:"Tier4ScarabDomination.webp" },
+  // ESSENCE
+  { name:"Essence Scarab", group:"Essence", icon:"LesserScarabEssence.webp" },
+  { name:"Essence Scarab of Ascent", group:"Essence", icon:"NormalScarabEssence.webp" },
+  { name:"Essence Scarab of Stability", group:"Essence", icon:"GreaterScarabEssence.webp" },
+  { name:"Essence Scarab of Calcification", group:"Essence", icon:"Tier4ScarabEssence.webp" },
+  { name:"Essence Scarab of Adaptation", group:"Essence", icon:"AltTier4ScarabEssence.webp" },
+  // TORMENT
+  { name:"Torment Scarab", group:"Torment", icon:"LesserScarabTorment.webp" },
+  { name:"Torment Scarab of Peculiarity", group:"Torment", icon:"NormalScarabTorment.webp" },
+  { name:"Torment Scarab of Possession", group:"Torment", icon:"Tier4ScarabTorment.webp" },
+  // ── COLUMN 2 ──────────────────────────────────
+  // INFLUENCING
+  { name:"Influencing Scarab of the Shaper", group:"Influencing", icon:"LesserScarabShaper.webp" },
+  { name:"Influencing Scarab of the Elder", group:"Influencing", icon:"LesserScarabElder.webp" },
+  { name:"Influencing Scarab of Hordes", group:"Influencing", icon:"GreaterScarabElder.webp" },
+  { name:"Influencing Scarab of Interference", group:"Influencing", icon:"Tier4ScarabShaper.webp" },
+  // TITANIC
+  { name:"Titanic Scarab", group:"Titanic", icon:"LesserScarabUnique.webp" },
+  { name:"Titanic Scarab of Treasures", group:"Titanic", icon:"NormalScarabUnique.webp" },
+  { name:"Titanic Scarab of Legend", group:"Titanic", icon:"GreaterScarabUnique.webp" },
+  // ABYSS
+  { name:"Abyss Scarab", group:"Abyss", icon:"LesserScarabAbyss.webp" },
+  { name:"Abyss Scarab of Multitudes", group:"Abyss", icon:"NormalScarabAbyss.webp" },
+  { name:"Abyss Scarab of Edifice", group:"Abyss", icon:"GreaterScarabAbyss.webp" },
+  { name:"Abyss Scarab of Profound Depth", group:"Abyss", icon:"AltTier4ScarabAbyss.webp" },
+  { name:"Abyss Scarab of Descending", group:"Abyss", icon:"AltNormalScarabAbyss.webp" },
+  // BLIGHT
+  { name:"Blight Scarab", group:"Blight", icon:"LesserScarabBlight.webp" },
+  { name:"Blight Scarab of the Blightheart", group:"Blight", icon:"GreaterScarabBlight.webp" },
+  { name:"Blight Scarab of Blooming", group:"Blight", icon:"Tier4ScarabBlight.webp" },
+  { name:"Blight Scarab of Invigoration", group:"Blight", icon:"AltTier4ScarabBlight.webp" },
+  // BREACH
+  { name:"Breach Scarab of the Hive", group:"Breach", icon:"LesserScarabBreach.webp" },
+  { name:"Breach Scarab of Instability", group:"Breach", icon:"NormalScarabBreach.webp" },
+  { name:"Breach Scarab of the Marshal", group:"Breach", icon:"AltGreaterScarabBreach.webp" },
+  { name:"Breach Scarab of the Incensed Swarm", group:"Breach", icon:"GreaterScarabBreach.webp" },
+  { name:"Breach Scarab of Resonant Cascade", group:"Breach", icon:"AltTier4ScarabBreach.webp" },
+  // DELIRIUM
+  { name:"Delirium Scarab", group:"Delirium", icon:"LesserScarabDelirium.webp" },
+  { name:"Delirium Scarab of Mania", group:"Delirium", icon:"NormalScarabDelirium.webp" },
+  { name:"Delirium Scarab of Paranoia", group:"Delirium", icon:"GreaterScarabDelirium.webp" },
+  { name:"Delirium Scarab of Neuroses", group:"Delirium", icon:"AltGreaterScarabDelirium.webp" },
+  { name:"Delirium Scarab of Delusions", group:"Delirium", icon:"Tier4ScarabDelirium.webp" },
+  // EXPEDITION
+  { name:"Expedition Scarab", group:"Expedition", icon:"LesserScarabExpedition.webp" },
+  { name:"Expedition Scarab of Runefinding", group:"Expedition", icon:"NormalScarabExpedition.webp" },
+  { name:"Expedition Scarab of Verisium Powder", group:"Expedition", icon:"GreaterScarabExpedition.webp" },
+  { name:"Expedition Scarab of Archaeology", group:"Expedition", icon:"Tier4ScarabExpedition.webp" },
+  { name:"Expedition Scarab of Infusion", group:"Expedition", icon:"AltGreaterScarabExpedition.webp", isNew:true },
+  // HARVEST
+  { name:"Harvest Scarab", group:"Harvest", icon:"LesserScarabHarvest.webp" },
+  { name:"Harvest Scarab of Doubling", group:"Harvest", icon:"GreaterScarabHarvest.webp" },
+  { name:"Harvest Scarab of Cornucopia", group:"Harvest", icon:"Tier4ScarabHarvest.webp" },
+  // KALGUURAN
+  { name:"Kalguuran Scarab", group:"Kalguuran", icon:"LesserScarabSettlers.webp" },
+  { name:"Kalguuran Scarab of Guarded Riches", group:"Kalguuran", icon:"NormalScarabSettlers.webp" },
+  { name:"Kalguuran Scarab of Refinement", group:"Kalguuran", icon:"GreaterScarabSettlers.webp" },
+  { name:"Kalguuran Scarab of Enriching", group:"Kalguuran", icon:"GreaterScarabSettlers.webp", isNew:true },
+  // LEGION
+  { name:"Legion Scarab", group:"Legion", icon:"LesserScarabLegion.webp" },
+  { name:"Legion Scarab of Officers", group:"Legion", icon:"NormalScarabLegion.webp" },
+  { name:"Legion Scarab of Treasures", group:"Legion", icon:"AltNormalScarabLegion.webp" },
+  { name:"Legion Scarab of Eternal Conflict", group:"Legion", icon:"Tier4ScarabLegion.webp" },
+  // RITUAL
+  { name:"Ritual Scarab of Selectiveness", group:"Ritual", icon:"LesserScarabRitual.webp" },
+  { name:"Ritual Scarab of Wisps", group:"Ritual", icon:"NormalScarabRitual.webp" },
+  { name:"Ritual Scarab of Abundance", group:"Ritual", icon:"GreaterScarabRitual.webp" },
+  { name:"Ritual Scarab of Corpses", group:"Ritual", icon:"NormalScarabRitual.webp", isNew:true },
+  // ULTIMATUM
+  { name:"Ultimatum Scarab", group:"Ultimatum", icon:"LesserScarabUltimatum.webp" },
+  { name:"Ultimatum Scarab of Bribing", group:"Ultimatum", icon:"NormalScarabUltimatum.webp" },
+  { name:"Ultimatum Scarab of Dueling", group:"Ultimatum", icon:"GreaterScarabUltimatum.webp" },
+  { name:"Ultimatum Scarab of Catalysing", group:"Ultimatum", icon:"Tier4ScarabUltimatum.webp" },
+  { name:"Ultimatum Scarab of Inscription", group:"Ultimatum", icon:"AltTier4ScarabUltimatum.webp" },
+  // ── SIDE PANEL ────────────────────────────────
+  // MISC
+  { name:"Scarab of Monstrous Lineage", group:"Misc", icon:"LesserScarabMisc.webp" },
+  { name:"Scarab of Adversaries", group:"Misc", icon:"AltLesserScarabMisc.webp" },
+  { name:"Scarab of Divinity", group:"Misc", icon:"NormalScarabMisc.webp" },
+  { name:"Scarab of the Sinistral", group:"Misc", icon:"GreaterScarabMisc.webp" },
+  { name:"Scarab of Stability", group:"Misc", icon:"Tier4ScarabMisc.webp" },
+  { name:"Scarab of Wisps", group:"Misc", icon:"GreaterScarabMisc1.webp" },
+  { name:"Scarab of Radiant Storms", group:"Misc", icon:"Tier4ScarabMisc2.webp" },
+  { name:"Scarab of the Dextral", group:"Misc", icon:"AltLesserScarabMisc.webp", isNew:true },
+  // HORNED
+  { name:"Horned Scarab of Bloodlines", group:"Horned", icon:"SuperScarab1.webp" },
+  { name:"Horned Scarab of Nemeses", group:"Horned", icon:"SuperScarab2.webp" },
+  { name:"Horned Scarab of Preservation", group:"Horned", icon:"SuperScarab3.webp" },
+  { name:"Horned Scarab of Awakening", group:"Horned", icon:"SuperScarab1.webp" },
+  { name:"Horned Scarab of Glittering", group:"Horned", icon:"SuperScarab2.webp" },
+  { name:"Horned Scarab of Pandemonium", group:"Horned", icon:"SuperScarab3.webp" },
+  { name:"Horned Scarab of Tradition", group:"Horned", icon:"SuperScarab1.webp" },
+];
+
+
+
+// ALPHA_ORDER: alphabetical group sort
+const ALPHA_ORDER = [
+  "Abyss","Ambush","Anarchy","Bestiary","Betrayal","Beyond","Blight","Breach",
+  "Cartography","Delirium","Divination","Domination","Essence","Expedition",
+  "Harvest","Horned","Incursion","Influencing","Kalguuran","Legion",
+  "Misc","Ritual","Sulphite","Titanic","Torment","Ultimatum"
+];
+// INGAME_ORDER: col1 top→bottom, col2 top→bottom, misc, horned
+const INGAME_ORDER = [
+  "Cartography","Divination","Bestiary","Betrayal","Incursion","Sulphite",
+  "Ambush","Anarchy","Beyond","Domination","Essence","Torment",
+  "Influencing","Titanic","Abyss","Blight","Breach","Delirium",
+  "Expedition","Harvest","Kalguuran","Legion","Ritual","Ultimatum",
+  "Misc","Horned"
+];
+const GROUP_ORDER = INGAME_ORDER;
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let prices = {};         // manual prices {name -> {qty, cost}}
+let evOverride = null;   // user-set EV override in chaos
+try { const o = localStorage.getItem('poepool28v2-evoverride'); if (o) evOverride = parseFloat(o); } catch(e) {}
+let ninjaPrices = {};    // {name -> chaosValue}
+let ninjaImages = {};    // {name -> imageUrl} from worker items[]
+let ninjaDivineRate = null; // divine orb chaos value
+let ninjaLoaded = false;
+let collapsedM = new Set();
+let collapsedN = new Set();
+let manualView = 'all';
+let sortMode = 'ingame'; // 'ingame' | 'alpha'
+let ninjaView = 'all';
+let currentTab = 'ninja';
+let ninjaSort = null; // null = grouped, 'cea-asc', 'cea-desc', 'diff-asc', 'diff-desc'
+
+try { const s = localStorage.getItem('poepool28v2'); if (s) prices = JSON.parse(s); } catch(e) {}
+function savePrices() {
+  try { localStorage.setItem('poepool28v2', JSON.stringify(prices)); } catch(e) {}
+  // If ninja tab is loaded, refresh it so manual overrides reflect immediately
+  if (ninjaLoaded) { recalcNinja(); if (currentTab === 'ninja') renderNinja(); }
+}
+function getP(name) { return prices[name] || { qty:0, cost:0 }; }
+
+// Theme
+const savedTheme = localStorage.getItem('poepool-theme') || 'light';
+if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme','dark');
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('poepool-theme', isDark ? 'light' : 'dark');
+}
+
+// ══════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.nav-tab[onclick*="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
+  if (tab === 'ninja') renderNinja();
+
+}
+
+// ══════════════════════════════════════════════════
+// EV CALCULATION (harmonic mean, floored)
+// ══════════════════════════════════════════════════
+function calcEV(entries) {
+  // entries = [{chaosEa}], filter out zeros
+  const valid = entries.filter(e => e.chaosEa > 0);
+  if (valid.length < 2) return null;
+  let sumW = 0;
+  for (const e of valid) sumW += 1 / e.chaosEa;
+  const ev = valid.length / sumW;
+  return Math.floor(ev * 100) / 100;
+}
+
+// ══════════════════════════════════════════════════
+// SCARAB DATA — PoE 3.28 with poedb CDN icons
+// ══════════════════════════════════════════════════
+
+const CHAR_LIMIT = 250;
+
+// ══════════════════════════════════════════════════
+// REGEX ENGINE — poe.re style: one curated token per scarab
+// ══════════════════════════════════════════════════
+// Each token is a short, pre-validated unique substring that matches exactly
+// one scarab and nothing else in the PoE item tooltip. Mirrors the approach
+// used by poe.re/#/scarab. The regex is simply token1|token2|... for all
+// vendor-targeted scarabs, joined and wrapped in quotes.
+
+// Canonical token map sourced directly from poe.re scarab data (Scarabs.ts)
+// Each token is the exact pre-validated regex string poe.re uses for that scarab
+const POE_RE_TOKENS = {
+  // ABYSS
+  "Abyss Scarab":                           "uls",
+  "Abyss Scarab of Edifice":                "gha",
+  "Abyss Scarab of Multitudes":             "cea",
+  "Abyss Scarab of Profound Depth":         "g,",
+  "Abyss Scarab of Descending":             "desc",
+  // AMBUSH
+  "Ambush Scarab":                          "u'",
+  "Ambush Scarab of Containment":           "urk",
+  "Ambush Scarab of Discernment":           "kee",
+  "Ambush Scarab of Hidden Compartments":   "bv",
+  "Ambush Scarab of Potency":               "loc",
+  // ANARCHY
+  "Anarchy Scarab":                         "it'",
+  "Anarchy Scarab of Gigantification":      "wt",
+  "Anarchy Scarab of Partnership":          "tn",
+  "Anarchy Scarab of the Exceptional":      "xce",
+  // BESTIARY
+  "Bestiary Scarab":                        "stm",
+  "Bestiary Scarab of Duplicating":         "at'",
+  "Bestiary Scarab of the Herd":            "ram",
+  // BETRAYAL
+  "Betrayal Scarab":                        "pay",
+  "Betrayal Scarab of Reinforcements":      "mov",
+  "Betrayal Scarab of the Allflame":        "fear",
+  "Betrayal Scarab of Unbreaking":          "nb",
+  // BEYOND
+  "Beyond Scarab":                          "wal",
+  "Beyond Scarab of Haemophilia":           "beg",
+  "Beyond Scarab of Resurgence":            "ung",
+  "Beyond Scarab of the Invasion":          "lmo",
+  // BLIGHT
+  "Blight Scarab":                          "ndr",
+  "Blight Scarab of Blooming":              "t-",
+  "Blight Scarab of Invigoration":          "pol",
+  "Blight Scarab of the Blightheart":       "yc",
+  // BREACH
+  "Breach Scarab of Resonant Cascade":      "lr",
+  "Breach Scarab of Instability":           "arp",
+  "Breach Scarab of the Hive":              "gd",
+  "Breach Scarab of the Marshal":           "nw",
+  "Breach Scarab of the Incensed Swarm":    "h'",
+  // CARTOGRAPHY
+  "Cartography Scarab of Escalation":       "thr",
+  "Cartography Scarab of Risk":             "efl",
+  "Cartography Scarab of the Multitude":    "izo",
+  "Cartography Scarab of Corruption":       "tw",
+  // DELIRIUM
+  "Delirium Scarab":                        "uo",
+  "Delirium Scarab of Delusions":           "lk",
+  "Delirium Scarab of Mania":               "y'",
+  "Delirium Scarab of Neuroses":            "eu",
+  "Delirium Scarab of Paranoia":            "noi",
+  // DIVINATION
+  "Divination Scarab of Pilfering":         "sei",
+  "Divination Scarab of Plenty":            "usa",
+  "Divination Scarab of The Cloister":      "loi",
+  // DOMINATION
+  "Domination Scarab":                      "sim",
+  "Domination Scarab of Apparitions":       "adn",
+  "Domination Scarab of Evolution":         "rif",
+  "Domination Scarab of Terrors":           "tev",
+  // ESSENCE
+  "Essence Scarab":                         "saf",
+  "Essence Scarab of Adaptation":           "tti",
+  "Essence Scarab of Ascent":               "cet",
+  "Essence Scarab of Calcification":        "lc",
+  "Essence Scarab of Stability":            "ool",
+  // EXPEDITION
+  "Expedition Scarab":                      "cro",
+  "Expedition Scarab of Archaeology":       "sd",
+  "Expedition Scarab of Runefinding":       "urn",
+  "Expedition Scarab of Verisium Powder":   "f V",
+  "Expedition Scarab of Infusion":          "nfu",
+  // HARVEST
+  "Harvest Scarab":                         "val",
+  "Harvest Scarab of Cornucopia":           "rnu",
+  "Harvest Scarab of Doubling":             "aso",
+  // HORNED
+  "Horned Scarab of Awakening":             "nyt",
+  "Horned Scarab of Bloodlines":            "urv",
+  "Horned Scarab of Glittering":            "%,",
+  "Horned Scarab of Nemeses":               "tig",
+  "Horned Scarab of Pandemonium":           "pun",
+  "Horned Scarab of Preservation":          "rva",
+  "Horned Scarab of Tradition":             "ges",
+  // INCURSION
+  "Incursion Scarab":                       "aa",
+  "Incursion Scarab of Champions":          "tz",
+  "Incursion Scarab of Invasion":           "ed,",
+  "Incursion Scarab of Timelines":          "h,",
+  // INFLUENCING
+  "Influencing Scarab of Interference":     "nq",
+  "Influencing Scarab of Hordes":           "idea",
+  "Influencing Scarab of the Elder":        "voi",
+  "Influencing Scarab of the Shaper":       "awai",
+  // KALGUURAN
+  "Kalguuran Scarab":                       "vei",
+  "Kalguuran Scarab of Guarded Riches":     "gg",
+  "Kalguuran Scarab of Refinement":         "ne,",
+  "Kalguuran Scarab of Enriching":          "nri",
+  // LEGION
+  "Legion Scarab":                          "arr",
+  "Legion Scarab of Treasures":             "hoa",
+  "Legion Scarab of Eternal Conflict":      "rni",
+  "Legion Scarab of Officers":              "gea",
+  // RITUAL
+  "Ritual Scarab of Abundance":             "abu",
+  "Ritual Scarab of Selectiveness":         "pic",
+  "Ritual Scarab of Wisps":                 "rus",
+  "Ritual Scarab of Corpses":               "pup",
+  // MISC
+  "Scarab of Adversaries":                  "dv",
+  "Scarab of the Sinistral":                "sini",
+  "Scarab of the Dextral":                  "xt",
+  "Scarab of Divinity":                     "-T",
+  "Scarab of Monstrous Lineage":            "eag",
+  "Scarab of Radiant Storms":               "cac",
+  "Scarab of Stability":                    "g!",
+  "Scarab of Wisps":                        "y 2",
+  // SULPHITE
+  "Sulphite Scarab":                        "ko",
+  "Sulphite Scarab of Fumes":               "k,",
+  // TITANIC
+  "Titanic Scarab":                         "nam",
+  "Titanic Scarab of Legend":               "ccu",
+  "Titanic Scarab of Treasures":            "gree",
+  // TORMENT
+  "Torment Scarab":                         "rim",
+  "Torment Scarab of Peculiarity":          "e!",
+  "Torment Scarab of Possession":           "e ne",
+  // ULTIMATUM
+  "Ultimatum Scarab":                       "req",
+  "Ultimatum Scarab of Bribing":            "dg",
+  "Ultimatum Scarab of Catalysing":         "egr",
+  "Ultimatum Scarab of Dueling":            "cto",
+  "Ultimatum Scarab of Inscription":        "nsc",
+};
+
+function buildRegex(vendorNames) {
+  const tokens = [];
+  const uncovered = [];
+
+  for (const name of vendorNames) {
+    const tok = POE_RE_TOKENS[name];
+    if (tok) {
+      tokens.push(tok);
+    } else {
+      uncovered.push(name);
+    }
+  }
+
+  if (!tokens.length) return { regex: null, tokens: [], collateral: [], overLimit: false, part1: null, part2: null, uncovered };
+
+  const inner = tokens.join("|");
+  const regex = `"${inner}"`;
+  const overLimit = inner.length > 248;
+
+  let part1 = null;
+  let part2 = null;
+  if (overLimit) {
+    const mid = Math.ceil(tokens.length / 2);
+    part1 = `"${tokens.slice(0, mid).join("|")}"`;
+    part2 = `"${tokens.slice(mid).join("|")}"`;
+  }
+
+  return { regex, tokens, collateral: [], overLimit, part1, part2, uncovered };
+}
+
+
+// vendorNames = names to match; keepNames kept for API compat but unused (poe.re tokens are pre-validated)
+function updateRegexUI(prefix, vendorNames, keepNames) {
+  const result = vendorNames.length ? buildRegex(vendorNames) : { regex: null };
+  const body = document.getElementById(`${prefix}-regexBody`);
+  const pill = document.getElementById(`${prefix}-charPill`);
+  const warn = document.getElementById(`${prefix}-regexWarn`);
+
+  if (result.regex) {
+    const innerLen = result.tokens.join('|').length;
+    const over = result.overLimit;
+
+    body.textContent = result.regex;
+    body.style.color = over ? 'var(--red)' : '';
+    pill.textContent = `${innerLen} / ${CHAR_LIMIT}`;
+    pill.className = 'char-pill ' + (innerLen <= Math.floor(CHAR_LIMIT * 0.89) ? 'ok' : innerLen <= CHAR_LIMIT ? 'warn' : 'over');
+
+    // Build warning messages
+    const msgs = [];
+
+    if (result.collateral && result.collateral.length > 0) {
+      const names = result.collateral.map(n => n.split(' ').slice(-2).join(' '));
+      msgs.push(`⚠ <strong>Collateral:</strong> regex also matches ${[...new Set(names)].join(', ')} — skip those when vendoring.`);
+    }
+
+    if (result.uncovered && result.uncovered.length > 0) {
+      msgs.push(`⚠ <strong>Uncovered:</strong> ${result.uncovered.map(n => n.split(' ').pop()).join(', ')} could not be included without matching 2+ keepers.`);
+    }
+
+    if (over && result.part1 && result.part2) {
+      msgs.push(`⚠ Regex is ${innerLen} chars — exceeds ${CHAR_LIMIT} limit. Use both regexes below (run one, then the other):`);
+      msgs.push(`
+        <div style="margin-top:6px">
+          <div style="font-size:10px;font-weight:600;margin-bottom:2px">Regex 1 — ${result.part1.length} chars:</div>
+          <code onclick="navigator.clipboard.writeText(this.textContent);this.style.background='var(--green-bg)';setTimeout(()=>this.style.background='',1000)"
+            title="Click to copy" style="display:block;padding:5px 8px;background:var(--bg-input);border-radius:3px;cursor:pointer;word-break:break-all;color:var(--accent);font-size:10px;margin-bottom:6px">${result.part1}</code>
+          <div style="font-size:10px;font-weight:600;margin-bottom:2px">Regex 2 — ${result.part2.length} chars:</div>
+          <code onclick="navigator.clipboard.writeText(this.textContent);this.style.background='var(--green-bg)';setTimeout(()=>this.style.background='',1000)"
+            title="Click to copy" style="display:block;padding:5px 8px;background:var(--bg-input);border-radius:3px;cursor:pointer;word-break:break-all;color:var(--accent);font-size:10px">${result.part2}</code>
+        </div>`);
+    } else if (over) {
+      msgs.push(`⚠ Regex is ${innerLen} chars, exceeds ${CHAR_LIMIT} limit.`);
+    }
+
+    if (msgs.length) {
+      warn.innerHTML = msgs.join('<br>');
+      warn.className = 'regex-warn show';
+    } else {
+      warn.innerHTML = '';
+      warn.className = 'regex-warn';
+    }
+  } else {
+    body.innerHTML = `<span class="regex-empty-msg">${prefix === 'm' ? 'Enter prices to generate regex' : 'Load poe.ninja data to generate regex'}</span>`;
+    body.style.color = '';
+    pill.textContent = `0 / ${CHAR_LIMIT}`; pill.className = 'char-pill ok';
+    warn.className = 'regex-warn';
+  }
+}
+
+function getManualEntries() {
+  return SCARAB_LIST.map(s => {
+    const p = getP(s.name);
+    return { name: s.name, group: s.group, chaosEa: p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0 };
+  });
+}
+
+function recalcManual() {
+  const entries = getManualEntries();
+  const priced = entries.filter(e => e.chaosEa > 0);
+  const calcedEV = calcEV(priced);
+  // Use override if set, otherwise use calculated EV
+  const ev = evOverride !== null ? evOverride : calcedEV;
+  const threshold = ev !== null ? ev : null;
+  const belowEv = ev !== null ? priced.filter(e => e.chaosEa <= ev) : [];
+
+  // Stat display — show override indicator if active
+  const evLabel = evOverride !== null
+    ? ev.toFixed(2)+'c ⚡'
+    : (calcedEV !== null ? calcedEV.toFixed(2)+'c' : '—');
+  document.getElementById('m-statEV').textContent = evLabel;
+  document.getElementById('m-statPool').textContent = priced.length || '—';
+  document.getElementById('m-statTargets').textContent = ev !== null ? belowEv.length : '—';
+  document.getElementById('m-statThresh').textContent = threshold !== null ? threshold.toFixed(2)+'c' : '—';
+
+  // Profit estimate: EV output - cost of 3 below-EV scarabs (use harmonic mean of below-EV prices as avg input cost)
+  if (ev !== null && belowEv.length >= 3) {
+    // Average cost per below-EV scarab (simple mean — we assume roughly equal quantities)
+    const avgInput = belowEv.reduce((sum, e) => sum + e.chaosEa, 0) / belowEv.length;
+    const inputCost = avgInput * 3;
+    const profit = ev - inputCost;
+    const profitEl = document.getElementById('m-statProfit');
+    const profitSub = document.getElementById('m-statProfitSub');
+    profitEl.textContent = (profit >= 0 ? '+' : '') + profit.toFixed(2) + 'c';
+    profitEl.style.color = profit >= 0 ? 'var(--green)' : 'var(--red)';
+    profitSub.textContent = `avg input: ${avgInput.toFixed(2)}c × 3 = ${inputCost.toFixed(2)}c cost`;
+  } else {
+    document.getElementById('m-statProfit').textContent = '—';
+    document.getElementById('m-statProfit').style.color = '';
+    document.getElementById('m-statProfitSub').textContent = 'per vendor trade';
+  }
+
+  const note = document.getElementById('m-evNote');
+  if (ev !== null && belowEv.length) {
+    const keepNames = priced.filter(e => e.chaosEa > ev).map(e => e.name).join(', ') || 'none';
+    note.className = 'ev-note show';
+    note.innerHTML = `<strong>Method:</strong> Harmonic-weighted mean — cheap scarabs pull EV down, expensive ones barely move it. Floored for safety. <strong>Vendor ≤ ${threshold}c/ea.</strong> Keep: ${keepNames}.`;
+  } else { note.className = 'ev-note'; }
+
+  const aboveEv = priced.filter(e => e.chaosEa > ev);
+  updateRegexUI('m', belowEv.map(e => e.name), aboveEv.map(e => e.name));
+
+  return { ev, belowEv };
+}
+
+function renderManual() {
+  const { ev, belowEv } = recalcManual();
+  const belowSet = new Set(belowEv.map(e => e.name));
+  const filter = document.getElementById('m-filter').value.toLowerCase();
+
+  const groups = {};
+  for (const s of SCARAB_LIST) {
+    const p = getP(s.name);
+    const cea = p.cost > 0 ? p.cost / p.qty : null;
+    const isV = cea !== null && ev !== null && cea <= ev;
+    if (manualView === 'vendor' && !isV) continue;
+    if (manualView === 'keep' && isV) continue;
+    if (filter && !s.name.toLowerCase().includes(filter)) continue;
+    if (!groups[s.group]) groups[s.group] = [];
+    groups[s.group].push({ ...s, cea, isV, p });
+  }
+
+  const tbody = document.getElementById('m-tableBody');
+  tbody.innerHTML = '';
+  const activeOrder = (typeof sortMode !== 'undefined' && sortMode === 'alpha') ? ALPHA_ORDER : INGAME_ORDER;
+  const gnames = Object.keys(groups).sort((a,b) => { const ia = activeOrder.indexOf(a); const ib = activeOrder.indexOf(b); return (ia===-1?999:ia) - (ib===-1?999:ib); });
+  if (!gnames.length) { tbody.innerHTML='<div class="empty-row">No scarabs match the filter.</div>'; return; }
+
+  for (const gname of gnames) {
+    const items = groups[gname];
+    const collapsed = collapsedM.has(gname);
+    const gh = document.createElement('div');
+    gh.className = 'group-header'+(collapsed?' collapsed':'');
+    const vendorCount = items.filter(i=>i.isV).length;
+    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${items.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">▼</span>`;
+    gh.onclick = () => { collapsedM.has(gname)?collapsedM.delete(gname):collapsedM.add(gname); renderManual(); };
+    tbody.appendChild(gh);
+    if (collapsed) continue;
+
+    for (const s of items) {
+      const row = document.createElement('div');
+      row.className = 'scarab-row'+(s.isV?' vendor-target':'');
+      let diffHtml = '<span style="color:var(--text-3)">—</span>';
+      if (s.cea !== null && ev !== null) {
+        const d = s.cea - ev;
+        diffHtml = d <= 0
+          ? `<span class="ev-diff below">▼ ${Math.abs(d).toFixed(2)}c</span>`
+          : `<span class="ev-diff above">▲ ${d.toFixed(2)}c</span>`;
+      }
+      row.innerHTML = `
+        <div class="td icon-cell">
+          <div class="icon-wrap"><img class="scarab-icon" src="${CDN}${s.icon}" alt="" loading="lazy" onerror="this.style.opacity='0.15'"></div>
+        </div>
+        <div class="td"><div class="scarab-name-cell">
+          <span class="vendor-dot"></span>
+          <span class="scarab-name">${s.name}</span>
+          ${s.isNew?'<span class="new-badge">NEW</span>':''}
+        </div></div>
+        <div class="td" style="color:var(--text-3);font-size:11px">${s.group}</div>
+        <div class="td right"><div class="ratio-wrap">
+          <input class="ratio-input" type="number" step="0.01"
+            value="${s.p.qty > 0 ? s.p.qty : ''}"
+            data-name="${s.name}" data-field="qty"
+            oninput="handleManualInput(this)" onchange="handleManualInput(this)"
+            onfocus="autoFillOther(this)" placeholder="">
+          <span class="ratio-sep">:</span>
+          <input class="ratio-input" type="number" step="0.01"
+            value="${s.p.cost > 0 ? s.p.cost : ''}"
+            data-name="${s.name}" data-field="cost"
+            oninput="handleManualInput(this)" onchange="handleManualInput(this)"
+            onfocus="autoFillOther(this)" placeholder="">
+        </div></div>
+        <div class="td right"><span class="chaos-ea">${s.cea!==null?s.cea.toFixed(2)+'c':'—'}</span></div>
+        <div class="td center ev-diff-cell">${diffHtml}</div>
+        <div class="td center"><span class="vendor-badge">VENDOR</span></div>
+      `;
+      tbody.appendChild(row);
+    }
+  }
+}
+
+function autoFillOther(el) {
+  const name = el.dataset.name;
+  const field = el.dataset.field;
+  const p = prices[name] || { qty: 0, cost: 0 };
+  // When user focuses a field that's empty, auto-fill the OTHER field with 1
+  // but only if the other field is also currently empty
+  const otherField = field === 'qty' ? 'cost' : 'qty';
+  const otherVal = field === 'qty' ? p.cost : p.qty;
+  if (otherVal === 0) {
+    if (!prices[name]) prices[name] = { qty: 0, cost: 0 };
+    prices[name][otherField] = 1;
+    savePrices();
+    // Update the sibling input visually
+    const row = el.closest('.scarab-row');
+    if (row) {
+      const sibling = row.querySelector(`[data-field="${otherField}"]`);
+      if (sibling && !sibling.value) sibling.value = 1;
+    }
+  }
+}
+
+function setEVOverride(val) {
+  const v = parseFloat(val);
+  if (!isNaN(v) && v > 0) {
+    evOverride = v;
+    try { localStorage.setItem('poepool28v2-evoverride', v); } catch(e) {}
+    document.getElementById('evOverrideActive').textContent = `Active: ${v.toFixed(2)}c threshold`;
+    document.getElementById('evOverrideActive').style.display = '';
+    document.getElementById('evClearBtn').style.display = '';
+  } else {
+    evOverride = null;
+    try { localStorage.removeItem('poepool28v2-evoverride'); } catch(e) {}
+    document.getElementById('evOverrideActive').style.display = 'none';
+    document.getElementById('evClearBtn').style.display = 'none';
+  }
+  recalcManual();
+  // Soft-update row highlights without full re-render
+  const { ev, belowEv } = { ev: evOverride !== null ? evOverride : calcEV(getManualEntries().filter(e=>e.chaosEa>0)), belowEv: [] };
+  softUpdateRows(ev);
+}
+
+function softUpdateRows(ev) {
+  document.querySelectorAll('#m-tableBody .scarab-row').forEach(row => {
+    const n = row.querySelector('.scarab-name')?.textContent;
+    if (!n) return;
+    const p = prices[n] || { qty:0, cost:0 };
+    const cea = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : null;
+    const isV = cea !== null && ev !== null && cea <= ev;
+    row.classList.toggle('vendor-target', isV);
+    const ceEl = row.querySelector('.chaos-ea');
+    if (ceEl) ceEl.textContent = cea !== null ? cea.toFixed(2)+'c' : '—';
+    const dc = row.querySelector('.ev-diff-cell');
+    if (dc && ev !== null && cea !== null) {
+      const d = cea - ev;
+      dc.innerHTML = d<=0 ? `<span class="ev-diff below">▼ ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">▲ ${d.toFixed(2)}c</span>`;
+    } else if (dc) { dc.innerHTML = `<span style="color:var(--text-3)">—</span>`; }
+  });
+}
+
+function clearEVOverride() {
+  evOverride = null;
+  try { localStorage.removeItem('poepool28v2-evoverride'); } catch(e) {}
+  document.getElementById('evOverrideInput').value = '';
+  document.getElementById('evOverrideActive').style.display = 'none';
+  document.getElementById('evClearBtn').style.display = 'none';
+  recalcManual();
+  const ev = calcEV(getManualEntries().filter(e=>e.chaosEa>0));
+  softUpdateRows(ev);
+}
+
+function exportPrices() {
+  const data = JSON.stringify({ prices, evOverride }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'scarab-prices.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importPrices(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.prices) {
+        prices = data.prices;
+        savePrices();
+      }
+      if (data.evOverride !== undefined && data.evOverride !== null) {
+        evOverride = data.evOverride;
+        try { localStorage.setItem('poepool28v2-evoverride', evOverride); } catch(ex) {}
+        document.getElementById('evOverrideInput').value = evOverride;
+        document.getElementById('evOverrideActive').textContent = `Active: ${evOverride.toFixed(2)}c threshold`;
+        document.getElementById('evOverrideActive').style.display = '';
+        document.getElementById('evClearBtn').style.display = '';
+      }
+      renderManual();
+    } catch(ex) {
+      alert('Failed to parse file: ' + ex.message);
+    }
+  };
+  reader.readAsText(file);
+  // Reset so same file can be re-imported
+  event.target.value = '';
+}
+
+function handleManualInput(el) {
+  const name = el.dataset.name;
+  const field = el.dataset.field;
+  if (!prices[name]) prices[name] = { qty:1, cost:0 };
+  if (field==='qty') prices[name].qty = Math.max(1, parseInt(el.value)||0);
+  else prices[name].cost = Math.max(0, parseFloat(el.value)||0);
+  savePrices();
+
+  const { ev } = recalcManual();
+  softUpdateRows(ev);
+}
+
+function setSortMode(mode) {
+  sortMode = mode;
+  document.getElementById('sortIngame').classList.toggle('active', mode === 'ingame');
+  document.getElementById('sortAlpha').classList.toggle('active', mode === 'alpha');
+  renderManual();
+}
+
+function setManualView(v) {
+  manualView = v;
+  ['all','vendor','keep'].forEach(m => {
+    document.getElementById(`m-view${m.charAt(0).toUpperCase()+m.slice(1)}`).classList.toggle('active', m===v);
+  });
+  renderManual();
+}
+
+function resetPrices() {
+  prices = {}; savePrices(); renderManual();
+}
+
+// ══════════════════════════════════════════════════
+// NINJA TAB
+// ══════════════════════════════════════════════════
+
+// ── WORKER URL ───────────────────────────────────────────────────────────────
+// Paste your Cloudflare Worker URL here after deploying poe-ninja-worker.js
+// Example: 'https://poe-ninja-proxy.your-name.workers.dev'
+// Leave as null to skip the worker and fall through to other attempts.
+const WORKER_URL = 'https://fragrant-base-ff8a.paperpandastacks.workers.dev';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Ninja EV override (persisted separately from manual override)
+let ninjaEvOverride = null;
+try { const o = localStorage.getItem('poepool28v2-ninja-evoverride'); if (o) ninjaEvOverride = parseFloat(o); } catch(e) {}
+
+function setNinjaEVOverride(val) {
+  // Legacy stub — now handled by slider
+  const v = parseFloat(val);
+  if (!isNaN(v) && v > 0) {
+    ninjaEvOverride = v;
+    try { localStorage.setItem('poepool28v2-ninja-evoverride', v); } catch(e) {}
+  } else {
+    ninjaEvOverride = null;
+    try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
+  }
+  recalcNinja();
+}
+
+function clearNinjaEVOverride() {
+  // Legacy stub — now handled by slider
+  ninjaEvOverride = null;
+  try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
+  recalcNinja();
+}
+
+// ── Parse new worker format: { lines[], items[], core{} }
+// lines[i].id  → price (primaryValue)
+// items[i].id  → name + image URL
+function parseWorkerResponse(data) {
+  if (!Array.isArray(data?.lines) || !data.lines.length)
+    throw new Error(`no lines array (keys: ${Object.keys(data||{}).join(', ')})`);
+
+  const idToItem = {};
+  if (Array.isArray(data.items)) {
+    for (const item of data.items) {
+      if (item.id) idToItem[item.id] = item;
+    }
+  }
+
+  const rawPrices = {};
+  const rawImages = {};
+  for (const line of data.lines) {
+    const price = line.primaryValue ?? line.chaosValue ?? line.chaosEquivalent ?? null;
+    if (!price || price <= 0) continue;
+    const item = (line.id && idToItem[line.id]) || null;
+    const name = (item?.name) || line.name || null;
+    if (!name) continue;
+    rawPrices[name] = price;
+    // Worker image paths are relative like /gen/image/..., make them absolute
+    if (item?.image) {
+      rawImages[name] = item.image.startsWith('http')
+        ? item.image
+        : `https://web.poecdn.com${item.image}`;
+    }
+  }
+  return { rawPrices, rawImages };
+}
+
+// ── Parse old poe.ninja itemoverview format
+function parseOldNinjaResponse(text, unwrap) {
+  if (!text || text.length < 100) throw new Error('empty response');
+  let data;
+  try {
+    const parsed = JSON.parse(text);
+    data = (unwrap && parsed.contents) ? JSON.parse(parsed.contents) : parsed;
+    if (!data.lines && data.contents) data = JSON.parse(data.contents);
+  } catch(e) {
+    throw new Error(`bad JSON: ${text.slice(0, 60).replace(/\n/g,' ')}`);
+  }
+  if (!Array.isArray(data?.lines) || !data.lines.length)
+    throw new Error(`no lines array (keys: ${Object.keys(data||{}).join(', ')})`);
+
+  const rawPrices = {};
+  const rawImages = {};
+  for (const item of data.lines) {
+    if (!item.name) continue;
+    const price = item.chaosValue ?? item.chaosEquivalent ?? null;
+    if (!price || price <= 0) continue;
+    rawPrices[item.name] = price;
+    if (item.icon) rawImages[item.name] = item.icon;
+  }
+  return { rawPrices, rawImages };
+}
+
+// ── Case-insensitive price/image lookup helpers
+function buildNinjaLookup() {
+  const lower = {};
+  for (const [name, price] of Object.entries(ninjaPrices)) {
+    lower[name.toLowerCase()] = { price, name };
+  }
+  return lower;
+}
+
+function getNinjaPrice(scarabName, lower) {
+  return ninjaPrices[scarabName] ?? lower[scarabName.toLowerCase()]?.price ?? 0;
+}
+
+function getNinjaImage(scarabName) {
+  return ninjaImages[scarabName]
+    || ninjaImages[Object.keys(ninjaImages).find(k => k.toLowerCase() === scarabName.toLowerCase())]
+    || null;
+}
+
+async function fetchNinja() {
+  const league = document.getElementById('leagueSelect').value;
+  const status = document.getElementById('ninjaStatus');
+  const btn    = document.getElementById('refreshBtn');
+  status.textContent = 'Loading prices from poe.ninja…'; status.className = 'ninja-status loading';
+  btn.disabled = true;
+
+  const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
+  const log = [];
+  const cb = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
+
+  function applyPrices(rawPrices, rawImages, label) {
+    const matchCount = Object.keys(rawPrices).filter(n => ourNames.has(n.toLowerCase())).length;
+    if (matchCount < 10) { log.push(`[${label}] only ${matchCount} matched`); return false; }
+    const top3 = Object.entries(rawPrices).filter(([n]) => ourNames.has(n.toLowerCase())).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    log.push(`[${label}] OK — ${matchCount} matched. Top: ${top3.map(([n,p])=>`${n.split(' ').pop()}=${p.toFixed(1)}c`).join(', ')}`);
+    ninjaPrices = rawPrices;
+    ninjaImages = rawImages;
+    ninjaLoaded = true;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
+    status.className = 'ninja-status loaded';
+    clearInterval(window._ninjaAgeTicker);
+    window._ninjaPriceTime = now;
+    window._ninjaAgeTicker = setInterval(() => {
+      const mins = Math.floor((Date.now() - window._ninjaPriceTime) / 60000);
+      const statusEl = document.getElementById('ninjaStatus');
+      if (!statusEl) return;
+      if (mins < 1) statusEl.textContent = `Prices loaded from poe.ninja · just now`;
+      else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja · 1 min ago`;
+      else statusEl.textContent = `Prices loaded from poe.ninja · ${mins} mins ago`;
+    }, 30000);
+    populateDebugPanel();
+    renderNinja();
+    btn.disabled = false;
+    // Fetch divine orb rate in background — don't block scarab render
+    if (WORKER_URL) {
+      fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Currency`, { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          try {
+            const { rawPrices } = parseWorkerResponse(data);
+            const d = rawPrices['Divine Orb'];
+            if (d && d > 50) {
+              ninjaDivineRate = d;
+              calcEstimator();
+            }
+          } catch(e) { /* silent */ }
+        })
+        .catch(() => { /* silent */ });
+    }
+    return true;
+  }
+
+  // 1. Cloudflare Worker (new format)
+  if (WORKER_URL) {
+    try {
+      status.textContent = 'Trying Cloudflare Worker…';
+      const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        try {
+          const { rawPrices, rawImages } = Array.isArray(data.items) && data.items.length > 0
+            ? parseWorkerResponse(data)
+            : parseOldNinjaResponse(JSON.stringify(data), false);
+          if (applyPrices(rawPrices, rawImages, 'Worker')) { btn.disabled = false; return; }
+        } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
+      } else { log.push(`[Worker] HTTP ${res.status}`); }
+    } catch(e) { log.push(`[Worker] ${e.message}`); }
+  }
+
+  // 2. Public proxy fallbacks
+  const fallbacks = [
+    { label: 'corsproxy.io',   url: `https://corsproxy.io/?url=${encodeURIComponent(ninjaUrl)}` },
+    { label: 'allorigins/get', url: `https://api.allorigins.win/get?url=${encodeURIComponent(ninjaUrl)}`, unwrap: true },
+    { label: 'allorigins/raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(ninjaUrl)}` },
+    { label: 'codetabs',       url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(ninjaUrl)}` },
+  ];
+  for (const attempt of fallbacks) {
+    try {
+      status.textContent = `Trying ${attempt.label}…`;
+      const res = await fetch(attempt.url, { cache: 'no-store' });
+      if (!res.ok) { log.push(`[${attempt.label}] HTTP ${res.status}`); continue; }
+      const text = await res.text();
+      try {
+        const { rawPrices, rawImages } = parseOldNinjaResponse(text, attempt.unwrap);
+        if (applyPrices(rawPrices, rawImages, attempt.label)) { btn.disabled = false; return; }
+      } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
+    } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
+  }
+
+  status.textContent = 'Failed to load prices from poe.ninja'; status.className = 'ninja-status error';
+  const logHtml = log.map(l => `<div style="margin:3px 0;font-size:10px;color:var(--text-3);font-family:monospace;word-break:break-all">${l}</div>`).join('');
+  document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">⚠ Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
+  btn.disabled = false;
+}
+
+function getNinjaEntries() {
+  const lower = buildNinjaLookup();
+  return SCARAB_LIST.map(s => {
+    // Manual override takes priority over poe.ninja price
+    const p = getP(s.name);
+    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
+    const ninjaPrice = getNinjaPrice(s.name, lower);
+    const chaosEa = manualPrice > 0 ? manualPrice : ninjaPrice;
+    return { ...s, chaosEa, isManualOverride: manualPrice > 0 };
+  });
+}
+
+function setNinjaSort(col) {
+  // cycle: null → asc → desc → null (back to grouped)
+  if (ninjaSort === null || !ninjaSort.startsWith(col)) {
+    ninjaSort = col + '-asc';
+  } else if (ninjaSort === col + '-asc') {
+    ninjaSort = col + '-desc';
+  } else {
+    ninjaSort = null;
+  }
+  updateSortArrows();
+  renderNinja();
+}
+
+function updateSortArrows() {
+  ['group','cea','diff'].forEach(col => {
+    const el = document.getElementById(`n-sa-${col}`);
+    if (!el) return;
+    if (ninjaSort && ninjaSort.startsWith(col)) {
+      el.textContent = ninjaSort.endsWith('asc') ? '▲' : '▼';
+      el.className = 'sort-arrow active';
+    } else {
+      el.textContent = '⇅';
+      el.className = 'sort-arrow';
+    }
+  });
+}
+
+function recalcNinja() {
+  const entries = getNinjaEntries();
+  const priced = entries.filter(e => e.chaosEa > 0);
+  const calcedEV = calcEV(priced);
+  const ev = ninjaEvOverride !== null ? ninjaEvOverride : calcedEV;
+  const threshold = ev !== null ? ev : null;
+  const belowEv = ev !== null ? priced.filter(e => e.chaosEa <= ev) : [];
+
+  const evLabel = ninjaEvOverride !== null ? ev.toFixed(2)+'c ⚡' : (calcedEV !== null ? calcedEV.toFixed(2)+'c' : '—');
+  const statEV = document.getElementById('n-statEV'); if (statEV) statEV.textContent = evLabel;
+  const statTgt = document.getElementById('n-statTargets'); if (statTgt) statTgt.textContent = ev !== null ? belowEv.length : '—';
+  const threshEl = document.getElementById('n-statThresh'); if (threshEl) threshEl.textContent = threshold !== null ? threshold.toFixed(2)+'c' : '—';
+  const visitsEl = document.getElementById('n-statVisits'); if (visitsEl) { const estQty = parseInt(document.getElementById('estimatorInput')?.value)||7500; visitsEl.textContent = '~'+Math.ceil(estQty/180).toLocaleString(); }
+  const avgInEl = document.getElementById('n-statAvgInput');
+  if (avgInEl) { const vp = belowEv.map(e=>e.chaosEa).filter(p=>p>0); avgInEl.textContent = vp.length ? (vp.reduce((s,p)=>s+p,0)/vp.length).toFixed(3)+'c' : '—'; }
+  const statProfEl = document.getElementById('n-statEstProfit'); if (statProfEl) statProfEl.textContent = '—';
+  // Muted EV + vendor targets in table header
+  const headerMeta = document.getElementById('n-headerMeta');
+  if (headerMeta && ev !== null) headerMeta.textContent = `EV ${ev.toFixed(2)}c · ${belowEv.length} vendor`;
+
+  const aboveEv = priced.filter(e => e.chaosEa > ev);
+  updateRegexUI('n', belowEv.map(e => e.name), aboveEv.map(e => e.name));
+  syncSliderToEV(ev);
+  return { ev, belowEv, priced };
+}
+
+function toggleDebug() {
+  const panel = document.getElementById('debugPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function populateDebugPanel() {
+  const names = Object.keys(ninjaPrices).sort((a,b) => ninjaPrices[b] - ninjaPrices[a]);
+  const ourNamesLower = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
+  const lower = buildNinjaLookup();
+
+  document.getElementById('debugContent').innerHTML = names
+    .map(n => `<div style="${ourNamesLower.has(n.toLowerCase())?'color:var(--green)':'color:var(--amber)'}">${n}: ${ninjaPrices[n].toFixed(1)}c</div>`)
+    .join('');
+
+  const unmatched = SCARAB_LIST.filter(s => !ninjaPrices[s.name] && !lower[s.name.toLowerCase()]);
+  document.getElementById('debugUnmatched').innerHTML = unmatched.length > 0
+    ? unmatched.map(s => `<div>${s.name}</div>`).join('')
+    : '<div style="color:var(--green)">All matched!</div>';
+
+  const notInOurList = names.filter(n => !ourNamesLower.has(n.toLowerCase()));
+  if (notInOurList.length > 0) {
+    document.getElementById('debugUnmatched').innerHTML +=
+      `<div style="margin-top:8px;color:var(--ninja-accent)"><strong>In API but not our list (new scarabs?):</strong><br>${notInOurList.map(n=>`${n}: ${ninjaPrices[n].toFixed(1)}c`).join('<br>')}</div>`;
+  }
+
+  const debugBtn = document.getElementById('debugBtn');
+  if (debugBtn) debugBtn.style.display = '';
+}
+
+
+function renderNinja() {
+  const { ev, belowEv } = recalcNinja();
+  const filter = document.getElementById('n-filter').value.toLowerCase();
+
+  if (!ninjaLoaded) {
+    document.getElementById('n-tableBody').innerHTML = '<div class="empty-row">Click Refresh to load poe.ninja prices.</div>';
+    return;
+  }
+
+  const lower = buildNinjaLookup();
+  const tbody = document.getElementById('n-tableBody');
+  tbody.innerHTML = '';
+
+  // Build flat item list
+  let items = [];
+  for (const s of SCARAB_LIST) {
+    const p = getP(s.name);
+    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
+    const ninjaPrice = getNinjaPrice(s.name, lower) || null;
+    const cea = manualPrice > 0 ? manualPrice : ninjaPrice;
+    const isV = cea !== null && ev !== null && cea <= ev;
+    const isManual = manualPrice > 0;
+    if (ninjaView === 'vendor' && !isV) continue;
+    if (ninjaView === 'keep' && isV) continue;
+    if (filter && !s.name.toLowerCase().includes(filter)) continue;
+    items.push({ ...s, cea, isV, isManual, ninjaPrice });
+  }
+
+  if (!items.length) { tbody.innerHTML='<div class="empty-row">No scarabs match the filter.</div>'; return; }
+
+  // SORTED flat view
+  if (ninjaSort !== null) {
+    const [col, dir] = ninjaSort.split('-');
+    const asc = dir === 'asc';
+    items.sort((a, b) => {
+      let va, vb;
+      if (col === 'cea') {
+        va = a.cea ?? Infinity; vb = b.cea ?? Infinity;
+      } else if (col === 'diff') {
+        va = (a.cea !== null && ev !== null) ? a.cea - ev : Infinity;
+        vb = (b.cea !== null && ev !== null) ? b.cea - ev : Infinity;
+      } else if (col === 'group') {
+        va = a.group; vb = b.group;
+        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      }
+      return asc ? va - vb : vb - va;
+    });
+
+    for (const s of items) {
+      tbody.appendChild(makeNinjaRow(s, ev));
+    }
+    return;
+  }
+
+  // GROUPED view (default)
+  const activeOrder = sortMode === 'alpha' ? ALPHA_ORDER : INGAME_ORDER;
+  const groups = {};
+  for (const s of items) {
+    if (!groups[s.group]) groups[s.group] = [];
+    groups[s.group].push(s);
+  }
+  const gnames = Object.keys(groups).sort((a,b) => {
+    const ia = activeOrder.indexOf(a); const ib = activeOrder.indexOf(b);
+    return (ia===-1?999:ia) - (ib===-1?999:ib);
+  });
+
+  for (const gname of gnames) {
+    const gitems = groups[gname];
+    const collapsed = collapsedN.has(gname);
+    const gh = document.createElement('div');
+    gh.className = 'group-header'+(collapsed?' collapsed':'');
+    const vendorCount = gitems.filter(i=>i.isV).length;
+    const manualCount = gitems.filter(i=>i.isManual).length;
+    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${gitems.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">▼</span>`;
+    gh.onclick = () => { collapsedN.has(gname)?collapsedN.delete(gname):collapsedN.add(gname); renderNinja(); };
+    tbody.appendChild(gh);
+    if (collapsed) continue;
+    for (const s of gitems) {
+      tbody.appendChild(makeNinjaRow(s, ev));
+    }
+  }
+}
+
+// Global tracker for whichever price cell is currently open
+let _activeOverrideCell = null;
+
+function closeActiveOverride() {
+  if (_activeOverrideCell) {
+    _activeOverrideCell();
+    _activeOverrideCell = null;
+  }
+}
+
+function makeNinjaRow(s, ev) {
+  const row = document.createElement('div');
+  row.className = 'scarab-row ninja-row'+(s.isV?' vendor-target':'');
+
+  let diffHtml = '<span style="color:var(--text-3)">—</span>';
+  if (s.cea !== null && ev !== null) {
+    const d = s.cea - ev;
+    diffHtml = d<=0 ? `<span class="ev-diff below">▼ ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">▲ ${d.toFixed(2)}c</span>`;
+  }
+
+  const imgSrc = getNinjaImage(s.name) || `${CDN}${s.icon}`;
+  const p = getP(s.name);
+  const hasOverride = p.cost > 0 && p.qty > 0;
+  const priceDisplay = s.cea !== null ? s.cea.toFixed(2)+'c' : '—';
+
+  const priceCell = document.createElement('div');
+  priceCell.className = 'td right';
+
+  function showStatic() {
+    priceCell.innerHTML = `
+      <div class="price-cell">
+        <span class="price-val${hasOverride ? ' overridden' : ''}">${priceDisplay}</span>
+        ${hasOverride ? `<button class="price-trash" title="Clear override">🗑</button>` : ''}
+      </div>`;
+
+    priceCell.querySelector('.price-cell').addEventListener('click', (e) => {
+      if (e.target.classList.contains('price-trash')) return;
+      closeActiveOverride(); // close any other open cell first
+      showEditing();
+    });
+
+    const trash = priceCell.querySelector('.price-trash');
+    if (trash) {
+      trash.addEventListener('click', (e) => {
+        e.stopPropagation();
+        delete prices[s.name];
+        savePrices();
+        recalcNinja();
+        renderNinja();
+      });
+    }
+  }
+
+  function showEditing() {
+    const existingQty = hasOverride ? p.qty : '';
+    const existingCost = hasOverride ? p.cost : '';
+
+    priceCell.innerHTML = `
+      <div class="override-inputs">
+        <input class="override-qty" type="number" step="1" min="1" placeholder="qty" value="${existingQty}">
+        <span class="override-sep">:</span>
+        <input class="override-cost" type="number" step="0.01" min="0" placeholder="chaos" value="${existingCost}">
+        <button class="override-confirm">✓</button>
+        ${hasOverride ? `<button class="override-clear" title="Clear override">🗑</button>` : ''}
+      </div>`;
+
+    const qtyEl = priceCell.querySelector('.override-qty');
+    const costEl = priceCell.querySelector('.override-cost');
+    const confirmBtn = priceCell.querySelector('.override-confirm');
+    const clearBtn = priceCell.querySelector('.override-clear');
+
+    // When qty is focused, auto-fill chaos with 1 if empty
+    qtyEl.addEventListener('focus', () => {
+      if (!costEl.value) costEl.value = '1';
+    });
+    // When chaos is focused, auto-fill qty with 1 if empty
+    costEl.addEventListener('focus', () => {
+      if (!qtyEl.value) qtyEl.value = '1';
+    });
+
+    function commit() {
+      _activeOverrideCell = null;
+      const qty = Math.max(1, parseInt(qtyEl.value)||1);
+      const cost = Math.max(0, parseFloat(costEl.value)||0);
+      if (cost > 0) {
+        if (!prices[s.name]) prices[s.name] = { qty:1, cost:0 };
+        prices[s.name].qty = qty;
+        prices[s.name].cost = cost;
+        savePrices();
+      }
+      recalcNinja();
+      renderNinja();
+    }
+
+    function cancel() {
+      _activeOverrideCell = null;
+      recalcNinja();
+      renderNinja();
+    }
+
+    _activeOverrideCell = cancel;
+
+    confirmBtn.addEventListener('click', (e) => { e.stopPropagation(); commit(); });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _activeOverrideCell = null;
+        delete prices[s.name];
+        savePrices();
+        recalcNinja();
+        renderNinja();
+      });
+    }
+
+    priceCell.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+
+    priceCell.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  showStatic();
+
+  row.innerHTML = `
+    <div class="td icon-cell">
+      <div class="icon-wrap"><img class="scarab-icon" src="${imgSrc}" alt="" loading="lazy" onerror="this.style.opacity='0.15'"></div>
+    </div>
+    <div class="td"><div class="scarab-name-cell">
+      <span class="vendor-dot"></span>
+      <span class="scarab-name">${s.name}</span>
+      ${s.isNew?'<span class="new-badge">NEW</span>':''}
+    </div></div>
+    <div class="td" style="color:var(--text-3);font-size:11px">${s.group}</div>
+  `;
+  row.appendChild(priceCell);
+  row.insertAdjacentHTML('beforeend', `
+    <div class="td center">${diffHtml}</div>
+    <div class="td center"><span class="vendor-badge">VENDOR</span></div>
+  `);
+  return row;
+}
+
+function setNinjaView(v) {
+  ninjaView = v;
+  ['all','vendor','keep'].forEach(m => {
+    document.getElementById(`n-view${m.charAt(0).toUpperCase()+m.slice(1)}`).classList.toggle('active', m===v);
+  });
+  renderNinja();
+}
+
+
+// ══════════════════════════════════════════════════
+// THRESHOLD SLIDER
+// ══════════════════════════════════════════════════
+// Replaces the manual EV override — slider controls ninjaEvOverride live
+
+function initSlider() {
+  const marker = document.getElementById('sliderMarker');
+  if (!marker) return;
+  marker.style.display = 'none';
+  // Show a default ROI reading while ninja loads
+  updateSliderROI(0.38);
+}
+
+function positionMarker(ev) {
+  const marker = document.getElementById('sliderMarker');
+  const slider = document.getElementById('thresholdSlider');
+  if (!marker || !slider) return;
+  const pct = Math.min(1, Math.max(0, ev)); // ev is 0.0–1.0
+  const thumbW = 14; // matches CSS width in px
+  // Browser positions thumb left edge at: pct * (trackW - thumbW)
+  // So thumb center is at: pct * (trackW - thumbW) + thumbW/2
+  // As a percentage of trackW: pct * (1 - thumbW/trackW) + (thumbW/2)/trackW
+  // Simplified with CSS calc: calc(pct*100% * (100% - thumbW) / 100% + thumbW/2)
+  marker.style.display = '';
+  marker.style.left = `calc(${pct * 100}% - ${thumbW * pct}px + ${thumbW / 2}px)`;
+  marker.setAttribute('data-label', 'auto EV ' + ev.toFixed(2) + 'c');
+}
+
+function onSliderChange(val) {
+  const t = val / 100;
+  document.getElementById('sliderValueDisplay').textContent = t.toFixed(2) + 'c';
+  updateSliderROI(t);
+
+  // If dragged back to same integer position as auto EV — snap back to auto mode
+  const autoEV = calcAutoEV();
+  const autoRounded = autoEV ? Math.round(autoEV * 100) : null;
+  if (autoRounded !== null && parseInt(val) === autoRounded) {
+    ninjaEvOverride = null;
+    try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
+    document.getElementById('thresholdModeLabel').textContent = 'auto EV';
+    document.getElementById('sliderResetBtn').style.display = 'none';
+    recalcNinja();
+    renderNinja();
+    const qty = csvVendorQty !== null ? csvVendorQty : 7500;
+    renderEstimator(qty, getDivineRate(), autoEV);
+    return;
+  }
+
+  ninjaEvOverride = t;
+  try { localStorage.setItem('poepool28v2-ninja-evoverride', t); } catch(e) {}
+  document.getElementById('thresholdModeLabel').textContent = 'manual';
+  document.getElementById('sliderResetBtn').style.display = '';
+  recalcNinja();
+  renderNinja();
+  const qty = csvVendorQty !== null ? csvVendorQty : 7500;
+  renderEstimator(qty, getDivineRate(), t);
+}
+
+function resetSlider() {
+  ninjaEvOverride = null;
+  try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
+  document.getElementById('thresholdModeLabel').textContent = 'auto EV';
+  document.getElementById('sliderResetBtn').style.display = 'none';
+  // Snap slider to auto EV value
+  const autoEV = calcAutoEV();
+  if (autoEV) {
+    const sliderVal = Math.round(autoEV * 100);
+    document.getElementById('thresholdSlider').value = Math.min(100, Math.max(0, sliderVal));
+    document.getElementById('sliderValueDisplay').textContent = autoEV.toFixed(2) + 'c';
+    updateSliderROI(autoEV);
+  }
+  recalcNinja();
+  renderNinja();
+  calcEstimator();
+}
+
+function calcAutoEV() {
+  // Same logic as recalcNinja but just return the EV value
+  const lower = buildNinjaLookup();
+  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
+  const priced = entries.filter(e => e.chaosEa > 0);
+  return calcEV(priced);
+}
+
+function updateSliderROI(threshold) {
+  const autoEV  = calcAutoEV() || 0.38;
+  const warnEnd = autoEV + 0.10;
+  const roiEl   = document.getElementById('sliderROI');
+
+  if (roiEl) {
+    if (threshold <= autoEV) {
+      const avgInput = threshold * 0.55;
+      const estROI   = avgInput > 0 ? Math.round((autoEV - avgInput) / avgInput * 100) : 0;
+      roiEl.textContent = `~${estROI}% est. ROI`;
+      roiEl.className = 'threshold-roi roi-good';
+    } else if (threshold <= warnEnd) {
+      roiEl.textContent = `break-even zone`;
+      roiEl.className = 'threshold-roi roi-warn';
+    } else {
+      roiEl.textContent = `sell > vendor`;
+      roiEl.className = 'threshold-roi roi-bad';
+    }
+  }
+
+  // Color bar — green up to autoEV, amber from autoEV to autoEV+0.10, red beyond
+  // Use strict greater-than so at exactly autoEV the bar is all green
+  const cur    = Math.min(1, Math.max(0, threshold));
+  const greenW = Math.min(autoEV, cur) * 100;
+  const amberW = threshold > autoEV ? Math.min(warnEnd - autoEV, cur - autoEV) * 100 : 0;
+  const redW   = threshold > warnEnd ? (cur - warnEnd) * 100 : 0;
+
+  document.getElementById('roiSegGreen').style.width = greenW + '%';
+  document.getElementById('roiSegAmber').style.width = amberW + '%';
+  document.getElementById('roiSegRed').style.width   = redW   + '%';
+}
+
+function syncSliderToEV(ev) {
+  if (ninjaEvOverride !== null) {
+    updateSliderROI(ninjaEvOverride);
+    const qty = csvVendorQty !== null ? csvVendorQty : 7500;
+    renderEstimator(qty, getDivineRate(), ninjaEvOverride);
+    return;
+  }
+  const slider = document.getElementById('thresholdSlider');
+  if (!slider || !ev) return;
+  const val = Math.min(100, Math.max(0, Math.round(ev * 100)));
+  slider.value = val;
+  document.getElementById('sliderValueDisplay').textContent = ev.toFixed(2) + 'c';
+  updateSliderROI(ev);
+  // Defer marker until layout is complete
+  requestAnimationFrame(() => positionMarker(ev));
+  const qty = csvVendorQty !== null ? csvVendorQty : 7500;
+  renderEstimator(qty, getDivineRate(), ev);
+}
+
+// ══════════════════════════════════════════════════
+// PROFIT ESTIMATOR
+// ══════════════════════════════════════════════════
+// Calibrated from 2 real sessions:
+//   Session A: 9d 47c in → 14d 76c out = +56% ROI
+//   Session B: 8d 73c in → 14d  0c out = +60% ROI
+// Rate: 0.3753c keeper value per original scarab input
+
+let csvVendorQty = null;
+
+function toggleEstimator() {
+  document.getElementById('estimatorPanel').classList.toggle('collapsed');
+}
+
+function getDivineRate() {
+  return ninjaDivineRate || null;
+}
+
+function fmtEst(chaos, divRate) {
+  if (!divRate) return Math.round(chaos) + 'c';
+  const d = chaos / divRate;
+  return d >= 1 ? d.toFixed(1) + 'd' : Math.round(chaos) + 'c';
+}
+
+function importWealthyCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  const reader = new FileReader();
+  reader.onload = (e) => parseWealthyCSV(e.target.result);
+  reader.readAsText(file);
+}
+
+function parseWealthyCSV(text) {
+  const lower = buildNinjaLookup();
+  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
+  const priced = entries.filter(e => e.chaosEa > 0);
+  const autoEV = calcEV(priced);
+  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+
+  const vendorSet = new Set();
+  for (const s of SCARAB_LIST) {
+    const p = getP(s.name);
+    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
+    const cea = manualPrice > 0 ? manualPrice : getNinjaPrice(s.name, lower);
+    if (cea > 0 && threshold !== null && cea <= threshold) vendorSet.add(s.name);
+  }
+
+  const lines = text.replace(/^\uFEFF/, '').split('\n').slice(1);
+  const found = [];
+  let totalQty = 0;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.match(/"([^"]*)"/g);
+    if (!cols || cols.length < 5) continue;
+    const name  = cols[0].replace(/"/g, '').trim();
+    const qty   = parseInt(cols[2].replace(/"/g, '')) || 0;
+    const total = parseFloat(cols[4].replace(/"/g, '')) || 0;
+    if (vendorSet.has(name) && qty > 0) {
+      found.push({ name, qty, priceEa: qty > 0 && total > 0 ? total/qty : 0 });
+      totalQty += qty;
+    }
+  }
+
+  if (found.length === 0) {
+    const st = document.getElementById('n-infoText');
+    if (st) st.innerHTML = '⚠ No vendor targets found in CSV — load poe.ninja prices first';
+    return;
+  }
+
+  csvVendorQty = totalQty;
+  window._csvFoundItems = found; // store for re-render on slider change
+
+  const st = document.getElementById('csvStatus');
+  if (st) st.textContent = `${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
+  document.getElementById('csvClearBtn').style.display = '';
+  // Show breakdown collapsed by default
+  document.getElementById('csvBreakdown').style.display = '';
+  document.getElementById('csvBreakdownTable').style.display = 'none';
+  renderCSVBreakdown();
+  calcEstimator();
+}
+
+function toggleCSVBreakdown() {
+  const table = document.getElementById('csvBreakdownTable');
+  const chevron = document.getElementById('csvBreakdownChevron');
+  if (!table) return;
+  const open = table.style.display !== 'none';
+  table.style.display = open ? 'none' : '';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function renderCSVBreakdown() {
+  const found = window._csvFoundItems;
+  if (!found) return;
+  const lower = buildNinjaLookup();
+  // Update header label
+  const st = document.getElementById('csvStatus');
+  const totalQty = found.reduce((s, f) => s + f.qty, 0);
+  if (st) {
+    const chevron = document.getElementById('csvBreakdownChevron');
+    st.innerHTML = `<span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s${document.getElementById('csvBreakdownTable')?.style.display !== 'none' ? ';transform:rotate(90deg)' : ''}">${chevron?.innerHTML || '▶'}</span> ${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
+  }
+  document.getElementById('csvBreakdownTable').innerHTML = found.map(f => {
+    const livePrice = getNinjaPrice(f.name, lower);
+    const priceStr = livePrice > 0 ? livePrice.toFixed(2) + 'c' : '—';
+    return `<div style="display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);padding:2px 0">
+      <span>${f.name}</span>
+      <span style="color:var(--text-2);white-space:nowrap;font-weight:500">${f.qty.toLocaleString()} × ${priceStr}</span>
+    </div>`;
+  }).join('');
+}
+
+function clearCSV() {
+  csvVendorQty = null;
+  window._csvFoundItems = null;
+  const st = document.getElementById('csvStatus');
+  if (st) st.textContent = '';
+  document.getElementById('csvClearBtn').style.display = 'none';
+  document.getElementById('csvBreakdown').style.display = 'none';
+  calcEstimator();
+}
+
+function calcEstimator() {
+  const qty = csvVendorQty !== null ? csvVendorQty : 7500;
+  const lower = buildNinjaLookup();
+  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
+  const priced = entries.filter(e => e.chaosEa > 0);
+  const autoEV = calcEV(priced);
+  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+  renderCSVBreakdown();
+  renderEstimator(qty, getDivineRate(), threshold);
+}
+
+function renderEstimator(qty, divRate, threshold) {
+  const RATE = 0.3753;
+  const divRateEl = document.getElementById('est-divine-rate-wrap');
+  if (divRateEl) divRateEl.textContent = divRate ? `1d = ${divRate.toFixed(0)}c` : '';
+
+  const inputEl = document.getElementById('est-input');
+  const inputSub = document.getElementById('est-input-sub');
+  const retEl   = document.getElementById('est-return');
+  const profEl  = document.getElementById('est-profit');
+  const statProfEl  = document.getElementById('n-statEstProfit');
+  const statProfSub = document.getElementById('n-statEstProfitSub');
+  const isPlaceholder = csvVendorQty === null;
+
+  const lower = buildNinjaLookup();
+  const vendorPrices = SCARAB_LIST
+    .map(s => {
+      const p = getP(s.name);
+      const manual = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
+      return manual > 0 ? manual : (getNinjaPrice(s.name, lower) || 0);
+    })
+    .filter(p => p > 0 && threshold !== null && p <= threshold);
+
+  const avgInputPrice = vendorPrices.length
+    ? vendorPrices.reduce((s, p) => s + p, 0) / vendorPrices.length
+    : 0.22;
+
+  const inputCost = qty * avgInputPrice;
+  const retChaos  = qty * RATE;
+  const profChaos = retChaos - inputCost;
+  const roiPct    = inputCost > 0 ? (profChaos / inputCost * 100) : 0;
+
+  if (inputEl) inputEl.textContent = qty.toLocaleString();
+  if (inputSub) inputSub.textContent = isPlaceholder ? 'placeholder — import CSV for real data' : 'from your Wealthy Exile CSV';
+  if (inputSub) inputSub.style.color = isPlaceholder ? 'var(--amber)' : 'var(--text-3)';
+  if (retEl)   retEl.textContent   = fmtEst(retChaos, divRate);
+  if (profEl) {
+    profEl.textContent = (profChaos >= 0 ? '+' : '') + fmtEst(Math.abs(profChaos), divRate);
+    profEl.className   = 'estimator-card-value ' + (profChaos >= 0 ? 'val-profit' : 'val-roi');
+  }
+  if (statProfEl) {
+    statProfEl.textContent = (profChaos >= 0 ? '+' : '') + fmtEst(Math.abs(profChaos), divRate);
+    statProfEl.className   = 'stat-value ' + (profChaos >= 0 ? 'green' : 'red');
+  }
+  if (statProfSub) statProfSub.textContent = `at ${qty.toLocaleString()} qty`;
+}
+function copyRegex(tab) {
+  const prefix = tab === 'manual' ? 'm' : 'n';
+  const body = document.getElementById(`${prefix}-regexBody`);
+  if (body.querySelector('.regex-empty-msg')) return;
+  navigator.clipboard.writeText(body.textContent).then(() => {
+    const btn = document.getElementById(`${prefix}-copyBtn`);
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('copied'); }, 1500);
+    const t = document.getElementById('toast');
+    t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+// Restore manual EV override
+if (evOverride !== null) {
+  const inp = document.getElementById('evOverrideInput');
+  if (inp) {
+    inp.value = evOverride;
+    document.getElementById('evOverrideActive').textContent = `Active: ${evOverride.toFixed(2)}c threshold`;
+    document.getElementById('evOverrideActive').style.display = '';
+    document.getElementById('evClearBtn').style.display = '';
+  }
+}
+// Restore ninja EV override to slider position if saved
+if (ninjaEvOverride !== null) {
+  const sliderVal = Math.min(100, Math.max(0, Math.round(ninjaEvOverride * 100)));
+  const slider = document.getElementById('thresholdSlider');
+  if (slider) {
+    slider.value = sliderVal;
+    const display = document.getElementById('sliderValueDisplay');
+    if (display) display.textContent = ninjaEvOverride.toFixed(2) + 'c';
+    const modeLabel = document.getElementById('thresholdModeLabel');
+    if (modeLabel) modeLabel.textContent = 'manual';
+    const resetBtn = document.getElementById('sliderResetBtn');
+    if (resetBtn) resetBtn.style.display = '';
+  }
+}
+// ══════════════════════════════════════════════════
+// EV HISTORY CHART
+// ══════════════════════════════════════════════════
+
+let _evChartInstance = null;
+
+function toggleEVChart() {
+  document.getElementById('evChartPanel').classList.toggle('collapsed');
+}
+
+async function fetchAndRenderEVChart() {
+  const league = document.getElementById('leagueSelect')?.value || 'Mirage';
+  if (!WORKER_URL) return;
+  try {
+    const res = await fetch(`${WORKER_URL}?type=EVHistory&league=${encodeURIComponent(league)}`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const history = data.history || [];
+    if (!history.length) {
+      // No real data yet — render demo data so the chart is visible
+      const demo = [];
+      const evValues = [0.44,0.43,0.42,0.44,0.45,0.43,0.41,0.40,0.42,0.41,0.39,0.38,0.40,0.41,0.42,0.43,0.41,0.40,0.39,0.41,0.42,0.40,0.39,0.38,0.40,0.41,0.39,0.38,0.37,0.39];
+      const now = new Date();
+      for (let i = evValues.length - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        demo.push({ date: d.toISOString().slice(0, 10), ev: evValues[evValues.length - 1 - i], demo: true });
+      }
+      renderEVChart(demo);
+      return;
+    }
+    renderEVChart(history);
+  } catch(e) { /* silent */ }
+}
+
+function renderEVChart(history) {
+  // Sort by date
+  history.sort((a, b) => a.date.localeCompare(b.date));
+  const labels = history.map(h => {
+    const d = new Date(h.date);
+    return `${d.getMonth()+1}/${d.getDate()}`;
+  });
+  const values = history.map(h => h.ev);
+  const latest = values[values.length - 1];
+  const earliest = values[0];
+  const trend = latest > earliest ? '↑' : latest < earliest ? '↓' : '→';
+  const trendColor = latest > earliest ? '#E24B4A' : latest < earliest ? '#1D9E75' : '#888';
+
+  const isDemo = history.some(h => h.demo);
+  document.getElementById('evChartMeta').innerHTML = isDemo
+    ? `<span style="color:var(--amber)">demo data — real data starts tonight at 7PM UTC</span>`
+    : `${history.length} days · latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? '#525c7a' : '#9aa4c4';
+
+  if (_evChartInstance) {
+    _evChartInstance.destroy();
+    _evChartInstance = null;
+  }
+
+  const ctx = document.getElementById('evHistoryChart');
+  if (!ctx) return;
+
+  _evChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: '#a03ec8',
+        backgroundColor: 'rgba(160,62,200,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: history.length <= 14 ? 3 : 0,
+        pointBackgroundColor: '#a03ec8',
+        borderWidth: 1.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => items[0].label,
+            label: ctx => ` EV: ${ctx.parsed.y.toFixed(3)}c`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 10 }, color: textColor, maxTicksLimit: 10, maxRotation: 0 },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: { font: { size: 10 }, color: textColor, callback: v => v.toFixed(2) + 'c' },
+          grid: { color: gridColor }
+        }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
+
+let _snap1 = null; // parsed CSV map: { scarabName -> qty }
+let _snap2 = null;
+
+function parseSnapCSV(text) {
+  const result = {};
+  const lines = text.replace(/^\uFEFF/, '').split('\n').slice(1);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.match(/"([^"]*)"/g);
+    if (!cols || cols.length < 3) continue;
+    const name = cols[0].replace(/"/g, '').trim();
+    const qty  = parseInt(cols[2].replace(/"/g, '')) || 0;
+    if (name && qty > 0) result[name] = (result[name] || 0) + qty;
+  }
+  return result;
+}
+
+function handleSnap(num, event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = parseSnapCSV(e.target.result);
+    const count = Object.values(data).reduce((s, q) => s + q, 0);
+    if (num === 1) {
+      _snap1 = data;
+      document.getElementById('snap1Text').textContent = `✓ ${file.name} — ${Object.keys(data).length} types`;
+      document.getElementById('snap1Label').classList.add('loaded');
+    } else {
+      _snap2 = data;
+      document.getElementById('snap2Text').textContent = `✓ ${file.name} — ${Object.keys(data).length} types`;
+      document.getElementById('snap2Label').classList.add('loaded');
+    }
+    tryPreview();
+  };
+  reader.readAsText(file);
+}
+
+// Build reverse token map: token -> scarab name
+function buildReverseTokenMap() {
+  const map = {};
+  for (const [name, token] of Object.entries(POE_RE_TOKENS)) {
+    map[token.toLowerCase()] = name;
+  }
+  return map;
+}
+
+function parseRegexToScarabs(regexStr) {
+  // Strip surrounding quotes if present
+  const cleaned = regexStr.trim().replace(/^["']|["']$/g, '');
+  const tokens = cleaned.split('|').map(t => t.trim().toLowerCase()).filter(Boolean);
+  const reverseMap = buildReverseTokenMap();
+  const matched = [];
+  const unmatched = [];
+  for (const tok of tokens) {
+    if (reverseMap[tok]) matched.push(reverseMap[tok]);
+    else unmatched.push(tok);
+  }
+  return { matched, unmatched };
+}
+
+document.getElementById('loggerRegex').addEventListener('input', function() {
+  const val = this.value.trim();
+  if (!val) {
+    document.getElementById('loggerRegexHint').textContent = '';
+    tryPreview();
+    return;
+  }
+  const { matched, unmatched } = parseRegexToScarabs(val);
+  let hint = `${matched.length} scarab types identified`;
+  if (unmatched.length) hint += ` · ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
+  document.getElementById('loggerRegexHint').textContent = hint;
+  tryPreview();
+});
+
+function tryPreview() {
+  const regexVal = document.getElementById('loggerRegex').value.trim();
+  const btn = document.getElementById('loggerSubmitBtn');
+  if (!_snap1 || !_snap2 || !regexVal) {
+    document.getElementById('loggerPreview').style.display = 'none';
+    btn.disabled = true;
+    return;
+  }
+  const { matched: vendorTargets } = parseRegexToScarabs(regexVal);
+  const vendorSet = new Set(vendorTargets);
+  const lower = buildNinjaLookup();
+
+  // Get all scarab names across both snapshots
+  const scarabNameSet = new Set(SCARAB_LIST.map(s => s.name));
+  const allNames = new Set([...Object.keys(_snap1), ...Object.keys(_snap2)]);
+
+  const vendorRows = [];
+  const keeperRows = [];
+  let totalConsumed = 0, totalInputValue = 0, totalOutputValue = 0;
+
+  for (const name of allNames) {
+    // Only process scarabs
+    if (!scarabNameSet.has(name)) continue;
+
+    const before = _snap1[name] || 0;
+    const after  = _snap2[name] || 0;
+    const price  = getNinjaPrice(name, lower) || 0;
+
+    if (vendorSet.has(name)) {
+      const consumed = before;
+      const received = after;
+      const inputVal  = consumed * price;
+      const outputVal = received * price;
+      totalConsumed    += consumed;
+      totalInputValue  += inputVal;
+      totalOutputValue += outputVal;
+      if (consumed > 0 || received > 0) {
+        vendorRows.push({ name, consumed, received, net: after - before, price, inputVal, outputVal });
+      }
+    } else {
+      const received = after - before;
+      if (received > 0) {
+        const outputVal = received * price;
+        totalOutputValue += outputVal;
+        keeperRows.push({ name, received, price, outputVal });
+      }
+    }
+  }
+
+  const totalTrades = Math.round(totalConsumed / 3);
+  const roi = totalInputValue > 0 ? ((totalOutputValue - totalInputValue) / totalInputValue * 100) : 0;
+  const divRate = getDivineRate();
+  const fmt = (c) => divRate && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c) + 'c';
+
+  // Stats row
+  document.getElementById('loggerStats').innerHTML = `
+    <div class="logger-stat"><div class="logger-stat-label">Scarabs In</div><div class="logger-stat-value">${totalConsumed.toLocaleString()}</div></div>
+    <div class="logger-stat"><div class="logger-stat-label">Est. Trades</div><div class="logger-stat-value">${totalTrades.toLocaleString()}</div></div>
+    <div class="logger-stat"><div class="logger-stat-label">Input Value</div><div class="logger-stat-value">${fmt(totalInputValue)}</div></div>
+    <div class="logger-stat"><div class="logger-stat-label">Output Value</div><div class="logger-stat-value">${fmt(totalOutputValue)}</div></div>
+    <div class="logger-stat"><div class="logger-stat-label">ROI</div><div class="logger-stat-value ${roi >= 0 ? 'green' : 'red'}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</div></div>
+  `;
+
+  // Vendor table
+  vendorRows.sort((a, b) => b.consumed - a.consumed);
+  document.getElementById('loggerVendorTable').innerHTML = vendorRows.length
+    ? vendorRows.map(r => `
+      <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 80px 80px;border-bottom:1px solid var(--border);padding:5px 10px;font-size:12px;align-items:center">
+        <span>${r.name}</span>
+        <span style="text-align:right;color:var(--red)">${r.consumed.toLocaleString()}</span>
+        <span style="text-align:right;color:var(--green)">${r.received.toLocaleString()}</span>
+        <span style="text-align:right;color:${r.net >= 0 ? 'var(--green)' : 'var(--red)'};">${r.net >= 0 ? '+' : ''}${r.net}</span>
+        <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '—'}</span>
+        <span style="text-align:right;color:var(--text-2)">${fmt(r.inputVal)}</span>
+      </div>`).join('')
+    : '<div class="empty-row">No vendor targets found</div>';
+
+  // Keeper table
+  keeperRows.sort((a, b) => b.outputVal - a.outputVal);
+  document.getElementById('loggerKeeperTable').innerHTML = keeperRows.length
+    ? keeperRows.map(r => `
+      <div style="display:grid;grid-template-columns:1fr 80px 80px 80px;border-bottom:1px solid var(--border);padding:5px 10px;font-size:12px;align-items:center">
+        <span>${r.name}</span>
+        <span style="text-align:right;color:var(--green)">+${r.received.toLocaleString()}</span>
+        <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '—'}</span>
+        <span style="text-align:right;color:var(--text-2)">${fmt(r.outputVal)}</span>
+      </div>`).join('')
+    : '<div class="empty-row">No keeper outputs found</div>';
+
+  document.getElementById('loggerPreview').style.display = '';
+  btn.disabled = false;
+
+  // Store parsed session for submit
+  window._parsedSession = {
+    threshold: ninjaEvOverride !== null ? ninjaEvOverride : (calcEV(getNinjaEntries().filter(e => e.chaosEa > 0)) || 0),
+    divine_rate: divRate,
+    league: document.getElementById('leagueSelect')?.value || 'Unknown',
+    regex: document.getElementById('loggerRegex').value.trim(),
+    totalConsumed, totalTrades, totalInputValue, totalOutputValue, roi,
+    vendorRows, keeperRows,
+    allRows: [...vendorRows.map(r => ({ name: r.name, consumed: r.consumed, received: r.received, was_vendor: true, ninja_price: r.price })),
+              ...keeperRows.map(r => ({ name: r.name, consumed: 0, received: r.received, was_vendor: false, ninja_price: r.price }))]
+  };
+}
+
+async function submitSession() {
+  const session = window._parsedSession;
+  if (!session) return;
+  const btn = document.getElementById('loggerSubmitBtn');
+  const status = document.getElementById('loggerSubmitStatus');
+  btn.disabled = true;
+  status.textContent = 'Saving…';
+
+  // Hard reject — identical snapshots
+  if (session.totalInputValue > 0 && Math.abs(session.totalOutputValue - session.totalInputValue) < 1 && session.totalConsumed === 0) {
+    status.textContent = '✕ No changes detected between snapshots — session not saved';
+    status.style.color = 'var(--red)';
+    btn.disabled = false;
+    return;
+  }
+
+  // Soft flags — save but exclude from calibration
+  const flags = [];
+  if (session.totalConsumed < 500)
+    flags.push('low sample');
+  if (session.totalInputValue > 0 && Math.abs(session.totalOutputValue - session.totalInputValue) < 1)
+    flags.push('no change detected');
+  const keeperOutputs = session.keeperRows?.length || 0;
+  if (session.totalConsumed >= 500 && keeperOutputs === 0)
+    flags.push('zero keeper outputs');
+  const totalReceived = (session.vendorRows || []).reduce((s, r) => s + r.received, 0)
+                      + (session.keeperRows || []).reduce((s, r) => s + r.received, 0);
+  if (totalReceived > session.totalConsumed)
+    flags.push('outputs > inputs');
+
+  try {
+    const existing = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
+    const record = {
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+      league: session.league,
+      threshold: session.threshold,
+      divine_rate: session.divine_rate,
+      regex: session.regex,
+      total_consumed: session.totalConsumed,
+      total_trades: session.totalTrades,
+      input_value: session.totalInputValue,
+      output_value: session.totalOutputValue,
+      roi_pct: session.roi,
+      flagged: flags.length > 0,
+      flags,
+      scarabs: session.allRows
+    };
+    existing.push(record);
+    localStorage.setItem('poepool-sessions', JSON.stringify(existing));
+    if (flags.length) {
+      status.textContent = `⚠ Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} — excluded from calibration`;
+      status.style.color = 'var(--amber)';
+    } else {
+      status.textContent = `✓ Session saved (${existing.length} total)`;
+      status.style.color = 'var(--green)';
+    }
+    renderSessionHistory();
+    // Reset form
+    _snap1 = _snap2 = null;
+    window._parsedSession = null;
+    document.getElementById('snap1Text').textContent = 'Choose CSV file';
+    document.getElementById('snap2Text').textContent = 'Choose CSV file';
+    document.getElementById('snap1Label').classList.remove('loaded');
+    document.getElementById('snap2Label').classList.remove('loaded');
+    document.getElementById('loggerRegex').value = '';
+    document.getElementById('loggerRegexHint').textContent = '';
+    document.getElementById('loggerPreview').style.display = 'none';
+  } catch(e) {
+    status.textContent = 'Error saving: ' + e.message;
+    status.style.color = 'var(--red)';
+    btn.disabled = false;
+  }
+}
+
+function renderSessionHistory() {
+  const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
+  const el = document.getElementById('loggerHistoryTable');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="logger-history-empty">No sessions logged yet.</div>';
+    return;
+  }
+  const divRate = getDivineRate();
+  const fmt = (c) => divRate && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c) + 'c';
+  const cols = '80px 80px 70px 80px 80px 60px 56px 1fr';
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:${cols};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border)">
+      <span>League</span><span>Scarabs</span><span>Trades</span><span>Input</span><span>Output</span><span>Cutoff</span><span style="text-align:right">ROI</span><span></span>
+    </div>
+    ${sessions.slice().reverse().map((s, i) => {
+      const idx = sessions.length - 1 - i;
+      const flagHtml = s.flagged && s.flags?.length
+        ? `<span style="font-size:10px;color:var(--amber);opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.flags.join(' · ')}">* ${s.flags.join(' · ')}</span>`
+        : '';
+      return `<div>
+        <div onclick="toggleSessionDetail(${idx})" style="display:grid;grid-template-columns:${cols};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s${s.flagged ? ';opacity:0.6' : ''}" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
+          <span>${s.league}</span>
+          <span>${s.total_consumed?.toLocaleString()}</span>
+          <span>${s.total_trades?.toLocaleString()}</span>
+          <span>${fmt(s.input_value)}</span>
+          <span>${fmt(s.output_value)}</span>
+          <span style="color:var(--chaos)">${s.threshold?.toFixed(2)}c</span>
+          <span style="text-align:right;color:${s.roi_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct?.toFixed(1)}%</span>
+          <span style="display:flex;align-items:center;gap:6px;padding-left:8px;min-width:0" onclick="event.stopPropagation()">
+            <button onclick="deleteSession('${s.id}')" title="Delete session" style="font-family:inherit;font-size:14px;padding:2px 4px;border:none;background:transparent;color:var(--text-3);cursor:pointer;opacity:0.4;transition:all 0.15s;line-height:1;flex-shrink:0" onmouseover="this.style.opacity='1';this.style.color='var(--red)'" onmouseout="this.style.opacity='0.4';this.style.color='var(--text-3)'">🗑</button>
+            ${flagHtml}
+          </span>
+        </div>
+        <div id="hist-detail-${idx}" style="display:none;padding:10px 14px 14px;border-bottom:1px solid var(--border);background:var(--bg)">
+          ${renderSessionDetail(s, fmt)}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function deleteSession(id) {
+  const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
+  localStorage.setItem('poepool-sessions', JSON.stringify(sessions.filter(s => s.id !== id)));
+  renderSessionHistory();
+}
+
+function toggleSessionDetail(idx) {
+  const detail  = document.getElementById(`hist-detail-${idx}`);
+  const chevron = document.getElementById(`hist-chevron-${idx}`);
+  if (!detail) return;
+  const open = detail.style.display !== 'none';
+  detail.style.display = open ? 'none' : '';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function renderSessionDetail(s, fmt) {
+  if (!s.scarabs || !s.scarabs.length) return '<div style="font-size:12px;color:var(--text-3)">No scarab data stored.</div>';
+  const scarabNameSet = new Set(SCARAB_LIST.map(sc => sc.name));
+  const vendors = s.scarabs.filter(r => r.was_vendor && scarabNameSet.has(r.name)).sort((a,b) => b.consumed - a.consumed);
+  const keepers = s.scarabs.filter(r => !r.was_vendor && r.received > 0 && scarabNameSet.has(r.name)).sort((a,b) => (b.received*b.ninja_price) - (a.received*a.ninja_price));
+
+  const vendorHTML = vendors.length ? vendors.map(r => `
+    <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
+      <span>${r.name}</span>
+      <span style="text-align:right;color:var(--red)">${r.consumed}</span>
+      <span style="text-align:right;color:var(--green)">${r.received}</span>
+      <span style="text-align:right;color:${(r.received-r.consumed)>=0?'var(--green)':'var(--red)'}">${r.received-r.consumed>=0?'+':''}${r.received-r.consumed}</span>
+      <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'—'}</span>
+    </div>`).join('') : '<div style="font-size:11px;color:var(--text-3);padding:4px 0">None</div>';
+
+  const keeperHTML = keepers.length ? keepers.map(r => `
+    <div style="display:grid;grid-template-columns:1fr 60px 60px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
+      <span>${r.name}</span>
+      <span style="text-align:right;color:var(--green)">+${r.received}</span>
+      <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'—'}</span>
+    </div>`).join('') : '<div style="font-size:11px;color:var(--text-3);padding:4px 0">None</div>';
+
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Vendor targets</div>
+        <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;padding:2px 0;border-bottom:1px solid var(--border);margin-bottom:2px">
+          <span>Scarab</span><span style="text-align:right">In</span><span style="text-align:right">Out</span><span style="text-align:right">Net</span><span style="text-align:right">c/ea</span>
+        </div>
+        ${vendorHTML}
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em">Keeper outputs</div>
+          ${s.divine_rate ? `<div style="font-size:9px;color:var(--text-3);opacity:0.6">1d = ${Math.round(s.divine_rate)}c</div>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 60px 60px;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;padding:2px 0;border-bottom:1px solid var(--border);margin-bottom:2px">
+          <span>Scarab</span><span style="text-align:right">Qty</span><span style="text-align:right">c/ea</span>
+        </div>
+        ${keeperHTML}
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text-3);margin-top:10px">Regex: <span style="color:var(--text-3);font-family:monospace;opacity:0.7">${s.regex || '—'}</span></div>
+  `;
+}
+
+// Init history on load
+renderSessionHistory();
+
+// ══════════════════════════════════════════════════
+// BULK BUY ANALYZER (CSV from Gemini)
+// ══════════════════════════════════════════════════
+
+let _bulkImageFile = null;
+const GEMINI_KEY_STORAGE = 'poepool-gemini-api-key';
+// Optional: set a default key for personal/local use ONLY.
+// Do not share a copy of this file if you populate this value.
+const DEFAULT_GEMINI_API_KEY = '';
+
+function getBulkGeminiKey() {
+  if (DEFAULT_GEMINI_API_KEY && DEFAULT_GEMINI_API_KEY.trim()) return DEFAULT_GEMINI_API_KEY.trim();
+  try { return (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim(); } catch(e) { return ''; }
+}
+
+function onBulkGeminiKeyChange(el) {
+  const v = (el.value || '').trim();
+  try {
+    if (v) localStorage.setItem(GEMINI_KEY_STORAGE, v);
+    else localStorage.removeItem(GEMINI_KEY_STORAGE);
+  } catch(e) {}
+}
+
+function initBulkGeminiKey() {
+  const el = document.getElementById('bulkGeminiKey');
+  if (!el) return;
+  try {
+    const v = getBulkGeminiKey();
+    if (v) el.value = v;
+  } catch(e) {}
+}
+
+function handleBulkImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  _bulkImageFile = file;
+  event.target.value = '';
+  const label = document.getElementById('bulkImageLabel');
+  const textEl = document.getElementById('bulkImageText');
+  if (label) label.classList.add('loaded');
+  if (textEl) textEl.textContent = `Loaded: ${file.name}`;
+}
+
+function buildBulkScarabIndex() {
+  return SCARAB_LIST.map(s => {
+    const nameLower = s.name.toLowerCase();
+    const groupLower = (s.group || '').toLowerCase();
+    // Remove the word "Scarab" anywhere and collapse spaces
+    const short = nameLower.replace(/\bscarab\b/gi, '').replace(/\s+/g, ' ').trim();
+    let suffix = '';
+    const m1 = nameLower.match(/scarab of (.+)$/);
+    if (m1) suffix = ('of ' + m1[1]).trim();
+    const m2 = nameLower.match(/^scarab of (.+)$/);
+    if (m2) suffix = ('of ' + m2[1]).trim();
+    return { ...s, nameLower, groupLower, short, suffix };
+  });
+}
+
+function matchBulkName(rawName, index) {
+  const q = rawName.trim().toLowerCase();
+  if (!q) return null;
+
+  // 1) Exact canonical
+  let hits = index.filter(e => e.nameLower === q);
+  if (hits.length === 1) return hits[0];
+
+  // 2) Exact short name (without "Scarab")
+  hits = index.filter(e => e.short && e.short === q);
+  if (hits.length === 1) return hits[0];
+
+  // 3) Exact suffix ("of X")
+  hits = index.filter(e => e.suffix && e.suffix === q);
+  if (hits.length === 1) return hits[0];
+
+  // 4) Exact group name -> base scarab for that group
+  hits = index.filter(e => e.groupLower && e.groupLower === q && /scarab$/.test(e.name));
+  if (hits.length === 1) return hits[0];
+
+  // 5) Fuzzy: query contained in canonical or short
+  hits = index.filter(e =>
+    e.nameLower.includes(q) ||
+    (e.short && e.short.includes(q)) ||
+    (e.suffix && e.suffix.includes(q))
+  );
+  if (hits.length === 1) return hits[0];
+
+  return null;
+}
+
+function parseBulkCsv(text) {
+  const lines = text.replace(/^\uFEFF/, '').split('\n');
+  const rows = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const parts = line.split(',');
+    if (parts.length < 2) continue;
+    const name = parts[0].trim();
+    const qty = parseInt(parts[1].trim(), 10);
+    if (!name || !Number.isFinite(qty) || qty <= 0) continue;
+    rows.push({ rawName: name, qty });
+  }
+  return rows;
+}
+
+function fmtBulkChaos(chaos, divRate) {
+  if (!divRate) return Math.round(chaos) + 'c';
+  const d = chaos / divRate;
+  return d >= 1 ? d.toFixed(1) + 'd' : Math.round(chaos) + 'c';
+}
+
+async function runBulkFromImage() {
+  const errEl = document.getElementById('bulkError');
+  errEl.style.display = 'none';
+
+  if (!_bulkImageFile) {
+    errEl.textContent = 'Upload a TFT listing screenshot first.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const apiKey = getBulkGeminiKey();
+  if (!apiKey) {
+    errEl.textContent = 'Enter your Gemini API key.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const askStr = document.getElementById('bulkAskingChaos').value || '';
+  const askingChaos = parseFloat(askStr);
+  if (!Number.isFinite(askingChaos) || askingChaos <= 0) {
+    errEl.textContent = 'Please enter the total asking price in chaos before analyzing.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('bulkAnalyzeImageBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Analyzing image…';
+  }
+
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = e => reject(e);
+      reader.readAsDataURL(_bulkImageFile);
+    });
+    const base64 = String(dataUrl).split(',')[1];
+	
+	const modelId = 'gemini-2.5-flash';
+    const endpoint = `https://generativelanguage.googleapis.com/v1/models/${modelId}:generateContent?key=` + encodeURIComponent(apiKey);
+    const body = {
+      contents: [
+        {
+          parts: [
+            {
+              text:
+                'This is a Path of Exile TFT bulk scarab listing screenshot. ' +
+                'From the image, extract every scarab row as CSV in the exact format: Name,Qty . ' +
+                'Use the abbreviated names exactly as they appear (e.g. "Horned of Bloodlines", "of Wisps", "Cartography Scarab"). ' +
+                'Only include scarab rows. Do NOT include headers, totals, currency rates, or any explanation. ' +
+                'Return ONLY the CSV rows, one per line.'
+            },
+            {
+              inline_data: {
+                mime_type: _bulkImageFile.type || 'image/png',
+                data: base64
+              }
+            }
+          ]
+        }
+      ]
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Gemini error ${res.status}: ${txt.slice(0, 200)}`);
+    }
+
+    const json = await res.json();
+    const parts = json?.candidates?.[0]?.content?.parts || [];
+    const text = parts.map(p => p.text || '').join('\n').trim();
+    if (!text) throw new Error('No text returned from Gemini.');
+
+    document.getElementById('bulkCsv').value = text;
+    runBulkFromCsv();
+  } catch (e) {
+    errEl.textContent = 'Gemini parse failed: ' + (e.message || e);
+    errEl.style.display = 'block';
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Analyze image via Gemini';
+    }
+  }
+}
+
+function runBulkFromCsv() {
+  const csvText = document.getElementById('bulkCsv').value || '';
+  const askingStr = document.getElementById('bulkAskingChaos').value || '';
+  const errEl = document.getElementById('bulkError');
+  const summaryEl = document.getElementById('bulkSummary');
+  const tableWrap = document.getElementById('bulkTableWrap');
+  const unmatchedEl = document.getElementById('bulkUnmatched');
+  const unmatchedListEl = document.getElementById('bulkUnmatchedList');
+
+  errEl.style.display = 'none';
+  summaryEl.style.display = 'none';
+  tableWrap.style.display = 'none';
+  unmatchedEl.style.display = 'none';
+  unmatchedListEl.textContent = '';
+
+  const rows = parseBulkCsv(csvText);
+  if (!rows.length) {
+    errEl.textContent = 'No valid rows found. Ensure the CSV is in the format "Name,Qty" on each line.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const askingChaos = parseFloat(askingStr);
+  if (!Number.isFinite(askingChaos) || askingChaos <= 0) {
+    errEl.textContent = 'Please enter the total asking price in chaos.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!Object.keys(ninjaPrices || {}).length) {
+    errEl.textContent = 'Load poe.ninja prices first (open the Scarab Vendor tab).';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const lower = buildNinjaLookup();
+  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
+  const priced = entries.filter(e => e.chaosEa > 0);
+  const autoEV = calcEV(priced);
+  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+  if (threshold == null) {
+    errEl.textContent = 'Could not determine harmonic EV — ensure poe.ninja data has loaded.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Build vendor set & price map using same logic as estimator
+  const vendorSet = new Set();
+  const priceMap = {};
+  for (const s of SCARAB_LIST) {
+    const p = getP(s.name);
+    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
+    const cea = manualPrice > 0 ? manualPrice : getNinjaPrice(s.name, lower);
+    if (cea > 0) {
+      priceMap[s.name] = cea;
+      if (cea <= threshold) vendorSet.add(s.name);
+    }
+  }
+
+  const index = buildBulkScarabIndex();
+  const divRate = getDivineRate();
+
+  const matchedRows = [];
+  const unmatched = [];
+
+  for (const r of rows) {
+    const match = matchBulkName(r.rawName, index);
+    if (!match) {
+      unmatched.push(r);
+      continue;
+    }
+    const priceEa = priceMap[match.name] || 0;
+    matchedRows.push({
+      canonical: match,
+      qty: r.qty,
+      priceEa,
+      isVendor: vendorSet.has(match.name)
+    });
+  }
+
+  if (!matchedRows.length) {
+    errEl.textContent = 'No rows could be matched to known scarabs. Double-check the names Gemini returned.';
+    errEl.style.display = 'block';
+    if (unmatched.length) {
+      unmatchedEl.style.display = 'block';
+      unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' · ');
+    }
+    return;
+  }
+
+  let expectedReturn = 0;
+  let totalQty = 0;
+  let vendorQty = 0;
+  let keeperQty = 0;
+
+  const enriched = matchedRows.map(r => {
+    const evUsed = threshold;
+    const valueChaos = r.isVendor
+      ? r.qty * evUsed
+      : r.qty * (r.priceEa || 0);
+    expectedReturn += valueChaos;
+    totalQty += r.qty;
+    if (r.isVendor) vendorQty += r.qty; else keeperQty += r.qty;
+    return { ...r, valueChaos };
+  });
+
+  const net = expectedReturn - askingChaos;
+  const marginPct = askingChaos > 0 ? (net / askingChaos) * 100 : 0;
+
+  // Summary
+  const costLabel = fmtBulkChaos(askingChaos, divRate);
+  const retLabel = fmtBulkChaos(expectedReturn, divRate);
+  const netLabel = fmtBulkChaos(Math.abs(net), divRate);
+
+  document.getElementById('bulkCost').textContent = costLabel;
+  document.getElementById('bulkCostSub').textContent = `${totalQty.toLocaleString()} scarabs`;
+
+  document.getElementById('bulkReturn').textContent = retLabel;
+  document.getElementById('bulkReturnSub').textContent =
+    `Using EV ${threshold.toFixed(2)}c for vendor bucket`;
+
+  const netEl = document.getElementById('bulkNet');
+  netEl.textContent = (net >= 0 ? '+' : '−') + netLabel;
+  netEl.classList.toggle('bulk-summary-profit-pos', net >= 0);
+  netEl.classList.toggle('bulk-summary-profit-neg', net < 0);
+  document.getElementById('bulkNetSub').textContent =
+    `Vendor: ${vendorQty.toLocaleString()} · Keep: ${keeperQty.toLocaleString()}`;
+
+  const marginEl = document.getElementById('bulkMargin');
+  marginEl.textContent = (net >= 0 ? '+' : '') + marginPct.toFixed(1) + '%';
+  marginEl.classList.toggle('bulk-summary-profit-pos', net >= 0);
+  marginEl.classList.toggle('bulk-summary-profit-neg', net < 0);
+  document.getElementById('bulkMarginSub').textContent =
+    net >= 0 ? 'Positive expected edge' : 'Negative expected edge';
+
+  summaryEl.style.display = '';
+
+  // Table
+  enriched.sort((a, b) => b.valueChaos - a.valueChaos);
+  const tbody = document.getElementById('bulkTableBody');
+  tbody.innerHTML = enriched.map(r => {
+    const icon = getNinjaImage(r.canonical.name) || (CDN + r.canonical.icon);
+    const diff = (r.priceEa || 0) - threshold;
+    const diffCls = diff >= 0 ? 'bulk-diff-pos' : 'bulk-diff-neg';
+    const badgeCls = r.isVendor ? 'bulk-pill bulk-pill-vendor' : 'bulk-pill bulk-pill-keep';
+    const badgeLabel = r.isVendor ? 'Vendor' : 'Keep';
+    const valueLabel = fmtBulkChaos(r.valueChaos, divRate);
+    const ceaLabel = r.priceEa > 0 ? r.priceEa.toFixed(2) + 'c' : '—';
+    const diffLabel = r.priceEa > 0 ? (diff >= 0 ? '+' : '') + diff.toFixed(2) + 'c' : '—';
+    return `
+      <div class="bulk-body-row">
+        <div>
+          <div class="bulk-icon-wrap">
+            <img src="${icon}" alt="">
+          </div>
+        </div>
+        <div>
+          <div>${r.canonical.name}</div>
+          <div style="font-size:11px;color:var(--text-3)">${r.canonical.group || ''}</div>
+        </div>
+        <div class="bulk-td-right">${r.qty.toLocaleString()}</div>
+        <div class="bulk-td-right">
+          <div>${ceaLabel}</div>
+          <div class="${diffCls}" style="font-size:10px">${diffLabel}</div>
+        </div>
+        <div class="bulk-td-right">
+          <span class="${badgeCls}">${badgeLabel}</span>
+        </div>
+        <div class="bulk-td-right">${valueLabel}</div>
+      </div>
+    `;
+  }).join('');
+
+  tableWrap.style.display = '';
+
+  if (unmatched.length) {
+    unmatchedEl.style.display = 'block';
+    unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' · ');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// Kick off initial wiring
+initBulkGeminiKey();
+
+// ══════════════════════════════════════════════════
+renderManual(); // keep manual state fresh in background
+fetchNinja();
+updateSortArrows();
+initSlider();
+fetchAndRenderEVChart();
+
+// Close any open override input when clicking outside the table
+document.addEventListener('click', () => {
+  if (_activeOverrideCell) closeActiveOverride();
+});
+</script>
+</body>
+</html>
