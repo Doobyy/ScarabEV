@@ -3562,6 +3562,9 @@ renderSessionHistory();
 
 let _bulkImageFile = null;
 const GEMINI_KEY_STORAGE = 'poepool-gemini-api-key';
+const GEMINI_FLASH_SKIP_DATE_KEY = 'poepool-gemini-flash-skip-date';
+const GEMINI_MODEL_FLASH = 'gemini-2.5-flash';
+const GEMINI_MODEL_LITE = 'gemini-2.5-flash-lite';
 // Optional: set a default key for personal/local use ONLY.
 // Do not share a copy of this file if you populate this value.
 const DEFAULT_GEMINI_API_KEY = '';
@@ -3586,6 +3589,27 @@ function initBulkGeminiKey() {
     const v = getBulkGeminiKey();
     if (v) el.value = v;
   } catch(e) {}
+}
+
+// Model fallback: prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads).
+function getTodayDateKey() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+function isFlashSkippedToday() {
+  try {
+    return localStorage.getItem(GEMINI_FLASH_SKIP_DATE_KEY) === getTodayDateKey();
+  } catch (e) { return false; }
+}
+function setFlashSkippedToday() {
+  try {
+    localStorage.setItem(GEMINI_FLASH_SKIP_DATE_KEY, getTodayDateKey());
+  } catch (e) {}
+}
+function isRateLimitError(res, status, text) {
+  if (status === 429) return true;
+  if (status === 503) return true;
+  const body = (text || '').toLowerCase();
+  return body.includes('resource_exhausted') || body.includes('quota') || body.includes('rate limit');
 }
 
 function clearBulkImage() {
@@ -3775,64 +3799,79 @@ async function runBulkFromImage() {
       reader.readAsDataURL(_bulkImageFile);
     });
     const base64 = String(dataUrl).split(',')[1];
-	
-	const modelId = 'gemini-2.5-flash-lite';
-	// Using v1beta for advanced system_instruction support
-	const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=` + encodeURIComponent(apiKey);
 
-	const body = {
-	  system_instruction: {
-		parts: [{
-		  text: "You are a specialized PoE OCR tool for TFT bulk scarab listings. " +
-				"I will provide two types of screenshots: one with Qty on the right, and one with Qty on the left (e.g., '69x Ambush').\n\n" +
-				"YOUR JOB: Extract data into strictly 'Name,Qty' CSV format.\n\n" +
-				"EXTRACTION RULES:\n" +
-				"1. IF THE LINE SAYS '69x Name': The Qty is 69. The Name is Name. Strip the 'x'.\n" +
-				"2. IF THE LINE SAYS 'Name Qty': Use Name as Name and Qty as Qty.\n" +
-				"3. PRICE DATA: Completely ignore currency values (e.g., '33.8d', '10.51', '1.2c'). These are NOT quantities.\n" +
-				"4. OUTPUT FORMAT: Strictly 'Name,Qty' per line. Example: 'Ambush,69'.\n" +
-				"5. NO extras: No headers, no markdown blocks, no intro text, no total rows."
-		}]
-	  },
-	  contents: [
-		{
-		  parts: [
-			{ text: "Extract Name,Qty from this TFT listing." },
-			{
-			  inline_data: {
-				mime_type: _bulkImageFile.type || 'image/png',
-				data: base64
-			  }
-			}
-		  ]
-		}
-	  ],
-	  generationConfig: {
-		temperature: 0, // Forces the model to be deterministic and literal
-		topP: 0.1,
-		responseMimeType: "text/plain" // Ensures it doesn't wrap the CSV in markdown blocks
-	  }
-	};
+    const body = {
+      system_instruction: {
+        parts: [{
+          text: "You are a specialized PoE OCR tool for TFT bulk scarab listings. " +
+            "I will provide two types of screenshots: one with Qty on the right, and one with Qty on the left (e.g., '69x Ambush').\n\n" +
+            "YOUR JOB: Extract data into strictly 'Name,Qty' CSV format.\n\n" +
+            "EXTRACTION RULES:\n" +
+            "1. IF THE LINE SAYS '69x Name': The Qty is 69. The Name is Name. Strip the 'x'.\n" +
+            "2. IF THE LINE SAYS 'Name Qty': Use Name as Name and Qty as Qty.\n" +
+            "3. PRICE DATA: Completely ignore currency values (e.g., '33.8d', '10.51', '1.2c'). These are NOT quantities.\n" +
+            "4. OUTPUT FORMAT: Strictly 'Name,Qty' per line. Example: 'Ambush,69'.\n" +
+            "5. NO extras: No headers, no markdown blocks, no intro text, no total rows."
+        }]
+      },
+      contents: [
+        {
+          parts: [
+            { text: "Extract Name,Qty from this TFT listing." },
+            {
+              inline_data: {
+                mime_type: _bulkImageFile.type || 'image/png',
+                data: base64
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0,
+        topP: 0.1,
+        responseMimeType: "text/plain"
+      }
+    };
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    // Prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads) and use Lite.
+    let modelId = isFlashSkippedToday() ? GEMINI_MODEL_LITE : GEMINI_MODEL_FLASH;
+    let lastError = null;
 
-    if (!res.ok) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=` + encodeURIComponent(apiKey);
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
       const txt = await res.text();
-      throw new Error(`Gemini error ${res.status}: ${txt.slice(0, 200)}`);
+
+      if (res.ok) {
+        const json = JSON.parse(txt);
+        const parts = json?.candidates?.[0]?.content?.parts || [];
+        const text = parts.map(p => p.text || '').join('\n').trim();
+        if (!text) {
+          lastError = new Error('No text returned from Gemini.');
+          break;
+        }
+        document.getElementById('bulkCsv').value = text;
+        runBulkFromCsv();
+        clearBulkImage();
+        return;
+      }
+
+      lastError = new Error(`Gemini error ${res.status}: ${txt.slice(0, 200)}`);
+      if (isRateLimitError(res, res.status, txt) && modelId === GEMINI_MODEL_FLASH) {
+        setFlashSkippedToday();
+        modelId = GEMINI_MODEL_LITE;
+        continue;
+      }
+      break;
     }
 
-    const json = await res.json();
-    const parts = json?.candidates?.[0]?.content?.parts || [];
-    const text = parts.map(p => p.text || '').join('\n').trim();
-    if (!text) throw new Error('No text returned from Gemini.');
-
-    document.getElementById('bulkCsv').value = text;
-    runBulkFromCsv();
-    clearBulkImage();
+    throw lastError;
   } catch (e) {
     errEl.textContent = 'Gemini parse failed: ' + (e.message || e);
     errEl.style.display = 'block';
