@@ -95,11 +95,6 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
-/* ── CALIBRATION ── */
-.stat-value.green { color: var(--green); }
-.stat-sub.variance-up { color: var(--green); font-weight: 600; }
-.stat-sub.variance-down { color: var(--red); font-weight: 600; }
-
 /* ── NAV ── */
 .topnav {
   background: var(--header-bg);
@@ -414,6 +409,7 @@ body {
 .logger-section-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
 .logger-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); }
 .logger-history-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 20px; }
+.logger-purple-bold {color: var(--chaos) !important; font-weight: 600 !important; }
 
 /* ── EV CHART PANEL ── */
 .ev-chart-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px; transition: background 0.2s; }
@@ -638,7 +634,7 @@ body {
 .bulk-field { display: flex; flex-direction: column; gap: 6px; }
 .bulk-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
 .bulk-textarea {
-  min-height: 160px;
+  min-height: 306px;
   resize: vertical;
   padding: 10px 12px;
   border-radius: 6px;
@@ -817,13 +813,12 @@ body {
 <body>
 
 <nav class="topnav">
-  <span class="nav-logo">poe<span>pool</span></span>
+  <span class="nav-logo">Scarab<span>EV</span></span>
   <span class="nav-tag">3.28</span>
   <div class="nav-tabs">
     <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
     <button class="nav-tab" onclick="switchTab('logger')">Session Logger</button>
     <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
-	<button class="nav-tab" onclick="showTab('calib')">Calibration Lab</button>
   </div>
   <span class="nav-sep"></span>
   <span class="theme-icon">☀</span>
@@ -1079,14 +1074,14 @@ body {
     <div class="logger-form">
       <div class="logger-row">
         <div class="logger-field">
-          <div class="logger-label">Snapshot 1 — Before trade</div>
+          <div class="logger-label">Snapshot 1 — <span class="logger-purple-bold">Before trade</span></div>
           <label class="logger-upload" id="snap1Label">
             <span id="snap1Text">Choose CSV file</span>
             <input type="file" accept=".csv" id="snap1Input" onchange="handleSnap(1, event)" style="display:none">
           </label>
         </div>
         <div class="logger-field">
-          <div class="logger-label">Snapshot 2 — After trade</div>
+          <div class="logger-label">Snapshot 2 — <span class="logger-purple-bold">After trade</span></div>
           <label class="logger-upload" id="snap2Label">
             <span id="snap2Text">Choose CSV file</span>
             <input type="file" accept=".csv" id="snap2Input" onchange="handleSnap(2, event)" style="display:none">
@@ -1235,44 +1230,6 @@ body {
     </div>
 
   </div>
-
-  <!-- ════════════════════════════ CALIBRATION TAB ════════════════════════════ -->
-<div id="tab-calib" class="tab-pane">
-  <div class="stats-bar">
-    <div class="stat-card">
-      <div class="stat-label">Personal EV (Harmonic)</div>
-      <div id="c-personal-ev" class="stat-value ev">0.00c</div>
-      <div class="stat-sub">Based on your returns</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Market Variance</div>
-      <div id="c-variance" class="stat-value">—</div>
-      <div id="c-variance-sub" class="stat-sub">Comparison to Ninja</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">"Junk" Density</div>
-      <div id="c-junk-density" class="stat-value amber">0%</div>
-      <div class="stat-sub">Returns < 5c</div>
-    </div>
-  </div>
-
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
-    <div class="table-card">
-      <div class="regex-header"><span class="regex-title">Recent Session Trend</span></div>
-      <div id="c-session-list" class="bulk-body" style="max-height: 300px; overflow-y: auto;">
-        </div>
-    </div>
-    
-    <div class="table-card">
-      <div class="regex-header"><span class="regex-title">Opportunity Cost Analysis</span></div>
-      <div style="padding: 16px;">
-        <div id="c-opp-cost-math" style="font-family: monospace; font-size: 13px; color: var(--text-2);">
-          Waiting for session data...
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 </div>
 
@@ -3795,126 +3752,6 @@ fetchAndRenderEVChart();
 document.addEventListener('click', () => {
   if (_activeOverrideCell) closeActiveOverride();
 });
-
-// 1. Update your existing showTab function to handle 'calib'
-function showTab(tabId) {
-  // Hide all tabs and deactivate all buttons
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-
-  // Show the selected tab
-  document.getElementById('tab-' + tabId).classList.add('active');
-  
-  // Highlight the correct button
-  event.currentTarget.classList.add('active');
-
-  // TRIGGER THE MATH: If we switch to calibration, run the update
-  if (tabId === 'calib') {
-    updateCalibrationStats();
-  }
-}
-
-// 2. Add the Calibration Logic
-function recalcCalibration() {
-  // Get current Ninja EV data
-  const ninjaData = recalcNinja(); // Re-runs your existing EV logic
-  const reportedEV = ninjaData.ev || 0;
-  
-  const mult = parseFloat(document.getElementById('calib-mult').value) || 1;
-  const trueEV = reportedEV * mult;
-  
-  // Update UI
-  document.getElementById('c-statReported').textContent = reportedEV.toFixed(2) + 'c';
-  document.getElementById('c-statTrue').textContent = trueEV.toFixed(2) + 'c';
-  
-  const diffEl = document.getElementById('c-statDiff');
-  const variance = (mult - 1) * 100;
-  
-  if (variance === 0) {
-    diffEl.textContent = "Matched to Market";
-    diffEl.className = "stat-sub";
-  } else {
-    const sign = variance > 0 ? "+" : "";
-    diffEl.textContent = `${sign}${variance.toFixed(1)}% vs Market`;
-    diffEl.className = variance > 0 ? "stat-sub variance-up" : "stat-sub variance-down";
-  }
-
-  // Update Global Thresholds
-  // This automatically adjusts your "Vendor Targets" regex based on True EV
-  if (trueEV > 0) {
-    updateNinjaWithCalibratedEV(trueEV);
-  }
-}
-
-// 3. Inject True EV back into the main view
-function updateNinjaWithCalibratedEV(calibratedValue) {
-  // We override the internal ninjaEvOverride to force the regex 
-  // and table highlighting to use our Calibrated "True EV"
-  ninjaEvOverride = calibratedValue;
-  renderNinja(); 
-}
-
-function updateCalibrationStats() {
-    const rawData = localStorage.getItem('poepool-sessions');
-    const history = JSON.parse(rawData || '[]');
-    
-    if (history.length === 0) return;
-
-    let allReturns = [];
-    let totalInputCost = 0;
-    let totalOutputValue = 0;
-
-    history.forEach((session) => {
-        // Find the array of items regardless of where it's stored in the session object
-        const items = session.deltas || session.items || (session.data ? session.data.deltas : null);
-        if (!items || !Array.isArray(items)) return;
-        
-        items.forEach(item => {
-            // Support multiple possible keys for price and quantity
-            const price = parseFloat(item.ninja_price || item.price || 0);
-            const qty = parseFloat(item.qty || item.diff || 0);
-
-            if (qty > 0) {
-                // Gains
-                for(let i=0; i < qty; i++) allReturns.push(price);
-                totalOutputValue += (price * qty);
-            } else if (qty < 0) {
-                // Losses (3:1 inputs)
-                totalInputCost += (price * Math.abs(qty));
-            }
-        });
-    });
-
-    // --- UI UPDATE ---
-    const personalEvEl = document.getElementById('c-personal-ev');
-    const junkDensityEl = document.getElementById('c-junk-density');
-    const oppCostEl = document.getElementById('c-opp-cost-math');
-
-    if (allReturns.length > 0) {
-        const harmonicSum = allReturns.reduce((acc, val) => acc + (1 / (val || 0.1)), 0);
-        const personalEV = allReturns.length / harmonicSum;
-        const junkDensity = (allReturns.filter(p => p < 5).length / allReturns.length) * 100;
-
-        if(personalEvEl) personalEvEl.textContent = personalEV.toFixed(2) + 'c';
-        if(junkDensityEl) junkDensityEl.textContent = junkDensity.toFixed(1) + '%';
-    }
-
-    const netProfit = totalOutputValue - totalInputCost;
-    if(oppCostEl) {
-        oppCostEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between"><span>Input Cost:</span> <span>${totalInputCost.toFixed(1)}c</span></div>
-            <div style="display:flex; justify-content:space-between"><span>Output Value:</span> <span>${totalOutputValue.toFixed(1)}c</span></div>
-            <hr style="border:0; border-top:1px solid var(--border); margin:8px 0">
-            <div style="display:flex; justify-content:space-between; font-weight:bold">
-                <span>Net Profit:</span> 
-                <span style="color: ${netProfit >= 0 ? '#4caf50' : '#f44336'}">${netProfit.toFixed(1)}c</span>
-            </div>
-        `;
-    }
-
-    // Final Debug check
-    console.log(`Final Calc - Returns: ${allReturns.length}, In: ${totalInputCost}, Out: ${totalOutputValue}`);
-}
 </script>
 </body>
 </html>
