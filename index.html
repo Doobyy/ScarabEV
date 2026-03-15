@@ -627,9 +627,62 @@ body {
 
 .bulk-controls {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1.2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
+  align-items: stretch;
+}
+.bulk-csv-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bulk-right-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 306px;
+  justify-content: space-between;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.bulk-drop-wrap {
+  flex: 0 0 50%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bulk-drop-wrap .logger-upload {
+  flex: 1;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-direction: column;
+  gap: 6px;
+}
+.bulk-right-bottom {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.bulk-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 28px;
+}
+.bulk-inputs-row .bulk-field { margin-bottom: 0; }
+.bulk-inputs-row .bulk-gemini-key { max-width: 100%; }
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 .bulk-field { display: flex; flex-direction: column; gap: 6px; }
 .bulk-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -644,6 +697,7 @@ body {
   font-size: 12px;
   color: var(--chaos);
   outline: none;
+  flex: 1;
 }
 .bulk-textarea::placeholder { color: var(--text-3); opacity: 0.7; }
 .bulk-textarea:focus { border-color: var(--accent); }
@@ -657,12 +711,19 @@ body {
   font-size: 13px;
   color: var(--text);
   outline: none;
-  max-width: 180px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .bulk-input:focus { border-color: var(--accent); }
-.bulk-hint { font-size: 11px; color: var(--text-3); max-width: 260px; }
-.bulk-side { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-.bulk-analyze-btn { margin-top: 2px; }
+.bulk-hint { font-size: 11px; color: var(--text-3); max-width: 100%; }
+.bulk-side { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.bulk-analyze-btn { margin-top: 0; }
+@media (max-width: 780px) {
+  .bulk-right-col { min-height: 0; }
+  .bulk-drop-wrap { flex: 0 0 auto; }
+  .bulk-inputs-row { grid-template-columns: 1fr; }
+}
 .bulk-error {
   font-size: 11px;
   color: var(--red);
@@ -1187,34 +1248,38 @@ body {
     </div>
 
     <div class="bulk-controls">
-      <div class="bulk-field">
+      <div class="bulk-csv-col">
         <label class="bulk-label">Gemini CSV (name,qty)</label>
         <textarea id="bulkCsv" class="bulk-textarea" placeholder="Name,Qty&#10;Horned of Bloodlines,3&#10;Breach of Instability,21&#10;Ultimatum of Catalysing,1&#10;..."></textarea>
       </div>
-      <div class="bulk-side">
-        
-		<div class="bulk-field">
-          <label class="bulk-label">Gemini API key</label>
-          <input id="bulkGeminiKey" class="bulk-gemini-key" type="password" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)">
-          <div class="bulk-hint">Stored locally in your browser. Used only to call Gemini for image parsing.</div>
-        </div>
-        <div class="bulk-field">
-          <label class="bulk-label">Listing image (optional)</label>
-          <label class="logger-upload" id="bulkImageLabel" style="max-width:260px;justify-content:flex-start">
-            <input type="file" accept="image/*" style="display:none" onchange="handleBulkImage(event)">
-            <span id="bulkImageText">Click to upload TFT listing screenshot</span>
-          </label>
-        </div>
-        <div class="bulk-field">
-          <label class="bulk-label">Asking price (chaos)</label>
-          <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" />
-          <div class="bulk-hint">
-            Use the seller's total chaos cost for the lot. If it's in div + chaos, convert to pure chaos first.
+      <div class="bulk-right-col">
+        <div class="bulk-drop-wrap">
+          <label class="bulk-label">Listing image (drag, paste, or click)</label>
+          <div id="bulkDropZone" class="logger-upload">
+            <input id="bulkImageInput" type="file" accept="image/*" style="display:none" onchange="handleBulkImage(event)">
+            <div id="bulkDropText">Drop a TFT listing screenshot here, paste with Ctrl+V, or click to browse.</div>
+            <div id="bulkDropHint" style="font-size:11px;color:var(--text-3)">Tab must be on Bulk Buy Analyzer for paste to work.</div>
           </div>
         </div>
-        <button id="bulkAnalyzeImageBtn" class="btn bulk-analyze-btn" onclick="runBulkFromImage()">Analyze Image</button>
-        <button id="bulkAnalyzeBtn" class="btn bulk-analyze-btn" onclick="runBulkFromCsv()">Analyze CSV only</button>
-        <div id="bulkError" class="bulk-error" style="display:none"></div>
+        <div class="bulk-right-bottom">
+          <div class="bulk-inputs-row">
+            <div class="bulk-field">
+              <label class="bulk-label">Asking price (chaos)</label>
+              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" />
+              <div class="bulk-hint">Use the seller's total chaos cost for the lot. If it's in div + chaos, convert to pure chaos first.</div>
+            </div>
+            <div class="bulk-field">
+              <label class="bulk-label">Gemini API key</label>
+              <input id="bulkGeminiKey" class="bulk-gemini-key" type="password" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)">
+              <div class="bulk-hint">Stored locally in your browser. Used only to call Gemini for image parsing.</div>
+            </div>
+          </div>
+          <div class="bulk-actions">
+            <button id="bulkAnalyzeImageBtn" class="btn bulk-analyze-btn" onclick="runBulkFromImage()">Analyze Image</button>
+            <button id="bulkAnalyzeBtn" class="btn bulk-analyze-btn" onclick="runBulkFromCsv()">Analyze CSV only</button>
+          </div>
+          <div id="bulkError" class="bulk-error" style="display:none"></div>
+        </div>
       </div>
     </div>
 
@@ -2600,8 +2665,8 @@ function onSliderChange(val) {
     document.getElementById('sliderResetBtn').style.display = 'none';
     recalcNinja();
     renderNinja();
-    const qty = csvVendorQty !== null ? csvVendorQty : 7500;
-    renderEstimator(qty, getDivineRate(), autoEV);
+    // Recalculate CSV-based vendor totals and profit using the current (auto) EV
+    calcEstimator();
     return;
   }
 
@@ -2611,8 +2676,8 @@ function onSliderChange(val) {
   document.getElementById('sliderResetBtn').style.display = '';
   recalcNinja();
   renderNinja();
-  const qty = csvVendorQty !== null ? csvVendorQty : 7500;
-  renderEstimator(qty, getDivineRate(), t);
+  // Recalculate CSV-based vendor totals and profit using the manual threshold
+  calcEstimator();
 }
 
 function resetSlider() {
@@ -2701,6 +2766,7 @@ function syncSliderToEV(ev) {
 // Rate: 0.3753c keeper value per original scarab input
 
 let csvVendorQty = null;
+let _csvRawItems = null; // all scarabs from the last imported CSV (session-only)
 
 function toggleEstimator() {
   document.getElementById('estimatorPanel').classList.toggle('collapsed');
@@ -2726,22 +2792,8 @@ function importWealthyCSV(event) {
 }
 
 function parseWealthyCSV(text) {
-  const lower = buildNinjaLookup();
-  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
-  const priced = entries.filter(e => e.chaosEa > 0);
-  const autoEV = calcEV(priced);
-  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
-
-  const vendorSet = new Set();
-  for (const s of SCARAB_LIST) {
-    const p = getP(s.name);
-    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
-    const cea = manualPrice > 0 ? manualPrice : getNinjaPrice(s.name, lower);
-    if (cea > 0 && threshold !== null && cea <= threshold) vendorSet.add(s.name);
-  }
-
   const lines = text.replace(/^\uFEFF/, '').split('\n').slice(1);
-  const found = [];
+  const items = [];
   let totalQty = 0;
 
   for (const line of lines) {
@@ -2751,23 +2803,25 @@ function parseWealthyCSV(text) {
     const name  = cols[0].replace(/"/g, '').trim();
     const qty   = parseInt(cols[2].replace(/"/g, '')) || 0;
     const total = parseFloat(cols[4].replace(/"/g, '')) || 0;
-    if (vendorSet.has(name) && qty > 0) {
-      found.push({ name, qty, priceEa: qty > 0 && total > 0 ? total/qty : 0 });
+    if (qty > 0) {
+      items.push({ name, qty, priceEa: qty > 0 && total > 0 ? total/qty : 0 });
       totalQty += qty;
     }
   }
 
-  if (found.length === 0) {
+  if (items.length === 0) {
     const st = document.getElementById('n-infoText');
-    if (st) st.innerHTML = '⚠ No vendor targets found in CSV — load poe.ninja prices first';
+    if (st) st.innerHTML = '⚠ No scarabs found in CSV — check the export format.';
     return;
   }
 
+  // Store full CSV contents for this session; slider & EV decide which are vendor targets
+  _csvRawItems = items;
   csvVendorQty = totalQty;
-  window._csvFoundItems = found; // store for re-render on slider change
+  window._csvFoundItems = null;
 
   const st = document.getElementById('csvStatus');
-  if (st) st.textContent = `${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
+  if (st) st.textContent = `${items.length} scarab types · ${totalQty.toLocaleString()} total scarabs`;
   document.getElementById('csvClearBtn').style.display = '';
   // Show breakdown collapsed by default
   document.getElementById('csvBreakdown').style.display = '';
@@ -2786,12 +2840,34 @@ function toggleCSVBreakdown() {
 }
 
 function renderCSVBreakdown() {
-  const found = window._csvFoundItems;
-  if (!found) return;
+  const raw = _csvRawItems;
+  if (!raw) return;
   const lower = buildNinjaLookup();
+  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
+  const priced = entries.filter(e => e.chaosEa > 0);
+  const autoEV = calcEV(priced);
+  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+
+  const found = [];
+  let totalQty = 0;
+  for (const item of raw) {
+    const price = getNinjaPrice(item.name, lower);
+    if (price > 0 && threshold !== null && price <= threshold) {
+      found.push({ name: item.name, qty: item.qty });
+      totalQty += item.qty;
+    }
+  }
+
+  // If nothing is currently under threshold, just clear the breakdown but keep CSV loaded
+  if (!found.length) {
+    const st = document.getElementById('csvStatus');
+    if (st) st.textContent = 'No vendor targets at current threshold';
+    document.getElementById('csvBreakdownTable').innerHTML = '';
+    return;
+  }
+
   // Update header label
   const st = document.getElementById('csvStatus');
-  const totalQty = found.reduce((s, f) => s + f.qty, 0);
   if (st) {
     const chevron = document.getElementById('csvBreakdownChevron');
     st.innerHTML = `<span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s${document.getElementById('csvBreakdownTable')?.style.display !== 'none' ? ';transform:rotate(90deg)' : ''}">${chevron?.innerHTML || '▶'}</span> ${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
@@ -2808,6 +2884,7 @@ function renderCSVBreakdown() {
 
 function clearCSV() {
   csvVendorQty = null;
+  _csvRawItems = null;
   window._csvFoundItems = null;
   const st = document.getElementById('csvStatus');
   if (st) st.textContent = '';
@@ -2817,12 +2894,33 @@ function clearCSV() {
 }
 
 function calcEstimator() {
-  const qty = csvVendorQty !== null ? csvVendorQty : 7500;
+
+  let qty = 0;
+
   const lower = buildNinjaLookup();
   const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
   const priced = entries.filter(e => e.chaosEa > 0);
   const autoEV = calcEV(priced);
   const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+
+   if (_csvRawItems) {
+     // Recompute which CSV scarabs are vendor targets at the current threshold
+     qty = 0;
+     const found = [];
+     for (const item of _csvRawItems) {
+       const price = getNinjaPrice(item.name, lower);
+       if (price > 0 && threshold !== null && price <= threshold) {
+         qty += item.qty;
+         found.push({ name: item.name, qty: item.qty });
+       }
+     }
+     window._csvFoundItems = found;
+   } else {
+     // No CSV loaded: use placeholder quantity
+     qty = 7500;
+     window._csvFoundItems = null;
+   }
+
   renderCSVBreakdown();
   renderEstimator(qty, getDivineRate(), threshold);
 }
@@ -3416,15 +3514,66 @@ function initBulkGeminiKey() {
 }
 
 function handleBulkImage(event) {
-  const file = event.target.files[0];
+  const file = event.dataTransfer ? event.dataTransfer.files[0] : event.target.files[0];
   if (!file) return;
   _bulkImageFile = file;
-  event.target.value = '';
-  const label = document.getElementById('bulkImageLabel');
-  const textEl = document.getElementById('bulkImageText');
-  if (label) label.classList.add('loaded');
+  if (event.target && event.target.type === 'file') {
+    event.target.value = '';
+  }
+  const zone = document.getElementById('bulkDropZone');
+  const textEl = document.getElementById('bulkDropText');
+  if (zone) zone.classList.add('loaded');
   if (textEl) textEl.textContent = `Loaded: ${file.name}`;
 }
+
+// Enable drag-and-drop and paste for images when Bulk tab is active
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('bulkDropZone');
+  const fileInput = document.getElementById('bulkImageInput');
+
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    ['dragenter','dragover'].forEach(ev => {
+      dropZone.addEventListener(ev, e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('loaded');
+      });
+    });
+
+    ['dragleave','drop'].forEach(ev => {
+      dropZone.addEventListener(ev, e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          handleBulkImage(e);
+        }
+      });
+    });
+  }
+
+  // Global paste handler, only active when Bulk tab is visible
+  window.addEventListener('paste', e => {
+    const bulkTab = document.getElementById('tab-bulk');
+    if (!bulkTab || bulkTab.style.display === 'none') return;
+    if (!e.clipboardData) return;
+    const items = e.clipboardData.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.type && it.type.indexOf('image') === 0) {
+        const file = it.getAsFile();
+        if (file) {
+          const fakeEvent = { dataTransfer: { files: [file] } };
+          handleBulkImage(fakeEvent);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  });
+});
 
 function buildBulkScarabIndex() {
   return SCARAB_LIST.map(s => {
