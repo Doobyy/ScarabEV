@@ -4528,20 +4528,26 @@ async function runBulkFromImage() {
     });
     const base64 = String(dataUrl).split(',')[1];
 
-    const body = {
-      system_instruction: {
-        parts: [{
-          text: "You are a specialized PoE OCR tool for TFT bulk scarab listings. " +
-            "I will provide two types of screenshots: one with Qty on the right, and one with Qty on the left (e.g., '69x Ambush').\n\n" +
-            "YOUR JOB: Extract data into strictly 'Name,Qty' CSV format.\n\n" +
-            "EXTRACTION RULES:\n" +
-            "1. IF THE LINE SAYS '69x Name': The Qty is 69. The Name is Name. Strip the 'x'.\n" +
-            "2. IF THE LINE SAYS 'Name Qty': Use Name as Name and Qty as Qty.\n" +
-            "3. PRICE DATA: Completely ignore currency values (e.g., '33.8d', '10.51', '1.2c'). These are NOT quantities.\n" +
-            "4. OUTPUT FORMAT: Strictly 'Name,Qty' per line. Example: 'Ambush,69'.\n" +
-            "5. NO extras: No headers, no markdown blocks, no intro text, no total rows."
-        }]
-      },
+	const body = {
+	  system_instruction: {
+	    parts: [{
+	      text: "You are a PoE OCR tool. You will process two types of bulk screenshots (TFT and POE-HUB).\n\n" +
+	            "ROW STRUCTURES:\n" +
+	            "1. TFT Layout: [Qty]x | [Name] | [Price] | [Asking] | [%] | [Total Chaos] | [Total Divine]\n" +
+	            "2. POE-HUB Layout: [Qty] | [Name] | [Price] | [Asking] | [Multiplier] | [Total Amount]\n\n" +
+	            "EXTRACTION RULES:\n" +
+	            "1. TARGET THE QTY: The Quantity is always the FIRST whole number on the far left of each row.\n" +
+	            "2. IGNORE THE FAR RIGHT: Each row ends with a 'Total' whole number. IGNORE THIS. Only capture the first number on the left.\n" +
+	            "3. THE DECIMAL FILTER: If a number contains a decimal point (e.g., 194.9, 8.47), it is a price. NEVER extract it as a Quantity.\n" +
+	            "4. NAME CAPTURE: The Name is the text between the Qty and the first Price (decimal number).\n\n" +
+	            "CLEANING:\n" +
+	            "- Skip header rows (e.g., 'Name', 'Ninja Price', 'Qty').\n" +
+	            "- Strip any 'x' attached to the Qty if present.\n" +
+	            "- Ensure you process all columns (1, 2, or 3) from left to right.\n\n" +
+	            "OUTPUT:\n" +
+	            "Strictly 'Name,Qty' CSV. No markdown, no intro, no headers."
+	    }]
+	  }
       contents: [
         {
           parts: [
