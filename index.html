@@ -4531,21 +4531,18 @@ async function runBulkFromImage() {
 	const body = {
 	  system_instruction: {
 	    parts: [{
-	      text: "You are a PoE OCR tool. You will process two types of bulk screenshots (TFT and POE-HUB).\n\n" +
-	            "ROW STRUCTURES:\n" +
-	            "1. TFT Layout: [Qty]x | [Name] | [Price] | [Asking] | [%] | [Total Chaos] | [Total Divine]\n" +
-	            "2. POE-HUB Layout: [Qty] | [Name] | [Price] | [Asking] | [Multiplier] | [Total Amount]\n\n" +
-	            "EXTRACTION RULES:\n" +
-	            "1. TARGET THE QTY: The Quantity is always the FIRST whole number on the far left of each row.\n" +
-	            "2. IGNORE THE FAR RIGHT: Each row ends with a 'Total' whole number. IGNORE THIS. Only capture the first number on the left.\n" +
-	            "3. THE DECIMAL FILTER: If a number contains a decimal point (e.g., 194.9, 8.47), it is a price. NEVER extract it as a Quantity.\n" +
-	            "4. NAME CAPTURE: The Name is the text between the Qty and the first Price (decimal number).\n\n" +
-	            "CLEANING:\n" +
-	            "- Skip header rows (e.g., 'Name', 'Ninja Price', 'Qty').\n" +
-	            "- Strip any 'x' attached to the Qty if present.\n" +
-	            "- Ensure you process all columns (1, 2, or 3) from left to right.\n\n" +
-	            "OUTPUT:\n" +
-	            "Strictly 'Name,Qty' CSV. No markdown, no intro, no headers."
+	      text: "You are an exhaustive PoE OCR tool. Your goal is to capture EVERY item row in the image.\n\n" +
+	            "ROW RECOGNITION:\n" +
+	            "1. A row starts with a WHOLE NUMBER (e.g., '33' or '33x'). This is the Qty.\n" +
+	            "2. The item NAME is the text immediately to the right of that number.\n" +
+	            "3. Discard any number containing a decimal point (.)—these are prices, not quantities.\n\n" +
+	            "SCANNING STRATEGY:\n" +
+	            "- The image has multiple vertical columns. Scan the first column completely (top-to-bottom) before moving to the next column.\n" +
+	            "- Do not skip any rows. Every line with an icon and a whole number must be extracted.\n\n" +
+	            "OUTPUT RULES:\n" +
+	            "- Format: 'Name,Qty'\n" +
+	            "- No markdown blocks, no headers, no conversational text.\n" +
+	            "- Example: 'Ambush,33'"
 	    }]
 	  },
       contents: [
@@ -4561,11 +4558,13 @@ async function runBulkFromImage() {
           ]
         }
       ],
-      generationConfig: {
-        temperature: 0,
-        topP: 0.1,
-        responseMimeType: "text/plain"
-      }
+	generationConfig: {
+	    temperature: 0,
+	    topP: 0.1,
+	    topK: 1, // Forces the most likely token, reducing "hallucinated" quantities
+	    maxOutputTokens: 2048, // Essential for long lists so the output doesn't cut off
+	    responseMimeType: "text/plain"
+	}
     };
 
     // Prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads) and use Lite.
