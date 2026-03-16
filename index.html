@@ -4530,20 +4530,18 @@ async function runBulkFromImage() {
 
 	const body = {
 	  system_instruction: {
-	    parts: [{
-	      text: "You are an exhaustive PoE OCR tool. Your goal is to capture EVERY item row in the image.\n\n" +
-	            "ROW RECOGNITION:\n" +
-	            "1. A row starts with a WHOLE NUMBER (e.g., '33' or '33x'). This is the Qty.\n" +
-	            "2. The item NAME is the text immediately to the right of that number.\n" +
-	            "3. Discard any number containing a decimal point (.)—these are prices, not quantities.\n\n" +
-	            "SCANNING STRATEGY:\n" +
-	            "- The image has multiple vertical columns. Scan the first column completely (top-to-bottom) before moving to the next column.\n" +
-	            "- Do not skip any rows. Every line with an icon and a whole number must be extracted.\n\n" +
-	            "OUTPUT RULES:\n" +
-	            "- Format: 'Name,Qty'\n" +
-	            "- No markdown blocks, no headers, no conversational text.\n" +
-	            "- Example: 'Ambush,33'"
-	    }]
+		parts: [{
+		  text: "You are a PoE OCR tool. The image contains 2 or 3 distinct vertical tables.\n\n" +
+				"PROCESSING PROTOCOL (CRITICAL):\n" +
+				"1. Focus on one vertical column at a time. Start with the leftmost column.\n" +
+				"2. For every row, identify the WHOLE NUMBER at the start (Qty) and the TEXT immediately following it (Name).\n" +
+				"3. STRICT RULE: A number containing a decimal (e.g., 44.45) is a price. You MUST ignore it. Never use a decimal number as a Quantity.\n" +
+				"4. COHESION: If you find a Quantity like '79', ensure it stays linked to the item on its immediate right ('Kalguuran'). Do not jump to other columns.\n\n" +
+				"OUTPUT FORMAT:\n" +
+				"- Return ONLY 'Name,Qty' CSV lines.\n" +
+				"- No markdown blocks, no headers, no conversational text.\n" +
+				"- Example: 'Ambush,33'"
+		}]
 	  },
       contents: [
         {
@@ -4558,14 +4556,14 @@ async function runBulkFromImage() {
           ]
         }
       ],
-	generationConfig: {
-	    temperature: 0,
-	    topP: 0.1,
-	    topK: 1, // Forces the most likely token, reducing "hallucinated" quantities
-	    maxOutputTokens: 2048, // Essential for long lists so the output doesn't cut off
-	    responseMimeType: "text/plain"
-	}
-    };
+	  generationConfig: {
+		temperature: 0,
+		topP: 1, // Increased to 1 to ensure it doesn't ignore less 'probable' whole numbers
+		topK: 1,
+		maxOutputTokens: 2048,
+		responseMimeType: "text/plain"
+	  }
+	};
 
     // Prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads) and use Lite.
     let modelId = isFlashSkippedToday() ? GEMINI_MODEL_LITE : GEMINI_MODEL_FLASH;
