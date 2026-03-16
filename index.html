@@ -953,6 +953,105 @@ body {
 .bulk-unmatched strong { color: var(--amber); }
 .bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
 
+.bulk-debug-toggle {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bulk-debug-toggle-icon {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.bulk-debug-toggle.open .bulk-debug-toggle-icon {
+  transform: rotate(90deg);
+}
+.bulk-debug-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px dashed var(--border-soft, var(--border));
+  background: rgba(0, 0, 0, 0.03);
+  display: none;
+}
+[data-theme="dark"] .bulk-debug-panel {
+  background: rgba(255, 255, 255, 0.02);
+}
+.bulk-debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.bulk-debug-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.bulk-debug-actions {
+  display: flex;
+  gap: 6px;
+}
+.bulk-debug-btn {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.bulk-debug-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.bulk-debug-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr);
+  gap: 8px;
+}
+.bulk-debug-log {
+  max-height: 180px;
+  overflow: auto;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-soft, var(--border));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="dark"] .bulk-debug-log {
+  background: rgba(255, 255, 255, 0.01);
+}
+.bulk-debug-empty {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.bulk-debug-map-input {
+  width: 100%;
+  min-height: 80px;
+  max-height: 180px;
+  resize: vertical;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-soft, var(--border));
+  background: var(--bg-card);
+  color: var(--text-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 10px;
+}
+.bulk-debug-map-hint {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
 .bulk-gemini-key {
   padding: 6px 10px;
   border-radius: 5px;
@@ -1490,6 +1589,55 @@ body {
     <div id="bulkUnmatched" class="bulk-unmatched" style="display:none">
       <strong>Note:</strong> Some rows could not be matched to known scarabs.
       <div class="bulk-unmatched-list" id="bulkUnmatchedList"></div>
+    </div>
+
+    <div class="bulk-debug-toggle" onclick="toggleBulkDev()">
+      <span class="bulk-debug-toggle-icon">▶</span>
+      <span>Developer tools</span>
+    </div>
+    <div id="bulkDevPanel" style="display:none;margin-top:6px">
+      <div class="bulk-debug-toggle" onclick="toggleBulkDebug()">
+        <span class="bulk-debug-toggle-icon">▶</span>
+        <span>Bulk analyzer debug</span>
+      </div>
+      <div id="bulkDebugPanel" class="bulk-debug-panel">
+        <div class="bulk-debug-header">
+          <div class="bulk-debug-title">Mismatch log &amp; name map</div>
+          <div class="bulk-debug-actions">
+            <button type="button" class="bulk-debug-btn" onclick="refreshBulkDebug()">Refresh</button>
+            <button type="button" class="bulk-debug-btn" onclick="clearBulkMismatchLog()">Clear mismatch log</button>
+          </div>
+        </div>
+        <div class="bulk-debug-body">
+          <div>
+            <div class="bulk-debug-title" style="margin-bottom:4px">Recent mismatches</div>
+            <div id="bulkDebugLog" class="bulk-debug-log">
+              <div class="bulk-debug-empty">No mismatches logged yet.</div>
+            </div>
+          </div>
+          <div>
+            <div class="bulk-debug-title" style="margin-bottom:4px">Bulk name map (JSON)</div>
+            <textarea id="bulkNameMapInput" class="bulk-debug-map-input" placeholder='{\n  "horned of bloodlines": "Horned Scarab of Bloodlines"\n}'></textarea>
+            <div class="bulk-debug-map-hint">
+              Lowercase keys → canonical scarab names. Stored locally only.
+              <button type="button" class="bulk-debug-btn" style="margin-left:6px" onclick="saveBulkNameMapFromInput()">Save map</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bulk-debug-toggle" style="margin-top:8px" onclick="toggleBulkScarabList()">
+        <span class="bulk-debug-toggle-icon">▶</span>
+        <span>Scarab reference list</span>
+      </div>
+      <div id="bulkScarabPanel" class="bulk-debug-panel">
+        <div class="bulk-debug-header">
+          <div class="bulk-debug-title">Canonical scarab names</div>
+        </div>
+        <div id="bulkScarabList" class="bulk-debug-log">
+          <div class="bulk-debug-empty">No data yet.</div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -3915,6 +4063,7 @@ function renderAnalysisWeightTable() {
 // ══════════════════════════════════════════════════
 
 let _bulkImageFile = null;
+let _bulkSource = null; // 'image' or 'csv'
 const GEMINI_KEY_STORAGE = 'poepool-gemini-api-key';
 const GEMINI_FLASH_SKIP_DATE_KEY = 'poepool-gemini-flash-skip-date';
 const GEMINI_MODEL_FLASH = 'gemini-2.5-flash';
@@ -3922,6 +4071,223 @@ const GEMINI_MODEL_LITE = 'gemini-2.5-flash-lite';
 // Optional: set a default key for personal/local use ONLY.
 // Do not share a copy of this file if you populate this value.
 const DEFAULT_GEMINI_API_KEY = '';
+
+const BULK_MISMATCH_LOG_KEY = 'poepool-bulk-mismatch-log';
+const BULK_NAME_MAP_STORAGE_KEY = 'poepool-bulk-name-map';
+
+const BULK_DEFAULT_NAME_MAP_URL = './bulk-name-map.json';
+
+let BULK_DEFAULT_NAME_MAP = {}; // shared defaults loaded from JSON file
+let BULK_USER_NAME_MAP = {};    // user overrides stored in localStorage
+let BULK_NAME_MAP = {};         // effective map = defaults merged with user overrides
+
+function normalizeBulkNameMap(obj) {
+  const normalized = {};
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return normalized;
+  for (const [k, v] of Object.entries(obj)) {
+    const key = String(k || '').trim().toLowerCase();
+    if (!key) continue;
+    normalized[key] = v;
+  }
+  return normalized;
+}
+
+function recomputeBulkNameMap() {
+  BULK_NAME_MAP = { ...(BULK_DEFAULT_NAME_MAP || {}), ...(BULK_USER_NAME_MAP || {}) };
+}
+
+async function loadBulkDefaultNameMap() {
+  try {
+    const res = await fetch(BULK_DEFAULT_NAME_MAP_URL, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    BULK_DEFAULT_NAME_MAP = normalizeBulkNameMap(data);
+    recomputeBulkNameMap();
+
+    // If dev panel is open (or user is in dev mode), refresh textarea to show defaults.
+    if (typeof isBulkDevMode === 'function' && isBulkDevMode()) {
+      try { exportBulkNameMapToInput(); } catch (e) {}
+    }
+  } catch (e) {
+    // Optional file; ignore if missing or invalid.
+  }
+}
+
+function logBulkMismatch(rawName, qty, source) {
+  try {
+    const existing = localStorage.getItem(BULK_MISMATCH_LOG_KEY);
+    const arr = Array.isArray(JSON.parse(existing)) ? JSON.parse(existing) : [];
+    arr.push({
+      rawName: String(rawName || ''),
+      qty: Number.isFinite(qty) ? qty : null,
+      source: source || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem(BULK_MISMATCH_LOG_KEY, JSON.stringify(arr));
+  } catch (e) {
+    // Swallow logging errors; analyzer should never fail because of logging.
+  }
+}
+
+function loadBulkNameMap() {
+  try {
+    const raw = localStorage.getItem(BULK_NAME_MAP_STORAGE_KEY);
+    if (!raw) {
+      BULK_USER_NAME_MAP = {};
+      recomputeBulkNameMap();
+      loadBulkDefaultNameMap();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    BULK_USER_NAME_MAP = normalizeBulkNameMap(parsed);
+    recomputeBulkNameMap();
+    loadBulkDefaultNameMap();
+  } catch (e) {
+    BULK_USER_NAME_MAP = {};
+    recomputeBulkNameMap();
+    loadBulkDefaultNameMap();
+  }
+}
+
+function saveBulkNameMapFromInput() {
+  const input = document.getElementById('bulkNameMapInput');
+  if (!input) return;
+  let obj = {};
+  try {
+    const txt = (input.value || '').trim();
+    obj = txt ? JSON.parse(txt) : {};
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('Expected an object');
+    const normalized = normalizeBulkNameMap(obj);
+    localStorage.setItem(BULK_NAME_MAP_STORAGE_KEY, JSON.stringify(normalized));
+    BULK_USER_NAME_MAP = normalized;
+    recomputeBulkNameMap();
+    showToast('Bulk name map saved.');
+  } catch (e) {
+    showToast('Invalid bulk name map JSON.');
+  }
+}
+
+function exportBulkNameMapToInput() {
+  const input = document.getElementById('bulkNameMapInput');
+  if (!input) return;
+  try {
+    const map = BULK_NAME_MAP || {};
+    const isEmpty = !map || typeof map !== 'object' || Array.isArray(map) || !Object.keys(map).length;
+    // When empty, leave textarea blank so the greyed-out placeholder example shows.
+    input.value = isEmpty ? '' : JSON.stringify(map, null, 2);
+  } catch (e) {
+    input.value = '';
+  }
+}
+
+function clearBulkMismatchLog() {
+  try {
+    localStorage.removeItem(BULK_MISMATCH_LOG_KEY);
+  } catch (e) {}
+  const logEl = document.getElementById('bulkDebugLog');
+  if (logEl) {
+    logEl.innerHTML = '<div class="bulk-debug-empty">No mismatches logged yet.</div>';
+  }
+}
+
+function refreshBulkDebug() {
+  // Refresh mismatch log
+  const logEl = document.getElementById('bulkDebugLog');
+  if (logEl) {
+    try {
+      const raw = localStorage.getItem(BULK_MISMATCH_LOG_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      if (!arr || !arr.length) {
+        logEl.innerHTML = '<div class="bulk-debug-empty">No mismatches logged yet.</div>';
+      } else {
+        const latest = arr.slice(-50).reverse();
+        logEl.innerHTML = latest.map(e => {
+          const ts = e.timestamp || '';
+          const src = e.source || 'unknown';
+          const qty = Number.isFinite(e.qty) ? e.qty : (e.qty || '');
+          const name = e.rawName || '';
+          return `<div>[${ts}] [${src}] ${qty ? qty + 'x ' : ''}${name}</div>`;
+        }).join('');
+      }
+    } catch (e) {
+      logEl.innerHTML = '<div class="bulk-debug-empty">Failed to read mismatch log.</div>';
+    }
+  }
+
+  // Refresh map text area from current in-memory map
+  exportBulkNameMapToInput();
+}
+
+function isBulkDevMode() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    return params.get('dev') === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+function toggleBulkDebug() {
+  if (!isBulkDevMode()) return;
+  const panel = document.getElementById('bulkDebugPanel');
+  const toggle = panel ? panel.previousElementSibling : null;
+  if (!panel || !toggle) return;
+  const isOpen = panel.style.display === 'block';
+  if (isOpen) {
+    panel.style.display = 'none';
+    toggle.classList.remove('open');
+  } else {
+    panel.style.display = 'block';
+    toggle.classList.add('open');
+    refreshBulkDebug();
+  }
+}
+
+function toggleBulkDev() {
+  if (!isBulkDevMode()) return;
+  const panel = document.getElementById('bulkDevPanel');
+  const toggle = panel ? panel.previousElementSibling : null;
+  if (!panel || !toggle) return;
+  const isOpen = panel.style.display === 'block';
+  if (isOpen) {
+    panel.style.display = 'none';
+    toggle.classList.remove('open');
+  } else {
+    panel.style.display = 'block';
+    toggle.classList.add('open');
+  }
+}
+
+function renderBulkScarabList() {
+  const el = document.getElementById('bulkScarabList');
+  if (!el) return;
+  if (!Array.isArray(SCARAB_LIST) || !SCARAB_LIST.length) {
+    el.innerHTML = '<div class="bulk-debug-empty">No scarab data loaded.</div>';
+    return;
+  }
+  const rows = SCARAB_LIST.map(s => {
+    const group = s.group || '';
+    const name = s.name || '';
+    return `<div>${group ? '[' + group + '] ' : ''}${name}</div>`;
+  }).join('');
+  el.innerHTML = rows;
+}
+
+function toggleBulkScarabList() {
+  if (!isBulkDevMode()) return;
+  const panel = document.getElementById('bulkScarabPanel');
+  const toggle = panel ? panel.previousElementSibling : null;
+  if (!panel || !toggle) return;
+  const isOpen = panel.style.display === 'block';
+  if (isOpen) {
+    panel.style.display = 'none';
+    toggle.classList.remove('open');
+  } else {
+    panel.style.display = 'block';
+    toggle.classList.add('open');
+    renderBulkScarabList();
+  }
+}
 
 function getBulkGeminiKey() {
   if (DEFAULT_GEMINI_API_KEY && DEFAULT_GEMINI_API_KEY.trim()) return DEFAULT_GEMINI_API_KEY.trim();
@@ -4063,6 +4429,14 @@ function buildBulkScarabIndex() {
 function matchBulkName(rawName, index) {
   const q = rawName.trim().toLowerCase();
   if (!q) return null;
+
+   // 0) Explicit map overrides from BULK_NAME_MAP
+  const mapped = BULK_NAME_MAP && BULK_NAME_MAP[q];
+  if (mapped && typeof mapped === 'string' && mapped.trim()) {
+    const target = mapped.trim().toLowerCase();
+    const direct = index.find(e => e.nameLower === target);
+    if (direct) return direct;
+  }
 
   // 1) Exact canonical
   let hits = index.filter(e => e.nameLower === q);
@@ -4211,6 +4585,7 @@ async function runBulkFromImage() {
           break;
         }
         document.getElementById('bulkCsv').value = text;
+        _bulkSource = 'image';
         runBulkFromCsv();
         clearBulkImage();
         return;
@@ -4239,6 +4614,9 @@ async function runBulkFromImage() {
 }
 
 function runBulkFromCsv() {
+  if (!_bulkSource) _bulkSource = 'csv';
+  const source = _bulkSource;
+
   const csvText = document.getElementById('bulkCsv').value || '';
   const askingStr = document.getElementById('bulkAskingChaos').value || '';
   const errEl = document.getElementById('bulkError');
@@ -4307,6 +4685,7 @@ function runBulkFromCsv() {
     const match = matchBulkName(r.rawName, index);
     if (!match) {
       unmatched.push(r);
+      logBulkMismatch(r.rawName, r.qty, source);
       continue;
     }
     const priceEa = priceMap[match.name] || 0;
@@ -4422,6 +4801,16 @@ function runBulkFromCsv() {
 // ══════════════════════════════════════════════════
 // Kick off initial wiring
 initBulkGeminiKey();
+loadBulkNameMap();
+
+// Hide bulk developer UI for normal users (enable with ?dev=1).
+(() => {
+  if (isBulkDevMode()) return;
+  const devPanel = document.getElementById('bulkDevPanel');
+  const devToggle = devPanel ? devPanel.previousElementSibling : null;
+  if (devToggle && devToggle.style) devToggle.style.display = 'none';
+  if (devPanel && devPanel.style) devPanel.style.display = 'none';
+})();
 
 // ══════════════════════════════════════════════════
 renderManual(); // keep manual state fresh in background
