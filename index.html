@@ -416,7 +416,8 @@ body {
 .analysis-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 720px; }
 .analysis-empty { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 24px; text-align: center; color: var(--text-3); }
 .analysis-empty p { margin: 0; font-size: 13px; }
-.analysis-stats-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.analysis-stats-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.analysis-data-source { font-size: 11px; color: var(--text-3); margin-bottom: 16px; }
 .analysis-stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
 .analysis-stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
 .analysis-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
@@ -1358,6 +1359,7 @@ body {
     </div>
     <div id="analysisContent" style="display:none">
       <div class="analysis-stats-bar" id="analysisStatsBar"></div>
+      <div id="analysisDataSource" class="analysis-data-source"></div>
       <div class="analysis-section">
         <div class="analysis-section-title">Real vs poe.ninja EV</div>
         <div class="analysis-section-desc">Average value per vendor trade from your sessions vs theoretical EV from current ninja prices.</div>
@@ -1668,6 +1670,8 @@ const GROUP_ORDER = INGAME_ORDER;
 let prices = {};         // manual prices {name -> {qty, cost}}
 let evOverride = null;   // user-set EV override in chaos
 try { const o = localStorage.getItem('poepool28v2-evoverride'); if (o) evOverride = parseFloat(o); } catch(e) {}
+// Community aggregate API: set to your Cloudflare Worker URL (see worker/README.md) to share session data and use community stats in Data Analysis. Leave '' for local-only.
+const POOL_API_URL = 'https://poepool-api.paperpandastacks.workers.dev';
 let ninjaPrices = {};    // {name -> chaosValue}
 let ninjaImages = {};    // {name -> imageUrl} from worker items[]
 let ninjaDivineRate = null; // divine orb chaos value
@@ -3518,6 +3522,19 @@ async function submitSession() {
     } else {
       status.textContent = `✓ Session saved (${existing.length} total)`;
       status.style.color = 'var(--green)';
+      if (POOL_API_URL) {
+        const payload = {
+          total_consumed: record.total_consumed,
+          total_trades: record.total_trades,
+          input_value: record.input_value,
+          output_value: record.output_value,
+          league: record.league || undefined,
+          scarabs: (record.scarabs || []).map(r => ({ name: r.name, received: r.received || 0 }))
+        };
+        fetch(POOL_API_URL + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+          .then(() => {})
+          .catch(() => {});
+      }
     }
     renderSessionHistory();
     // Reset form
@@ -3652,18 +3669,42 @@ renderSessionHistory();
 // DATA ANALYSIS TAB
 // ══════════════════════════════════════════════════
 function renderAnalysis() {
-  const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
-  const validSessions = sessions.filter(s => !s.flagged);
+  const emptyEl = document.getElementById('analysisEmpty');
+  const contentEl = document.getElementById('analysisContent');
   const divRate = getDivineRate();
   const fmt = (c) => divRate && c !== null && c !== undefined && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c || 0) + 'c';
 
-  document.getElementById('analysisEmpty').style.display = sessions.length ? 'none' : 'block';
-  document.getElementById('analysisContent').style.display = sessions.length ? '' : 'none';
-  if (!sessions.length) return;
+  if (POOL_API_URL) {
+    emptyEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    emptyEl.innerHTML = '<p>Loading community data…</p>';
+    fetch(POOL_API_URL + '/api/aggregate')
+      .then(res => res.ok ? res.json() : null)
+      .then(agg => {
+        if (agg && (agg.sessionCount > 0 || Object.keys(agg.receivedByScarab || {}).length > 0)) {
+          renderAnalysisWithData({
+            totalConsumed: agg.totalConsumed || 0,
+            totalTrades: agg.totalTrades || 0,
+            totalInput: agg.totalInput || 0,
+            totalOutput: agg.totalOutput || 0,
+            receivedByScarab: agg.receivedByScarab || {},
+            sessionCount: agg.sessionCount || 0,
+            dataSourceLabel: 'Community data (' + (agg.sessionCount || 0).toLocaleString() + ' sessions)'
+          }, fmt, emptyEl, contentEl);
+          return;
+        }
+        renderAnalysisWithLocal(fmt, emptyEl, contentEl);
+      })
+      .catch(() => renderAnalysisWithLocal(fmt, emptyEl, contentEl));
+  } else {
+    renderAnalysisWithLocal(fmt, emptyEl, contentEl);
+  }
+}
 
-  // Aggregate across sessions (use valid only for summary stats; use all for weight so we have more data)
+function renderAnalysisWithLocal(fmt, emptyEl, contentEl) {
+  const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
   let totalConsumed = 0, totalTrades = 0, totalInput = 0, totalOutput = 0;
-  const receivedByScarab = {}; // name -> total received
+  const receivedByScarab = {};
   for (const s of sessions) {
     totalConsumed += s.total_consumed || 0;
     totalTrades += s.total_trades || 0;
@@ -3677,14 +3718,38 @@ function renderAnalysis() {
       }
     }
   }
+  renderAnalysisWithData({
+    totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab,
+    sessionCount: sessions.length,
+    validCount: sessions.filter(s => !s.flagged).length,
+    dataSourceLabel: 'Your data only (' + sessions.length + ' sessions)'
+  }, fmt, emptyEl, contentEl);
+}
+
+function renderAnalysisWithData(data, fmt, emptyEl, contentEl) {
+  const { totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab, dataSourceLabel } = data;
+  const sessionCount = data.sessionCount != null ? data.sessionCount : 0;
+  const validSub = data.validCount != null ? data.validCount + ' unflagged' : '';
+
+  emptyEl.style.display = 'block';
+  contentEl.style.display = 'none';
   const totalReceived = Object.values(receivedByScarab).reduce((a, b) => a + b, 0);
+  if (totalReceived === 0 && totalTrades === 0) {
+    emptyEl.innerHTML = '<p>No session data yet. Log sessions on the <strong>Session Logger</strong> tab to see analytics here. Set <code>POOL_API_URL</code> to your community API to use shared data.</p>';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  contentEl.style.display = '';
   const totalProfit = totalOutput - totalInput;
   const overallRoi = totalInput > 0 ? ((totalOutput - totalInput) / totalInput * 100) : 0;
   const realAvgPerTrade = totalTrades > 0 ? totalOutput / totalTrades : 0;
 
+  const sourceEl = document.getElementById('analysisDataSource');
+  if (sourceEl) sourceEl.textContent = dataSourceLabel;
+
   // Summary stats bar
   document.getElementById('analysisStatsBar').innerHTML = `
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessions.length}</div><div style="font-size:10px;color:var(--text-3)">${validSessions.length} unflagged</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '—'}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3→1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
@@ -3730,7 +3795,7 @@ function renderAnalysis() {
     <div class="analysis-ev-card">
       <div class="label">Observed EV (weight × ninja)</div>
       <div class="value">${(ninjaPrices && Object.keys(ninjaPrices).length) ? (observedEv.toFixed(2) + 'c') : '—'}</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Your drop weights × current ninja prices</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Observed weights × current ninja prices</div>
     </div>
     <div class="analysis-ev-card">
       <div class="label">poe.ninja EV (harmonic)</div>
