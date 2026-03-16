@@ -409,6 +409,49 @@ body {
 .logger-section-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
 .logger-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); }
 .logger-history-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 20px; }
+
+/* ── DATA ANALYSIS TAB ── */
+.analysis-intro { margin-bottom: 20px; }
+.analysis-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.analysis-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 720px; }
+.analysis-empty { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 24px; text-align: center; color: var(--text-3); }
+.analysis-empty p { margin: 0; font-size: 13px; }
+.analysis-stats-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.analysis-stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
+.analysis-stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.analysis-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.analysis-stat-value.green { color: var(--green); }
+.analysis-stat-value.chaos { color: var(--chaos); }
+.analysis-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+.analysis-section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-2); margin-bottom: 4px; }
+.analysis-section-desc { font-size: 11px; color: var(--text-3); margin-bottom: 12px; line-height: 1.5; }
+.analysis-chart-wrapper { position: relative; }
+.analysis-chart-axes { display: flex; flex-direction: column; gap: 4px; }
+.analysis-chart-row { display: flex; align-items: stretch; gap: 0; min-height: 0; }
+.analysis-chart-y-label { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; width: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding-right: 8px; }
+.analysis-chart-y-label span { transform: rotate(-90deg); white-space: nowrap; }
+.analysis-chart-vertical-wrap { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 0 0 20px 0; min-height: 0; position: relative; flex: 1; min-width: 0; }
+.analysis-chart-x-label { font-size: 10px; color: var(--text-3); margin-top: 4px; min-height: 20px; }
+.analysis-chart-note { font-size: 10px; color: var(--text-3); margin-top: 2px; font-style: italic; }
+.analysis-bar-vertical { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: default; }
+.analysis-bar-vertical .bar-inner { width: 100%; max-width: 24px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--accent), var(--chaos)); transition: height 0.2s; min-height: 2px; }
+.analysis-bar-vertical:hover .bar-inner { opacity: 0.9; }
+.analysis-tooltip { position: fixed; z-index: 10000; padding: 6px 10px; background: var(--header-bg); color: #fff; font-size: 11px; border-radius: 4px; box-shadow: var(--shadow-md); pointer-events: none; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; opacity: 0; visibility: hidden; transition: none; }
+.analysis-tooltip.show { opacity: 1; visibility: visible; }
+.logger-history-grid { display: grid; gap: 10px; align-items: center; }
+.logger-history-grid .cell-left { text-align: left; }
+.logger-history-grid .cell-right { text-align: right; font-variant-numeric: tabular-nums; }
+.analysis-weight-head .th[data-sort] { cursor: pointer; user-select: none; }
+.analysis-weight-head .th[data-sort]:hover { color: var(--accent); }
+.analysis-weight-head .th[data-sort].sort-asc::after { content: ' ▲'; font-size: 9px; opacity: 0.7; }
+.analysis-weight-head .th[data-sort].sort-desc::after { content: ' ▼'; font-size: 9px; opacity: 0.7; }
+.analysis-ev-compare { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.analysis-ev-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+.analysis-ev-card .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); margin-bottom: 4px; }
+.analysis-ev-card .value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.analysis-ev-card .value.green { color: var(--green); }
+.analysis-ev-card .value.amber { color: var(--amber); }
+
 .logger-purple-bold {color: var(--chaos) !important; font-weight: 600 !important; }
 
 /* ── EV CHART PANEL ── */
@@ -977,6 +1020,7 @@ body {
   <div class="nav-tabs">
     <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
     <button class="nav-tab" onclick="switchTab('logger')">Session Logger</button>
+    <button class="nav-tab" onclick="switchTab('analysis')">Data Analysis</button>
     <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
   </div>
   <span class="nav-sep"></span>
@@ -1303,6 +1347,49 @@ body {
 
   </div>
 
+  <!-- ════════════════════════════ DATA ANALYSIS TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-analysis">
+    <div class="analysis-intro">
+      <div class="analysis-title">Session Data Analysis</div>
+      <div class="analysis-sub">Aggregated stats from all logged sessions: observed 3→1 weight distribution, real-world returns vs poe.ninja EV, and profit breakdown.</div>
+    </div>
+    <div id="analysisEmpty" class="analysis-empty" style="display:none">
+      <p>No session data yet. Log sessions on the <strong>Session Logger</strong> tab to see analytics here.</p>
+    </div>
+    <div id="analysisContent" style="display:none">
+      <div class="analysis-stats-bar" id="analysisStatsBar"></div>
+      <div class="analysis-section">
+        <div class="analysis-section-title">Real vs poe.ninja EV</div>
+        <div class="analysis-section-desc">Average value per vendor trade from your sessions vs theoretical EV from current ninja prices.</div>
+        <div id="analysisEvCompare" class="analysis-ev-compare"></div>
+      </div>
+      <div class="analysis-section">
+        <div class="analysis-section-title">Observed weight distribution (3→1 outputs)</div>
+        <div class="analysis-section-desc">How often each scarab type was returned across all vendor trades. Hover a bar to see scarab name.</div>
+        <div class="analysis-chart-wrapper">
+          <div class="analysis-chart-axes">
+            <div class="analysis-chart-row">
+              <div class="analysis-chart-y-label"><span>Count</span></div>
+              <div id="analysisWeightChart" class="analysis-chart-vertical-wrap"></div>
+            </div>
+            <div class="analysis-chart-x-label" id="analysisChartXLabel"></div>
+            <div class="analysis-chart-note">Bar height = count received per scarab type.</div>
+          </div>
+          <div id="analysisBarTooltip" class="analysis-tooltip"></div>
+        </div>
+        <div class="table-card" style="margin-top:12px">
+          <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 90px 90px 90px;gap:8px" id="analysisWeightHead">
+            <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
+            <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')">Received</div>
+            <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight %</div>
+            <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">ninja c/ea</div>
+          </div>
+          <div id="analysisWeightTable"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════════════════════ BULK BUY ANALYZER TAB ════════════════════════════ -->
   <div class="tab-pane" id="tab-bulk">
 
@@ -1621,7 +1708,7 @@ function switchTab(tab) {
   document.getElementById(`tab-${tab}`).classList.add('active');
   if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
   if (tab === 'ninja') renderNinja();
-
+  if (tab === 'analysis') renderAnalysis();
 }
 
 // ══════════════════════════════════════════════════
@@ -3459,27 +3546,32 @@ function renderSessionHistory() {
   }
   const divRate = getDivineRate();
   const fmt = (c) => divRate && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c) + 'c';
-  const cols = '80px 80px 70px 80px 80px 60px 56px 1fr';
+  const cols = '1fr 72px 72px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
+  const gap = '12px';
+  const gridStyle = `display:grid;grid-template-columns:${cols};gap:${gap};align-items:center;padding:6px 10px`;
+  const profitFmt = (c) => (c >= 0 ? '+' : '') + fmt(c);
 
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:${cols};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border)">
-      <span>League</span><span>Scarabs</span><span>Trades</span><span>Input</span><span>Output</span><span>Cutoff</span><span style="text-align:right">ROI</span><span></span>
+    <div class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center">
+      <span class="cell-left">League</span><span class="cell-right">Scarabs</span><span class="cell-right">Trades</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
     </div>
     ${sessions.slice().reverse().map((s, i) => {
       const idx = sessions.length - 1 - i;
+      const profit = (s.output_value || 0) - (s.input_value || 0);
       const flagHtml = s.flagged && s.flags?.length
         ? `<span style="font-size:10px;color:var(--amber);opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.flags.join(' · ')}">* ${s.flags.join(' · ')}</span>`
         : '';
       return `<div>
-        <div onclick="toggleSessionDetail(${idx})" style="display:grid;grid-template-columns:${cols};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s${s.flagged ? ';opacity:0.6' : ''}" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
-          <span>${s.league}</span>
-          <span>${s.total_consumed?.toLocaleString()}</span>
-          <span>${s.total_trades?.toLocaleString()}</span>
-          <span>${fmt(s.input_value)}</span>
-          <span>${fmt(s.output_value)}</span>
-          <span style="color:var(--chaos)">${s.threshold?.toFixed(2)}c</span>
-          <span style="text-align:right;color:${s.roi_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct?.toFixed(1)}%</span>
-          <span style="display:flex;align-items:center;gap:6px;padding-left:8px;min-width:0" onclick="event.stopPropagation()">
+        <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s${s.flagged ? ';opacity:0.6' : ''}" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
+          <span class="cell-left">${s.league}</span>
+          <span class="cell-right">${s.total_consumed?.toLocaleString()}</span>
+          <span class="cell-right">${s.total_trades?.toLocaleString()}</span>
+          <span class="cell-right">${fmt(s.input_value)}</span>
+          <span class="cell-right">${fmt(s.output_value)}</span>
+          <span class="cell-right" style="color:${profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${profitFmt(profit)}</span>
+          <span class="cell-right" style="color:var(--chaos)">${s.threshold?.toFixed(2)}c</span>
+          <span class="cell-right" style="color:${s.roi_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct?.toFixed(1)}%</span>
+          <span class="cell-left" style="display:flex;align-items:center;gap:6px;min-width:0" onclick="event.stopPropagation()">
             <button onclick="deleteSession('${s.id}')" title="Delete session" style="font-family:inherit;font-size:14px;padding:2px 4px;border:none;background:transparent;color:var(--text-3);cursor:pointer;opacity:0.4;transition:all 0.15s;line-height:1;flex-shrink:0" onmouseover="this.style.opacity='1';this.style.color='var(--red)'" onmouseout="this.style.opacity='0.4';this.style.color='var(--text-3)'">🗑</button>
             ${flagHtml}
           </span>
@@ -3555,6 +3647,200 @@ function renderSessionDetail(s, fmt) {
 
 // Init history on load
 renderSessionHistory();
+
+// ══════════════════════════════════════════════════
+// DATA ANALYSIS TAB
+// ══════════════════════════════════════════════════
+function renderAnalysis() {
+  const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
+  const validSessions = sessions.filter(s => !s.flagged);
+  const divRate = getDivineRate();
+  const fmt = (c) => divRate && c !== null && c !== undefined && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c || 0) + 'c';
+
+  document.getElementById('analysisEmpty').style.display = sessions.length ? 'none' : 'block';
+  document.getElementById('analysisContent').style.display = sessions.length ? '' : 'none';
+  if (!sessions.length) return;
+
+  // Aggregate across sessions (use valid only for summary stats; use all for weight so we have more data)
+  let totalConsumed = 0, totalTrades = 0, totalInput = 0, totalOutput = 0;
+  const receivedByScarab = {}; // name -> total received
+  for (const s of sessions) {
+    totalConsumed += s.total_consumed || 0;
+    totalTrades += s.total_trades || 0;
+    totalInput += s.input_value || 0;
+    totalOutput += s.output_value || 0;
+    if (s.scarabs && s.scarabs.length) {
+      for (const r of s.scarabs) {
+        if (r.received > 0 && r.name) {
+          receivedByScarab[r.name] = (receivedByScarab[r.name] || 0) + r.received;
+        }
+      }
+    }
+  }
+  const totalReceived = Object.values(receivedByScarab).reduce((a, b) => a + b, 0);
+  const totalProfit = totalOutput - totalInput;
+  const overallRoi = totalInput > 0 ? ((totalOutput - totalInput) / totalInput * 100) : 0;
+  const realAvgPerTrade = totalTrades > 0 ? totalOutput / totalTrades : 0;
+
+  // Summary stats bar
+  document.getElementById('analysisStatsBar').innerHTML = `
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessions.length}</div><div style="font-size:10px;color:var(--text-3)">${validSessions.length} unflagged</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3→1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Overall ROI</div><div class="analysis-stat-value ${overallRoi >= 0 ? 'green' : ''}">${(overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1)}%</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Real avg/trade</div><div class="analysis-stat-value chaos">${realAvgPerTrade.toFixed(2)}c</div><div style="font-size:10px;color:var(--text-3)">from sessions</div></div>
+  `;
+
+  // Weight distribution: build data array (sort by received desc initially)
+  let observedEv = 0;
+  const weightData = Object.keys(receivedByScarab).map(name => {
+    const count = receivedByScarab[name];
+    const pct = totalReceived > 0 ? (count / totalReceived * 100) : 0;
+    const ninjaPrice = ninjaPrices[name] ?? 0;
+    observedEv += pct / 100 * ninjaPrice;
+    return { name, count, pct, ninjaPrice };
+  });
+  const maxReceived = Math.max(...weightData.map(d => d.count), 1);
+  window._analysisWeightData = weightData;
+  window._analysisWeightSort = { key: 'ninja', dir: -1 };
+  weightData.sort((a, b) => (a.ninjaPrice - b.ninjaPrice) * window._analysisWeightSort.dir);
+
+  // Axis label and chart (instant tooltip via data attr + one global tooltip)
+  updateAnalysisChartAxisLabel();
+  let chartHtml = '';
+  for (const d of weightData) {
+    const heightPct = maxReceived > 0 ? (d.count / maxReceived * 100) : 0;
+    const safeName = (d.name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    chartHtml += `<div class="analysis-bar-vertical" data-scarab-name="${safeName}" onmouseenter="showAnalysisBarTooltip(this, event)" onmouseleave="hideAnalysisBarTooltip()"><div class="bar-inner" style="height:${heightPct}%"></div></div>`;
+  }
+  document.getElementById('analysisWeightChart').innerHTML = chartHtml || '<div style="font-size:12px;color:var(--text-3)">No output scarab data.</div>';
+  renderAnalysisWeightTable();
+
+  // Ninja EV: harmonic mean of all scarab prices (same as app logic)
+  const ninjaEntries = Object.keys(ninjaPrices || {}).filter(n => ninjaPrices[n] > 0).map(n => ({ chaosEa: ninjaPrices[n] }));
+  const ninjaEv = ninjaEntries.length >= 2 ? calcEV(ninjaEntries) : null;
+
+  document.getElementById('analysisEvCompare').innerHTML = `
+    <div class="analysis-ev-card">
+      <div class="label">Realized avg per trade (sessions)</div>
+      <div class="value chaos">${realAvgPerTrade.toFixed(2)}c</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Total output ÷ total trades</div>
+    </div>
+    <div class="analysis-ev-card">
+      <div class="label">Observed EV (weight × ninja)</div>
+      <div class="value">${(ninjaPrices && Object.keys(ninjaPrices).length) ? (observedEv.toFixed(2) + 'c') : '—'}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Your drop weights × current ninja prices</div>
+    </div>
+    <div class="analysis-ev-card">
+      <div class="label">poe.ninja EV (harmonic)</div>
+      <div class="value">${ninjaEv != null ? ninjaEv.toFixed(2) + 'c' : '—'}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Load Scarab Vendor for live ninja data</div>
+    </div>
+    <div class="analysis-ev-card">
+      <div class="label">Real vs ninja EV</div>
+      <div class="value ${ninjaEv != null && realAvgPerTrade >= ninjaEv ? 'green' : ninjaEv != null ? 'amber' : ''}">${ninjaEv != null ? ((realAvgPerTrade - ninjaEv) >= 0 ? '+' : '') + (realAvgPerTrade - ninjaEv).toFixed(2) + 'c' : '—'}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Realized minus theoretical</div>
+    </div>
+  `;
+
+  // Weight table sort indicators on header (default ninja desc)
+  const head = document.getElementById('analysisWeightHead');
+  if (head) {
+    head.querySelectorAll('.th[data-sort]').forEach(th => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      if (th.dataset.sort === (window._analysisWeightSort?.key || 'ninja')) {
+        th.classList.add(window._analysisWeightSort.dir === 1 ? 'sort-asc' : 'sort-desc');
+      }
+    });
+  }
+}
+
+function getAnalysisSortLabel() {
+  const s = window._analysisWeightSort || { key: 'ninja', dir: -1 };
+  const key = s.key;
+  const dir = s.dir;
+  if (key === 'name') return 'Sorted by: Scarab name (' + (dir === 1 ? 'A→Z' : 'Z→A') + ')';
+  if (key === 'received') return 'Sorted by: Count received (' + (dir === -1 ? 'high → low' : 'low → high') + ')';
+  if (key === 'pct') return 'Sorted by: Weight % (' + (dir === -1 ? 'high → low' : 'low → high') + ')';
+  if (key === 'ninja') return 'Sorted by: ninja c/ea (' + (dir === -1 ? 'high → low' : 'low → high') + ')';
+  return 'Bar height = count received';
+}
+
+function updateAnalysisChartAxisLabel() {
+  const xEl = document.getElementById('analysisChartXLabel');
+  if (xEl) xEl.textContent = getAnalysisSortLabel();
+}
+
+function showAnalysisBarTooltip(barEl, ev) {
+  const name = barEl.getAttribute('data-scarab-name');
+  if (!name) return;
+  const tip = document.getElementById('analysisBarTooltip');
+  if (!tip) return;
+  tip.textContent = name.replace(/&quot;/g, '"').replace(/&lt;/g, '<');
+  tip.classList.add('show');
+  const x = (ev && ev.clientX != null) ? ev.clientX : (barEl.getBoundingClientRect().left + barEl.getBoundingClientRect().width / 2);
+  const y = (ev && ev.clientY != null) ? ev.clientY : barEl.getBoundingClientRect().top;
+  const offset = 12;
+  tip.style.left = (x + offset) + 'px';
+  tip.style.top = (y - 4) + 'px';
+}
+
+function hideAnalysisBarTooltip() {
+  const tip = document.getElementById('analysisBarTooltip');
+  if (tip) { tip.classList.remove('show'); tip.textContent = ''; }
+}
+
+function sortAnalysisWeight(key) {
+  const data = window._analysisWeightData;
+  if (!data || !data.length) return;
+  const prev = window._analysisWeightSort || { key: 'ninja', dir: -1 };
+  const dir = prev.key === key ? -prev.dir : (key === 'name' ? 1 : -1);
+  window._analysisWeightSort = { key, dir };
+  data.sort((a, b) => {
+    if (key === 'name') return (a.name.localeCompare(b.name)) * dir;
+    if (key === 'received') return (a.count - b.count) * dir;
+    if (key === 'pct') return (a.pct - b.pct) * dir;
+    if (key === 'ninja') return (a.ninjaPrice - b.ninjaPrice) * dir;
+    return 0;
+  });
+  updateAnalysisChartAxisLabel();
+  const maxReceived = Math.max(...data.map(d => d.count), 1);
+  let chartHtml = '';
+  for (const d of data) {
+    const heightPct = maxReceived > 0 ? (d.count / maxReceived * 100) : 0;
+    const safeName = (d.name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    chartHtml += `<div class="analysis-bar-vertical" data-scarab-name="${safeName}" onmouseenter="showAnalysisBarTooltip(this, event)" onmouseleave="hideAnalysisBarTooltip()"><div class="bar-inner" style="height:${heightPct}%"></div></div>`;
+  }
+  const chartEl = document.getElementById('analysisWeightChart');
+  if (chartEl) chartEl.innerHTML = chartHtml;
+  renderAnalysisWeightTable();
+  const head = document.getElementById('analysisWeightHead');
+  if (head) {
+    head.querySelectorAll('.th[data-sort]').forEach(th => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      if (th.dataset.sort === key) th.classList.add(dir === 1 ? 'sort-asc' : 'sort-desc');
+    });
+  }
+}
+
+function renderAnalysisWeightTable() {
+  const data = window._analysisWeightData || [];
+  const el = document.getElementById('analysisWeightTable');
+  if (!el) return;
+  if (!data.length) {
+    el.innerHTML = '<div style="padding:12px;color:var(--text-3)">No output scarab data.</div>';
+    return;
+  }
+  const rows = data.map(d => `
+    <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 90px 90px 90px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:8px">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '—'}</span>
+    </div>`).join('');
+  el.innerHTML = rows;
+}
 
 // ══════════════════════════════════════════════════
 // BULK BUY ANALYZER (CSV from Gemini)
