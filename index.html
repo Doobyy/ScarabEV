@@ -1297,8 +1297,8 @@ body {
         <div class="estimator-results">
           <div class="estimator-card">
             <div class="estimator-card-label">Scarabs to Vendor</div>
-            <div class="estimator-card-value val-roi" id="est-input">7,500</div>
-            <div class="estimator-card-sub" id="est-input-sub">placeholder — import CSV for real data</div>
+            <div class="estimator-card-value val-roi" id="est-input">—</div>
+            <div class="estimator-card-sub" id="est-input-sub">import CSV to estimate</div>
           </div>
           <div class="estimator-card">
             <div class="estimator-card-label">Est. Return</div>
@@ -1827,6 +1827,94 @@ let ninjaPrices = {};    // {name -> chaosValue}
 let ninjaImages = {};    // {name -> imageUrl} from worker items[]
 let ninjaDivineRate = null; // divine orb chaos value
 let ninjaLoaded = false;
+
+// ── WEIGHT-CALIBRATED RATE ───────────────────────────────────────────────────
+// Instead of tracking historical ROI (which goes stale as prices shift), we use
+// the observed scarab output distribution from logged sessions combined with
+// current poe.ninja prices to compute a live expected value per input scarab.
+//
+//   rate = Σ (weight[scarab] × ninjaPrice[scarab]) / 3
+//
+// weight[scarab] = how often that scarab appears as a vendor output, normalized.
+// Dividing by 3 because 3 scarabs in → 1 scarab out.
+// This is always current — only the weights are from data, prices are live.
+// ── WEIGHT-CALIBRATED RATE ───────────────────────────────────────────────────
+// Rate = Σ(weight[scarab] × ninjaPrice[scarab]) / 3
+// Reported conservatively at mean − 1σ of the single-draw value distribution.
+// This means ~84% of real sessions should beat the estimate — we never over-promise.
+// No hardcoded fallback: if data isn't loaded yet, the estimator shows nothing.
+let _observedWeights = null;  // { scarabName -> normalizedWeight } from aggregate
+let _weightSessionCount = 0;
+let _calibratedRate = null;   // null = not ready yet; set once weights + ninja both loaded
+let _calibratedMean = null;   // mean rate before σ adjustment, kept for display
+let _calibratedSigma = null;  // 1σ of the single-draw distribution
+
+function computeWeightBasedRate() {
+  // Returns { mean, sigma, conservative } or null if data not ready
+  if (!_observedWeights || !ninjaLoaded) return null;
+  const lower = buildNinjaLookup();
+
+  // Build array of (weight, price) pairs for scarabs with known prices
+  const pairs = [];
+  for (const [name, weight] of Object.entries(_observedWeights)) {
+    const price = getNinjaPrice(name, lower);
+    if (price > 0 && weight > 0) pairs.push({ weight, price });
+  }
+  if (!pairs.length) return null;
+
+  // Re-normalize weights in case some scarabs had no ninja price
+  const totalWeight = pairs.reduce((s, p) => s + p.weight, 0);
+  if (totalWeight <= 0) return null;
+  const norm = pairs.map(p => ({ weight: p.weight / totalWeight, price: p.price }));
+
+  // Mean of single draw value (before /3 adjustment)
+  const mean1 = norm.reduce((s, p) => s + p.weight * p.price, 0);
+
+  // Variance of single draw: E[x²] - E[x]²
+  const ex2 = norm.reduce((s, p) => s + p.weight * p.price * p.price, 0);
+  const variance1 = ex2 - mean1 * mean1;
+  const sigma1 = Math.sqrt(Math.max(0, variance1));
+
+  // Apply /3 for the 3→1 trade mechanic
+  // mean and sigma both scale linearly with /3
+  const mean = mean1 / 3;
+  const sigma = sigma1 / 3;
+
+  // Conservative estimate: mean − 1σ, floored at a small positive to avoid negatives
+  const conservative = Math.max(0.001, mean - sigma);
+
+  return { mean, sigma, conservative };
+}
+
+async function fetchObservedWeights() {
+  if (!POOL_API_URL) return;
+  try {
+    const res = await fetch(POOL_API_URL + '/api/aggregate', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const received = data.receivedByScarab || {};
+    const totalReceived = Object.values(received).reduce((s, n) => s + n, 0);
+    if (totalReceived < 100) return; // not enough observations yet
+    // Normalize counts to weights
+    const weights = {};
+    for (const [name, count] of Object.entries(received)) {
+      weights[name] = count / totalReceived;
+    }
+    _observedWeights = weights;
+    _weightSessionCount = data.sessionCount || 0;
+    // Compute rate now if ninja prices are already loaded
+    if (ninjaLoaded) {
+      const result = computeWeightBasedRate();
+      if (result) {
+        _calibratedMean = result.mean;
+        _calibratedSigma = result.sigma;
+        _calibratedRate = result.conservative;
+      }
+      calcEstimator();
+    }
+  } catch(e) { /* silent — estimator will show nothing until data is available */ }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 let collapsedM = new Set();
 let collapsedN = new Set();
 let manualView = 'all';
@@ -2528,6 +2616,16 @@ async function fetchNinja() {
     ninjaPrices = rawPrices;
     ninjaImages = rawImages;
     ninjaLoaded = true;
+    // If observed weights were already fetched, recompute the calibrated rate now
+    // that we have live ninja prices to pair them with
+    if (_observedWeights) {
+      const result = computeWeightBasedRate();
+      if (result) {
+        _calibratedMean = result.mean;
+        _calibratedSigma = result.sigma;
+        _calibratedRate = result.conservative;
+      }
+    }
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
@@ -3058,8 +3156,7 @@ function updateSliderROI(threshold) {
 function syncSliderToEV(ev) {
   if (ninjaEvOverride !== null) {
     updateSliderROI(ninjaEvOverride);
-    const qty = csvVendorQty !== null ? csvVendorQty : 7500;
-    renderEstimator(qty, getDivineRate(), ninjaEvOverride);
+    calcEstimator();
     return;
   }
   const slider = document.getElementById('thresholdSlider');
@@ -3068,19 +3165,16 @@ function syncSliderToEV(ev) {
   slider.value = val;
   document.getElementById('sliderValueDisplay').textContent = ev.toFixed(2) + 'c';
   updateSliderROI(ev);
-  // Defer marker until layout is complete
   requestAnimationFrame(() => positionMarker(ev));
-  const qty = csvVendorQty !== null ? csvVendorQty : 7500;
-  renderEstimator(qty, getDivineRate(), ev);
+  calcEstimator();
 }
 
 // ══════════════════════════════════════════════════
 // PROFIT ESTIMATOR
 // ══════════════════════════════════════════════════
-// Calibrated from 2 real sessions:
-//   Session A: 9d 47c in → 14d 76c out = +56% ROI
-//   Session B: 8d 73c in → 14d  0c out = +60% ROI
-// Rate: 0.3753c keeper value per original scarab input
+// Estimator rate is now computed dynamically from observed weight distribution
+// × live poe.ninja prices, reported at mean − 1σ for conservative estimates.
+// See computeWeightBasedRate() and fetchObservedWeights().
 
 let csvVendorQty = null;
 let _csvRawItems = null; // all scarabs from the last imported CSV (session-only)
@@ -3116,12 +3210,12 @@ function parseWealthyCSV(text) {
   for (const line of lines) {
     if (!line.trim()) continue;
     const cols = line.match(/"([^"]*)"/g);
-    if (!cols || cols.length < 5) continue;
-    const name  = cols[0].replace(/"/g, '').trim();
-    const qty   = parseInt(cols[2].replace(/"/g, '')) || 0;
-    const total = parseFloat(cols[4].replace(/"/g, '')) || 0;
+    if (!cols || cols.length < 3) continue;
+    const name = cols[0].replace(/"/g, '').trim();
+    const qty  = parseInt(cols[2].replace(/"/g, '')) || 0;
+    // Only store name + qty — prices come from live poe.ninja data, not the CSV
     if (qty > 0) {
-      items.push({ name, qty, priceEa: qty > 0 && total > 0 ? total/qty : 0 });
+      items.push({ name, qty });
       totalQty += qty;
     }
   }
@@ -3211,72 +3305,97 @@ function clearCSV() {
 }
 
 function calcEstimator() {
-
-  let qty = 0;
-
   const lower = buildNinjaLookup();
   const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
   const priced = entries.filter(e => e.chaosEa > 0);
   const autoEV = calcEV(priced);
   const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
 
-   if (_csvRawItems) {
-     // Recompute which CSV scarabs are vendor targets at the current threshold
-     qty = 0;
-     const found = [];
-     for (const item of _csvRawItems) {
-       const price = getNinjaPrice(item.name, lower);
-       if (price > 0 && threshold !== null && price <= threshold) {
-         qty += item.qty;
-         found.push({ name: item.name, qty: item.qty });
-       }
-     }
-     window._csvFoundItems = found;
-   } else {
-     // No CSV loaded: use placeholder quantity
-     qty = 7500;
-     window._csvFoundItems = null;
-   }
+  let vendorQty = 0;
+  let inputValue = 0; // current market value of scarabs being vendored (qty × ninja price)
+
+  if (_csvRawItems) {
+    const found = [];
+    for (const item of _csvRawItems) {
+      const ninjaPrice = getNinjaPrice(item.name, lower);
+      if (ninjaPrice > 0 && threshold !== null && ninjaPrice <= threshold) {
+        vendorQty += item.qty;
+        inputValue += item.qty * ninjaPrice;
+        found.push({ name: item.name, qty: item.qty });
+      }
+    }
+    window._csvFoundItems = found;
+  } else {
+    window._csvFoundItems = null;
+  }
 
   renderCSVBreakdown();
-  renderEstimator(qty, getDivineRate(), threshold);
+  renderEstimator(vendorQty, inputValue, getDivineRate(), threshold);
 }
 
-function renderEstimator(qty, divRate, threshold) {
-  const RATE = 0.3753;
-  const divRateEl = document.getElementById('est-divine-rate-wrap');
-  if (divRateEl) divRateEl.textContent = divRate ? `1d = ${divRate.toFixed(0)}c` : '';
+function renderEstimator(vendorQty, inputValue, divRate, threshold) {
+  // Recompute calibrated rate from observed weights × live ninja prices every render
+  if (_observedWeights && ninjaLoaded) {
+    const result = computeWeightBasedRate();
+    if (result) {
+      _calibratedMean  = result.mean;
+      _calibratedSigma = result.sigma;
+      _calibratedRate  = result.conservative;
+    }
+  }
 
-  const inputEl = document.getElementById('est-input');
-  const inputSub = document.getElementById('est-input-sub');
-  const retEl   = document.getElementById('est-return');
-  const profEl  = document.getElementById('est-profit');
-  const statProfEl  = document.getElementById('n-statEstProfit');
+  const retEl      = document.getElementById('est-return');
+  const profEl     = document.getElementById('est-profit');
+  const inputEl    = document.getElementById('est-input');
+  const inputSub   = document.getElementById('est-input-sub');
+  const statProfEl = document.getElementById('n-statEstProfit');
   const statProfSub = document.getElementById('n-statEstProfitSub');
-  const isPlaceholder = csvVendorQty === null;
+  const divRateEl  = document.getElementById('est-divine-rate-wrap');
+  const noCSV      = csvVendorQty === null;
 
-  const lower = buildNinjaLookup();
-  const vendorPrices = SCARAB_LIST
-    .map(s => {
-      const p = getP(s.name);
-      const manual = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
-      return manual > 0 ? manual : (getNinjaPrice(s.name, lower) || 0);
-    })
-    .filter(p => p > 0 && threshold !== null && p <= threshold);
+  // Footer: always show rate info once calibration is ready
+  if (divRateEl) {
+    if (_calibratedRate !== null) {
+      const meanLabel  = _calibratedMean  ? _calibratedMean.toFixed(4)  + 'c mean' : '';
+      const sigmaLabel = _calibratedSigma ? '−1σ (' + _calibratedSigma.toFixed(4) + ')' : '';
+      divRateEl.textContent = [
+        divRate ? `1d = ${divRate.toFixed(0)}c` : '',
+        `${_calibratedRate.toFixed(4)}c/scarab · ${meanLabel} ${sigmaLabel} · ${_weightSessionCount} sessions`
+      ].filter(Boolean).join(' · ');
+    } else {
+      divRateEl.textContent = divRate ? `1d = ${divRate.toFixed(0)}c` : '';
+    }
+  }
 
-  const avgInputPrice = vendorPrices.length
-    ? vendorPrices.reduce((s, p) => s + p, 0) / vendorPrices.length
-    : 0.22;
+  // No CSV — prompt to import, nothing to compute
+  if (noCSV) {
+    if (inputEl)  { inputEl.textContent = '—'; }
+    if (inputSub) { inputSub.textContent = 'import your Wealthy Exile CSV to estimate'; inputSub.style.color = 'var(--amber)'; }
+    if (retEl)    { retEl.textContent = '—'; }
+    if (profEl)   { profEl.textContent = '—'; profEl.className = 'estimator-card-value val-return'; }
+    if (statProfEl)  { statProfEl.textContent = '—'; statProfEl.className = 'stat-value'; }
+    if (statProfSub) { statProfSub.textContent = ''; }
+    return;
+  }
 
-  const inputCost = qty * avgInputPrice;
-  const retChaos  = qty * RATE;
-  const profChaos = retChaos - inputCost;
-  const roiPct    = inputCost > 0 ? (profChaos / inputCost * 100) : 0;
+  // Calibration data not ready yet
+  if (_calibratedRate === null) {
+    if (inputEl)  { inputEl.textContent = vendorQty.toLocaleString(); }
+    if (inputSub) { inputSub.textContent = 'loading calibration data…'; inputSub.style.color = 'var(--text-3)'; }
+    if (retEl)    { retEl.textContent = '—'; }
+    if (profEl)   { profEl.textContent = '—'; profEl.className = 'estimator-card-value val-return'; }
+    return;
+  }
 
-  if (inputEl) inputEl.textContent = qty.toLocaleString();
-  if (inputSub) inputSub.textContent = isPlaceholder ? 'placeholder — import CSV for real data' : 'from your Wealthy Exile CSV';
-  if (inputSub) inputSub.style.color = isPlaceholder ? 'var(--amber)' : 'var(--text-3)';
-  if (retEl)   retEl.textContent   = fmtEst(retChaos, divRate);
+  // All data ready — compute
+  // Est. return: how much the vendor outputs are worth at the calibrated rate
+  const retChaos  = vendorQty * _calibratedRate;
+  // Profit: return minus current market value of what we're putting in
+  const profChaos = retChaos - inputValue;
+
+  if (inputEl)  { inputEl.textContent = vendorQty.toLocaleString(); }
+  if (inputSub) { inputSub.textContent = `market value: ${fmtEst(inputValue, divRate)}`; inputSub.style.color = 'var(--text-3)'; }
+  if (retEl)    { retEl.textContent = fmtEst(retChaos, divRate); }
   if (profEl) {
     profEl.textContent = (profChaos >= 0 ? '+' : '') + fmtEst(Math.abs(profChaos), divRate);
     profEl.className   = 'estimator-card-value ' + (profChaos >= 0 ? 'val-profit' : 'val-roi');
@@ -3285,7 +3404,7 @@ function renderEstimator(qty, divRate, threshold) {
     statProfEl.textContent = (profChaos >= 0 ? '+' : '') + fmtEst(Math.abs(profChaos), divRate);
     statProfEl.className   = 'stat-value ' + (profChaos >= 0 ? 'green' : 'red');
   }
-  if (statProfSub) statProfSub.textContent = `at ${qty.toLocaleString()} qty`;
+  if (statProfSub) { statProfSub.textContent = `at ${vendorQty.toLocaleString()} scarabs`; }
 }
 function copyRegex(tab) {
   const prefix = tab === 'manual' ? 'm' : 'n';
@@ -4818,6 +4937,7 @@ loadBulkNameMap();
 // ══════════════════════════════════════════════════
 renderManual(); // keep manual state fresh in background
 fetchNinja();
+fetchObservedWeights(); // pull weight distribution from community aggregate
 updateSortArrows();
 initSlider();
 fetchAndRenderEVChart();
