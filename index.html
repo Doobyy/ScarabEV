@@ -1130,9 +1130,40 @@ body {
 .help-box a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .help-box a:hover { text-decoration: underline; }
 
-/* ── FAQ body text — readable in both themes ── */
+/* ── Dark mode font smoothing — prevents fuzzy rendering on muted text ── */
+[data-theme="dark"] { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .faq-body { color: var(--text-3); }
 [data-theme="dark"] .faq-body { color: #7a85a8; }
+
+/* ── FAQ question row ── */
+[data-theme="dark"] .faq-question { border-left: 3px solid var(--border) !important; padding-left: 11px !important; border-radius: 7px !important; }
+[data-theme="dark"] .faq-question.open { border-left-color: #378ADD !important; }
+[data-theme="dark"] .faq-question-title { color: #c8cfe0; }
+
+/* ── Dark mode body text visibility boosts ── */
+/* Tab intro descriptions */
+[data-theme="dark"] .logger-intro-sub,
+[data-theme="dark"] .analysis-sub,
+[data-theme="dark"] .bulk-sub { color: #7a85a8; }
+
+/* Section descriptions under chart/table headings */
+[data-theme="dark"] .analysis-section-desc { color: #7a85a8; }
+
+/* How-to guide body — same treatment as FAQ */
+[data-theme="dark"] #loggerHowToBody { color: #7a85a8 !important; }
+[data-theme="dark"] #loggerHowToBody strong { color: var(--text-2); }
+
+/* Submit status feedback — needs to be readable */
+[data-theme="dark"] .logger-submit-status { color: #7a85a8; }
+
+/* Ninja status — loaded/loading states */
+[data-theme="dark"] .ninja-status.loaded,
+[data-theme="dark"] .ninja-status.loading { color: #7a85a8; }
+
+/* Empty state messages */
+[data-theme="dark"] .logger-history-empty,
+[data-theme="dark"] .analysis-empty,
+[data-theme="dark"] .analysis-empty p { color: #7a85a8; }
 
 .bulk-gemini-key:focus { border-color: var(--accent); }
 
@@ -1468,10 +1499,32 @@ body {
           <div><strong style="color:var(--text-2)">If you want to continue vendoring</strong> — move the returned vendor-target scarabs back into your main stack, export again (this becomes the new Snapshot 1), run another pass, export after (Snapshot 2), and log that as a second session. Each pass is its own session submission.</div>
         </div>
 
-        <div style="background:var(--bg-group);border:1px solid var(--border);border-radius:5px;padding:10px 14px;font-size:11px;color:var(--text-3)">
-          <strong style="color:var(--text-2)">Example:</strong> You have 3,000 cheap scarabs to vendor across 10 passes.
-          Export → Pass 1 → Export → <em>log session 1</em> → Export → Pass 2 → Export → <em>log session 2</em> → … and so on.
-          Each logged session is a clean single-pass record with accurate output data.
+        <div style="background:var(--bg-group);border:1px solid var(--border);border-radius:5px;padding:12px 14px;font-size:12px;color:var(--text-3)">
+          <strong style="color:var(--text-2)">Example: 10,000 scarabs across multiple passes</strong>
+          <div style="height:1px;background:var(--border);margin:10px 0"></div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-bottom:6px">Workflow</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">A</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ vendor →</span>
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">B</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ vendor →</span>
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">C</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ vendor →</span>
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">D</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ …</span>
+          </div>
+          <div style="margin-top:10px">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-bottom:6px">Sessions to submit</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">A + B → session 1</span>
+              <span style="color:var(--text-3)">·</span>
+              <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">B + C → session 2</span>
+              <span style="color:var(--text-3)">·</span>
+              <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">C + D → session 3</span>
+            </div>
+          </div>
+          <div style="height:1px;background:var(--border);margin:10px 0"></div>
+          <span style="font-size:11px;color:var(--text-3)">Each export does double duty — it closes the previous session and opens the next one.</span>
         </div>
 
         <div style="margin-top:14px;font-size:11px;color:var(--text-3)">
@@ -2311,9 +2364,9 @@ function initFaq() {
 
     const wrapper = document.createElement('div');
     wrapper.innerHTML = `
-      <div onclick="toggleFaqItem('${bodyId}','${chevronId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-card)'" id="${id}">
+      <div onclick="toggleFaqItem('${bodyId}','${chevronId}','${id}')" class="faq-question" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-card)'" id="${id}">
         <span style="font-size:10px;color:var(--accent);transition:transform 0.15s;flex-shrink:0" id="${chevronId}">▶</span>
-        <span style="font-size:12px;font-weight:600;color:var(--text-2)">${section.title}</span>
+        <span class="faq-question-title" style="font-size:12px;font-weight:600;color:var(--text-2)">${section.title}</span>
       </div>
       <div id="${bodyId}" class="faq-body" style="display:none;margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:14px 18px;font-size:12px;line-height:1.8">
         ${section.body}
@@ -2323,13 +2376,15 @@ function initFaq() {
   });
 }
 
-function toggleFaqItem(bodyId, chevronId) {
+function toggleFaqItem(bodyId, chevronId, questionId) {
   const body    = document.getElementById(bodyId);
   const chevron = document.getElementById(chevronId);
+  const question = questionId ? document.getElementById(questionId) : null;
   if (!body) return;
   const open = body.style.display !== 'none';
   body.style.display = open ? 'none' : '';
   if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+  if (question) question.classList.toggle('open', !open);
 }
 
 function toggleFaq(qEl) {
