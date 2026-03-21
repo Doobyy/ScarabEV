@@ -2082,62 +2082,6 @@ async function fetchPriceHistory() {
   } catch(e) { /* silent */ }
 }
 
-// Seed mock price history for visual preview — replaced by real data once available.
-// Generates 7 days of realistic price movement per scarab using the current ninja price
-// as the anchor, so sparklines scale correctly relative to actual prices.
-function seedMockPriceHistory() {
-  if (!ninjaLoaded) return;
-  const lower = buildNinjaLookup();
-  const today = new Date();
-  const mock = {};
-
-  const archetypes = ['up_strong', 'up_gentle', 'flat', 'down_gentle', 'down_strong', 'volatile', 'spike', 'dip'];
-
-  // Seeded pseudo-random so it's stable per scarab name
-  function seededRand(seed, i) {
-    const x = Math.sin(seed * 9301 + i * 49297 + 233) * 803979;
-    return x - Math.floor(x);
-  }
-
-  SCARAB_LIST.forEach((s, idx) => {
-    const price = getNinjaPrice(s.name, lower);
-    if (!price || price <= 0) return;
-    const archetype = archetypes[idx % archetypes.length];
-    const seed = idx + 1;
-    const hist = [];
-
-    // Generate 7 base multipliers for each archetype with natural wobble
-    const baseMultipliers = Array.from({ length: 7 }, (_, i) => {
-      const t = i / 6;
-      const noise = (seededRand(seed, i) - 0.5) * 0.12; // ±6% random wobble
-      let base;
-      switch (archetype) {
-        case 'up_strong':   base = 0.72 + t * 0.50; break;
-        case 'up_gentle':   base = 0.88 + t * 0.20; break;
-        case 'flat':        base = 0.96 + Math.sin(t * Math.PI * 1.5) * 0.06; break;
-        case 'down_gentle': base = 1.14 - t * 0.20; break;
-        case 'down_strong': base = 1.32 - t * 0.50; break;
-        case 'volatile':    base = 1 + Math.sin(t * Math.PI * 2.5) * 0.30; break;
-        case 'spike':       base = t < 0.5 ? 0.85 + t * 1.0 : 1.35 - (t - 0.5) * 0.80; break;
-        case 'dip':         base = t < 0.5 ? 1.05 - t * 0.60 : 0.75 + (t - 0.5) * 0.60; break;
-        default:            base = 1;
-      }
-      return Math.max(0.05, base + noise);
-    });
-
-    for (let d = 6; d >= 0; d--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - d);
-      const dateStr = date.toISOString().slice(0, 10);
-      const multiplier = baseMultipliers[6 - d];
-      hist.push({ date: dateStr, price: parseFloat((price * multiplier).toFixed(4)) });
-    }
-    mock[s.name] = hist;
-  });
-
-  _priceHistory = mock;
-  renderNinja();
-}
 
 // Returns % change from oldest to newest in the 7-day history for a scarab.
 // null if fewer than 2 data points.
@@ -2348,7 +2292,7 @@ Regardless of method, always cross-reference the parsed data against the origina
     body: `Yes — and it's the most common piece of feedback. Right now the tool relies on <strong>Wealthy Exile CSV exports</strong> for inventory snapshots because that's the only reliable way to read your stash contents without GGG's direct involvement.<br><br>
 The proper solution is <strong>OAuth access via GGG's official API</strong>. With OAuth, the tool could read your stash tabs directly — no Wealthy Exile, no manual exports, no before/after snapshots. Session logging would be as simple as clicking a button before and after vendoring. Everything tedious about the current workflow goes away.<br><br>
 GGG does offer OAuth access to third-party developers, but it requires a formal application and approval process. I haven't applied yet because I wanted to validate that there's genuine demand for the tool first.<br><br>
-<strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application and take on the engineering work to make the whole experience seamless.`
+<strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application.`
   },
   {
     title: 'Why use harmonic mean instead of arithmetic mean for EV?',
@@ -3071,8 +3015,8 @@ async function fetchNinja() {
         _calibratedRate = result.conservative;
       }
     }
-    // Seed mock sparkline data for visual preview if no real history has loaded yet
-    if (Object.keys(_priceHistory).length === 0) seedMockPriceHistory();
+    // Fetch real price history for sparklines
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
