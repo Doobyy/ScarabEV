@@ -4255,7 +4255,14 @@ async function submitSession() {
           input_value: record.input_value,
           output_value: record.output_value,
           league: record.league || undefined,
-          scarabs: (record.scarabs || []).map(r => ({ name: r.name, received: r.received || 0, was_vendor: r.was_vendor || false }))
+          regex: record.regex || undefined,
+          scarabs: (record.scarabs || []).map(r => ({
+            name: r.name,
+            received: r.received || 0,
+            consumed: r.consumed || 0,
+            was_vendor: r.was_vendor || false,
+            ninja_price: r.ninja_price || 0
+          }))
         };
         fetch(POOL_API_URL + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
           .then(() => {})
