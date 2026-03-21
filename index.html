@@ -1314,7 +1314,7 @@ body {
           <span class="threshold-label">Vendor Threshold</span>
           <span class="threshold-value" id="sliderValueDisplay">—</span>
           <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
-          <div class="view-toggle" style="margin-left:6px" title="EV calculation method">
+          <div class="view-toggle" style="margin-left:6px">
             <button id="evModeHarmonic" class="active" onclick="setEVMode('harmonic')">Harmonic</button>
             <button id="evModeWeighted" onclick="setEVMode('weighted')">Weighted</button>
           </div>
@@ -1341,6 +1341,9 @@ body {
         <div class="slider-roi-segment" style="background:var(--green)" id="roiSegGreen"></div>
         <div class="slider-roi-segment" style="background:var(--amber)" id="roiSegAmber"></div>
         <div class="slider-roi-segment" style="background:var(--red)" id="roiSegRed"></div>
+      </div>
+      <div id="weightedEvWarning" style="display:none;margin-top:10px;padding:7px 12px;background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;font-size:11px;color:var(--amber);line-height:1.6">
+        ⚠ <strong style="color:var(--amber)">Weighted EV carries more variance.</strong> Based on <span id="weightedSessionCount">—</span> community sessions — rare expensive drops in limited data can skew the threshold higher than the true long-run rate. <span style="color:var(--text-2)">Harmonic EV is the safer default — weighted is for high-volume runs where you're comfortable riding out the variance chasing jackpot drops.</span>
       </div>
     </div>
 
@@ -1552,9 +1555,15 @@ body {
       </div>
 
       <div class="logger-field" style="margin-top:12px">
-        <div class="logger-label">Regex used during this session</div>
+        <div class="logger-label" style="display:flex;align-items:center;gap:8px">
+          Regex used during this session
+          <span id="loggerRegexBadge" style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:3px;background:var(--ninja-bg);color:var(--ninja-accent);border:1px solid var(--ninja-border);letter-spacing:0.03em">auto</span>
+          <span id="loggerRegexNote" style="font-size:10px;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">Auto-filled from Scarab Vendor tab — click to replace</span>
+        </div>
         <input class="logger-regex-input" type="text" id="loggerRegex" placeholder='e.g. "lk|dg|rus|arr|nsc"'>
-        <div class="logger-regex-hint" id="loggerRegexHint"></div>
+        <div style="margin-top:4px;min-height:16px">
+          <div class="logger-regex-hint" id="loggerRegexHint"></div>
+        </div>
       </div>
 
       <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
@@ -2029,39 +2038,37 @@ let ninjaLoaded = false;
 // No hardcoded fallback: if data isn't loaded yet, the estimator shows nothing.
 let _observedWeights = null;  // { scarabName -> normalizedWeight } from aggregate
 let _weightSessionCount = 0;
-let _observedRateRaw = null;  // total_output / total_consumed from real sessions
-let _calibratedRate = null;   // null = not ready; set once weights + ninja + observed rate all loaded
-let _calibratedMean = null;   // theoretical mean (weights × prices / 3), for display
-let _calibratedP20 = null;    // conservative rate after data-driven discount, for display
+let _observedRateRaw = null;  // kept for admin/historical display only — not used in EV calc
+let _calibratedRate = null;   // null = not ready; set once weights + ninja loaded
+let _calibratedMean = null;   // Σ(weight × ninjaPrice) / 3 — the weighted EV threshold
+let _calibratedP20 = null;    // same as mean — kept for API compat
 let _evMode = 'harmonic';     // 'harmonic' | 'weighted' — which auto EV to use for threshold
 
 function computeWeightBasedRate() {
-  // mean        = Σ(weight × ninjaPrice) / 3  — theoretical EV from observed drop weights
-  // discount    = _observedRateRaw / mean      — how much real sessions under/over-perform theory
-  // conservative = mean × discount             — fully data-driven, no hardcoded constants
-  // Clamped 0.5–1.0 so a single weird session can't crater the estimate.
-  // Returns null if any required data isn't loaded yet.
-  if (!_observedWeights || !ninjaLoaded || !_observedRateRaw) return null;
+  // mean = Σ(weight × currentNinjaPrice) / 3
+  // Weights are true observed drop frequencies from community sessions.
+  // Unobserved scarabs contribute 0 — their true observed frequency.
+  // Prices are always live from poe.ninja — no historical values involved.
+  if (!_observedWeights || !ninjaLoaded) return null;
   const lower = buildNinjaLookup();
 
   const pairs = [];
-  for (const [name, weight] of Object.entries(_observedWeights)) {
-    const price = getNinjaPrice(name, lower);
-    if (price > 0 && weight > 0) pairs.push({ name, weight, price });
+  for (const s of SCARAB_LIST) {
+    const price = getNinjaPrice(s.name, lower);
+    if (price <= 0) continue;
+    const weight = _observedWeights[s.name] || 0;
+    pairs.push({ name: s.name, weight, price });
   }
   if (!pairs.length) return null;
 
   const totalWeight = pairs.reduce((s, p) => s + p.weight, 0);
   if (totalWeight <= 0) return null;
-  const norm = pairs.map(p => ({ ...p, weight: p.weight / totalWeight }));
 
-  const mean = norm.reduce((s, p) => s + p.weight * p.price, 0) / 3;
+  // Re-normalise so weights of observed scarabs sum to 1.0
+  const mean = pairs.reduce((s, p) => s + (p.weight / totalWeight) * p.price, 0) / 3;
   if (mean <= 0) return null;
 
-  const discount = Math.min(1.0, Math.max(0.5, _observedRateRaw / mean));
-  const conservative = mean * discount;
-
-  return { mean, conservative, discount };
+  return { mean, conservative: mean };
 }
 
 async function fetchObservedWeights() {
@@ -2074,14 +2081,7 @@ async function fetchObservedWeights() {
     const totalReceived = Object.values(received).reduce((s, n) => s + n, 0);
     if (totalReceived < 100) return; // not enough observations yet
 
-    // Observed rate: actual chaos returned per scarab consumed across all sessions
-    const totalOutput   = data.totalOutput   || 0;
-    const totalConsumed = data.totalConsumed  || 0;
-    if (totalConsumed > 0 && totalOutput > 0) {
-      _observedRateRaw = totalOutput / totalConsumed;
-    }
-
-    // Normalize counts to weights
+    // Normalize counts to weights — purely frequency data, no prices
     const weights = {};
     for (const [name, count] of Object.entries(received)) {
       weights[name] = count / totalReceived;
@@ -2291,8 +2291,10 @@ const FAQ_SECTIONS = [
     body: `The threshold is the <strong>maximum price per scarab worth feeding into the recipe</strong>. Anything at or below it goes to the vendor; anything above gets sold directly.<br><br>
 <strong>Harmonic EV</strong> (default) — treats all scarab types as equally likely outputs. Uses the harmonic mean of all ninja prices, which naturally resists distortion from rare expensive scarabs:<br>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic EV = N ÷ Σ(1 / price_i)</code>
-<strong>Weighted EV</strong> — uses observed session data to weight each scarab by how often it actually appears as a vendor output. Typically tighter (lower) than harmonic because cheap commons dominate real outputs:<br>
+<strong>Weighted EV</strong> — uses observed community session data to weight each scarab by how often it actually appears as a vendor output, then applies current live prices:<br>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = Σ(weight_i × price_i) / 3<br>weight_i = times scarab_i appeared as output / total outputs observed</code>
+The weights are purely frequency data from real sessions — no historical prices involved. Live poe.ninja prices are applied on top so the threshold always reflects the current economy.<br><br>
+<em>Note: weighted EV is only as accurate as the session data behind it. With fewer sessions the weights carry more variance — a few lucky expensive drops can pull the threshold higher than it should be. As more sessions accumulate the weights converge toward true drop frequencies. Until then, harmonic EV is the more conservative and reliable choice.</em><br><br>
 Both modes update live as poe.ninja prices change throughout the day.`
   },
   {
@@ -2300,9 +2302,9 @@ Both modes update live as poe.ninja prices change throughout the day.`
     body: `Import your Wealthy Exile CSV and the estimator computes four numbers using live poe.ninja prices:<br><br>
 <strong>Scarabs to Vendor</strong> — how many of your scarabs fall below the current threshold.<br>
 <strong>Input Value</strong> — their current market value if you sold them all (<code>Σ qty × ninja price</code>).<br>
-<strong>Est. Return</strong> — expected value back from the vendor (<code>qty × calibrated rate</code>).<br>
+<strong>Est. Return</strong> — expected keeper value back from the vendor (<code>qty × weighted EV rate</code>). Only keeper outputs are counted — vendor targets that cycle back in are excluded.<br>
 <strong>Est. Profit</strong> — return minus input value.<br><br>
-The calibrated rate comes from your observed session data: <code>real sessions output / real sessions input</code>, then discounted against the theoretical weight-predicted mean. No hardcoded numbers — it adjusts as the economy shifts and more sessions are logged.<br><br>
+The rate used for estimates is <code>Σ(weight_i × price_i) / 3</code> — the same weighted EV formula applied to your specific inventory. Prices are always current from poe.ninja so estimates adjust automatically as the market moves.<br><br>
 <em>Note: a negative est. profit doesn't mean you're losing currency. Those scarabs may be unsellable in practice — the vendor recipe is often the only realistic way to extract value from them.</em>`
   },
   {
@@ -2346,6 +2348,14 @@ Regardless of method, always cross-reference the parsed data against the origina
 The proper solution is <strong>OAuth access via GGG's official API</strong>. With OAuth, the tool could read your stash tabs directly — no Wealthy Exile, no manual exports, no before/after snapshots. Session logging would be as simple as clicking a button before and after vendoring. Everything tedious about the current workflow goes away.<br><br>
 GGG does offer OAuth access to third-party developers, but it requires a formal application and approval process. I haven't applied yet because I wanted to validate that there's genuine demand for the tool first.<br><br>
 <strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application.`
+  },
+  {
+    title: 'Harmonic vs Weighted EV — which should I use?',
+    body: `They answer different questions, and the right choice depends on how you think about variance.<br><br>
+<strong>Harmonic EV</strong> structurally suppresses expensive outliers — a 512c Horned Scarab of Bloodlines contributes almost nothing to the calculation (<code>1/512 ≈ 0.002</code>). This makes it robust and consistent. It's essentially saying: <em>ignore the jackpot, base your threshold on what you reliably get back most of the time.</em> Good if you want predictable returns and don't want to over-extend your vendor budget chasing rare drops.<br><br>
+<strong>Weighted EV</strong> is the mathematically correct expected value given observed drop frequencies. If Bloodlines drops 0.03% of the time and is worth 512c, it contributes <code>0.0003 × 512 / 3 ≈ 0.05c</code> to the threshold. That's real EV you'd be ignoring with harmonic. Weighted EV is essentially saying: <em>the jackpot is real, factor it in, maximise your rolls.</em> If you're running thousands of trades and playing the long game, weighted EV is the theoretically correct threshold to use — every scarab you incorrectly sell instead of vendor is a missed roll at the jackpot pool.<br><br>
+The tradeoff is permanent, not just a data problem. Even with perfect drop rate data, weighted EV will always be higher than harmonic when there are jackpot scarabs in the pool — that's by design, not a flaw. Harmonic protects you from variance. Weighted maximises expected value at the cost of higher variance.<br><br>
+<strong>Practical recommendation:</strong> use Harmonic as your default. Switch to Weighted if you're running large volumes and are comfortable accepting that you might go hundreds of trades below the mean before the jackpots balance it out.`
   },
   {
     title: 'Why use harmonic mean instead of arithmetic mean for EV?',
@@ -2599,6 +2609,24 @@ function buildRegex(vendorNames) {
 
 
 // vendorNames = names to match; keepNames kept for API compat but unused (poe.re tokens are pre-validated)
+function syncLoggerRegex() {
+  if (_loggerRegexUserEdited) return;
+  const body = document.getElementById('n-regexBody');
+  const field = document.getElementById('loggerRegex');
+  if (!body || !field) return;
+  const regex = body.querySelector('.regex-empty-msg') ? '' : body.textContent.trim();
+  field.value = regex;
+  setLoggerRegexMode(false);
+  if (regex) {
+    const { matched, unmatched } = parseRegexToScarabs(regex);
+    let hint = `${matched.length} scarab types identified`;
+    if (unmatched.length) hint += ` · ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
+    document.getElementById('loggerRegexHint').textContent = hint;
+  } else {
+    document.getElementById('loggerRegexHint').textContent = '';
+  }
+}
+
 function updateRegexUI(prefix, vendorNames, keepNames) {
   const result = vendorNames.length ? buildRegex(vendorNames) : { regex: null };
   const body = document.getElementById(`${prefix}-regexBody`);
@@ -2654,6 +2682,7 @@ function updateRegexUI(prefix, vendorNames, keepNames) {
     pill.textContent = `0 / ${CHAR_LIMIT}`; pill.className = 'char-pill ok';
     warn.className = 'regex-warn';
   }
+  if (prefix === 'n') syncLoggerRegex();
 }
 
 function getManualEntries() {
@@ -3602,6 +3631,13 @@ function setEVMode(mode) {
   _evMode = mode;
   document.getElementById('evModeHarmonic').classList.toggle('active', mode === 'harmonic');
   document.getElementById('evModeWeighted').classList.toggle('active', mode === 'weighted');
+
+  // Show/hide weighted warning
+  const hint = document.getElementById('weightedEvWarning');
+  const countEl = document.getElementById('weightedSessionCount');
+  if (hint) hint.style.display = mode === 'weighted' ? '' : 'none';
+  if (countEl) countEl.textContent = _weightSessionCount > 0 ? _weightSessionCount.toLocaleString() : '—';
+
   // Only switch to weighted if data is ready
   if (mode === 'weighted' && _calibratedMean === null) {
     document.getElementById('thresholdModeLabel').textContent = 'waiting for weight data…';
@@ -4108,7 +4144,40 @@ function parseRegexToScarabs(regexStr) {
   return { matched, unmatched };
 }
 
+let _loggerRegexUserEdited = false;
+
+function setLoggerRegexMode(manual) {
+  const badge = document.getElementById('loggerRegexBadge');
+  const note  = document.getElementById('loggerRegexNote');
+  const input = document.getElementById('loggerRegex');
+  if (manual) {
+    if (badge) { badge.textContent = 'manual'; badge.style.background = 'var(--chaos-bg)'; badge.style.color = 'var(--chaos)'; badge.style.borderColor = 'var(--chaos-border)'; }
+    if (note)  note.style.display = 'none';
+    if (input) input.style.color = 'var(--chaos)';
+  } else {
+    if (badge) { badge.textContent = 'auto'; badge.style.background = 'var(--ninja-bg)'; badge.style.color = 'var(--ninja-accent)'; badge.style.borderColor = 'var(--ninja-border)'; }
+    if (note)  note.style.display = '';
+    if (input) input.style.color = '';
+  }
+}
+
+document.getElementById('loggerRegex').addEventListener('focus', function() {
+  if (!_loggerRegexUserEdited && this.value.trim()) {
+    this.value = '';
+    document.getElementById('loggerRegexHint').textContent = '';
+    tryPreview();
+  }
+});
+
+document.getElementById('loggerRegex').addEventListener('blur', function() {
+  if (!_loggerRegexUserEdited && !this.value.trim()) {
+    syncLoggerRegex();
+  }
+});
+
 document.getElementById('loggerRegex').addEventListener('input', function() {
+  _loggerRegexUserEdited = this.value.trim().length > 0;
+  setLoggerRegexMode(_loggerRegexUserEdited);
   const val = this.value.trim();
   if (!val) {
     document.getElementById('loggerRegexHint').textContent = '';
@@ -4157,7 +4226,7 @@ function tryPreview() {
       const outputVal = received * price;
       totalConsumed    += consumed;
       totalInputValue  += inputVal;
-      totalOutputValue += outputVal;
+      // Don't add vendor target returns to output value — they cycle back in, not realised gains
       if (consumed > 0 || received > 0) {
         vendorRows.push({ name, consumed, received, net: after - before, price, inputVal, outputVal });
       }
@@ -4165,7 +4234,7 @@ function tryPreview() {
       const received = after - before;
       if (received > 0) {
         const outputVal = received * price;
-        totalOutputValue += outputVal;
+        totalOutputValue += outputVal;  // only keepers count as real output
         keeperRows.push({ name, received, price, outputVal });
       }
     }
@@ -4332,7 +4401,9 @@ async function submitSession() {
     document.getElementById('snap2Text').textContent = 'Choose CSV file';
     document.getElementById('snap1Label').classList.remove('loaded');
     document.getElementById('snap2Label').classList.remove('loaded');
-    document.getElementById('loggerRegex').value = '';
+    _loggerRegexUserEdited = false;
+    setLoggerRegexMode(false);
+    syncLoggerRegex();
     document.getElementById('loggerRegexHint').textContent = '';
     document.getElementById('loggerPreview').style.display = 'none';
   } catch(e) {
