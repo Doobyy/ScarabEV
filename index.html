@@ -64,8 +64,8 @@
   --green-bg: #0e2418;
   --green-border: #1e5c38;
   --red: #ff5f50;
-  --amber: #f0a830;
-  --amber-bg: #251c08;
+  --amber: #378ADD;
+  --amber-bg: #0d1e2e;
   --chaos: #d080f8;
   --chaos-bg: #1e1030;
   --chaos-border: #5e2880;
@@ -78,9 +78,9 @@
   --tab-inactive: #525c7a;
   --tab-active-bg: #1e2235;
   --bg-outer: #0a0c14;
-  --ninja-accent: #f5b830;
-  --ninja-bg: #1e1a0e;
-  --ninja-border: #4a3c10;
+  --ninja-accent: #5aaaf5;
+  --ninja-bg: #0a1825;
+  --ninja-border: #2a5a8a;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -205,7 +205,10 @@ body {
   margin-bottom: 14px; font-size: 12px; flex-wrap: wrap;
   transition: background 0.2s, border-color 0.2s;
 }
-[data-theme="dark"] .ev-override-bar { background: #2a2010; border-color: #6a5010; }
+[data-theme="dark"] .ev-override-bar { background: #0d1e2e; border-color: #2a5a8a; }
+[data-theme="dark"] .ev-override-input { border-color: #2a5a8a; }
+[data-theme="dark"] .ev-clear-btn { border-color: #2a5a8a; }
+[data-theme="dark"] .bulk-unmatched { background: #0d1e2e; border-color: #2a5a8a; }
 .ev-override-bar label { font-weight: 600; color: var(--amber); white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; }
 .ev-override-input {
   width: 80px; padding: 4px 8px; border: 1px solid #f5d78e; border-radius: 4px;
@@ -297,7 +300,7 @@ body {
   cursor: pointer; gap: 5px;
 }
 .price-cell:hover .price-val:not(.overridden) { text-decoration: underline dotted; }
-.price-val { font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; display: inline-block; }
+.price-val { font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; display: inline-block; }
 .price-val.overridden { color: var(--amber); font-weight: 600; }
 /* Trash always shown next to overridden price */
 .price-trash {
@@ -400,6 +403,9 @@ body {
 .logger-submit-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 20px; border: 1px solid var(--accent); border-radius: 5px; background: var(--accent); color: #fff; cursor: pointer; transition: all 0.15s; }
 .logger-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .logger-submit-btn:not(:disabled):hover { opacity: 0.85; }
+[data-theme="dark"] .logger-submit-btn { background: #378ADD; border-color: #378ADD; color: #fff; }
+[data-theme="dark"] .logger-submit-btn:disabled { background: #0d1e2e; border-color: #2a5a8a; color: #2a5a8a; opacity: 1; }
+[data-theme="dark"] .logger-submit-btn:not(:disabled):hover { background: #4a96e8; border-color: #4a96e8; opacity: 1; }
 .logger-submit-status { font-size: 12px; color: var(--text-3); }
 .logger-preview { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
 .logger-preview-header { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
@@ -496,7 +502,7 @@ body {
 .estimator-input::-webkit-inner-spin-button { -webkit-appearance: none; }
 .estimator-input:focus { border-color: var(--accent); }
 .estimator-hint { font-size: 11px; color: var(--text-3); line-height: 1.6; }
-.estimator-results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.estimator-results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
 .estimator-card {
   background: var(--bg); border: 1px solid var(--border);
   border-radius: 6px; padding: 11px 13px; text-align: center;
@@ -525,9 +531,22 @@ body {
 .th.right { text-align: right; }
 .th.center { text-align: center; }
 
-/* Ninja tab — 6 columns (no qty:chaos input col), higher specificity to beat .table-head and .scarab-row */
-.table-head.ninja-head { grid-template-columns: 48px 1fr 110px 110px 100px 90px; }
-.scarab-row.ninja-row  { grid-template-columns: 48px 1fr 110px 110px 100px 90px; }
+/* Ninja tab — 7 columns with consistent sizing */
+.table-head.ninja-head { grid-template-columns: 44px 1fr 90px 100px 88px 90px 76px; }
+.scarab-row.ninja-row  { grid-template-columns: 44px 1fr 90px 100px 88px 90px 76px; }
+
+/* Uniform cell padding and font for ninja rows */
+.scarab-row.ninja-row .td {
+  padding: 5px 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+.scarab-row.ninja-row .td.right  { justify-content: flex-end; }
+.scarab-row.ninja-row .td.center { justify-content: center; }
+.table-head.ninja-head .th { padding: 6px 8px; }
+.table-head.ninja-head .th[id] { transition: color 0.15s; }
+.table-head.ninja-head .th[id]:hover { color: var(--text-2); }
 
 .group-header {
   display: flex; align-items: center; gap: 8px; padding: 5px 10px;
@@ -634,6 +653,12 @@ body {
 .delta-badge.neg { color: var(--red); }
 .delta-badge.same { color: var(--text-3); }
 .delta-badge.no-data { color: var(--text-3); font-style: italic; }
+
+/* Sparkline trend column */
+.sparkline-wrap { display: flex; align-items: center; justify-content: center; width: 100%; padding: 0 4px; box-sizing: border-box; }
+.sparkline-svg { display: block; width: 100%; height: 26px; cursor: default; overflow: visible; }
+.sparkline-svg:hover .spark-dot { opacity: 1; }
+.spark-dot { opacity: 0; transition: opacity 0.1s; }
 
 /* ── COMPARISON BAR ── */
 .compare-bar {
@@ -860,7 +885,7 @@ body {
 }
 .bulk-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 .bulk-summary-item-label {
@@ -951,6 +976,19 @@ body {
   padding: 7px 10px;
 }
 .bulk-unmatched strong { color: var(--amber); }
+
+.bulk-warn-banner {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 11px 14px; background: var(--amber-bg);
+  border: 1px solid #f5d78e; border-radius: 7px;
+  margin-bottom: 10px; font-size: 12px; color: var(--text-2); line-height: 1.7;
+}
+[data-theme="dark"] .bulk-warn-banner { border-color: #2a5a8a; }
+.bulk-warn-banner-divider {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding-top: 8px; border-top: 1px solid #f5d78e;
+}
+[data-theme="dark"] .bulk-warn-banner-divider { border-top-color: #2a5a8a; }
 .bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
 
 .bulk-debug-toggle {
@@ -1092,6 +1130,10 @@ body {
 .help-box a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .help-box a:hover { text-decoration: underline; }
 
+/* ── FAQ body text — readable in both themes ── */
+.faq-body { color: var(--text-3); }
+[data-theme="dark"] .faq-body { color: #7a85a8; }
+
 .bulk-gemini-key:focus { border-color: var(--accent); }
 
 @media (max-width: 780px) {
@@ -1100,17 +1142,18 @@ body {
 
 @media (max-width: 780px) {
   .bulk-controls { grid-template-columns: 1fr; }
-  .bulk-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bulk-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .bulk-head-row,
   .bulk-body-row {
     grid-template-columns: 24px minmax(0, 1.7fr) 52px 70px 70px 74px;
     font-size: 11px;
   }
   .table-head, .scarab-row { grid-template-columns: 36px 1fr 105px 80px 70px; }
-  .table-head.ninja-head, .scarab-row.ninja-row { grid-template-columns: 36px 1fr 80px 70px 70px; }
+  .table-head.ninja-head, .scarab-row.ninja-row { grid-template-columns: 36px 1fr 90px 80px 70px; }
   .table-head .th:nth-child(4), .table-head .th:nth-child(7),
   .scarab-row .td:nth-child(4), .scarab-row .td:nth-child(7) { display: none; }
-  .table-head.ninja-head .th:nth-child(4), .scarab-row.ninja-row .td:nth-child(4) { display: none; }
+  .table-head.ninja-head .th:nth-child(3), .table-head.ninja-head .th:nth-child(4),
+  .scarab-row.ninja-row .td:nth-child(3), .scarab-row.ninja-row .td:nth-child(4) { display: none; }
   .compare-bar { grid-template-columns: 1fr; }
 }
 </style>
@@ -1125,8 +1168,10 @@ body {
     <button class="nav-tab" onclick="switchTab('logger')">Session Logger</button>
     <button class="nav-tab" onclick="switchTab('analysis')">Data Analysis</button>
     <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
+    <button class="nav-tab" onclick="switchTab('faq')">FAQ</button>
   </div>
   <span class="nav-sep"></span>
+  <a href="https://ko-fi.com/dooby0530" target="_blank" title="Support on Ko-fi" style="font-size:16px;text-decoration:none;opacity:0.35;transition:opacity 0.15s;flex-shrink:0;line-height:1" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.35'">☕</a>
   <span class="theme-icon">☀</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode"></button>
   <span class="theme-icon">🌙</span>
@@ -1213,7 +1258,7 @@ body {
     <div class="ninja-banner">
       <span class="ninja-status" id="ninjaStatus">Loading prices…</span>
       <span style="flex:1"></span>
-      <select class="league-select" id="leagueSelect" onchange="fetchNinja()">
+      <select class="league-select" id="leagueSelect" onchange="fetchNinja(); fetchPriceHistory()">
         <option value="Mirage">Mirage (current)</option>
         <option value="Standard">Standard</option>
         <option value="Mercenaries">Mercenaries</option>
@@ -1238,6 +1283,10 @@ body {
           <span class="threshold-label">Vendor Threshold</span>
           <span class="threshold-value" id="sliderValueDisplay">—</span>
           <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
+          <div class="view-toggle" style="margin-left:6px" title="EV calculation method">
+            <button id="evModeHarmonic" class="active" onclick="setEVMode('harmonic')">Harmonic</button>
+            <button id="evModeWeighted" onclick="setEVMode('weighted')">Weighted</button>
+          </div>
         </div>
         <div class="threshold-right">
           <span class="threshold-roi" id="sliderROI"></span>
@@ -1301,14 +1350,19 @@ body {
             <div class="estimator-card-sub" id="est-input-sub">import CSV to estimate</div>
           </div>
           <div class="estimator-card">
+            <div class="estimator-card-label">Input Value</div>
+            <div class="estimator-card-value val-return" id="est-input-value">—</div>
+            <div class="estimator-card-sub">current market value of vendor targets</div>
+          </div>
+          <div class="estimator-card">
             <div class="estimator-card-label">Est. Return</div>
-            <div class="estimator-card-value val-return" id="est-return">—</div>
-            <div class="estimator-card-sub">keeper value</div>
+            <div class="estimator-card-value val-profit" id="est-return">—</div>
+            <div class="estimator-card-sub">expected keeper value from vendor</div>
           </div>
           <div class="estimator-card">
             <div class="estimator-card-label">Est. Profit</div>
             <div class="estimator-card-value val-profit" id="est-profit">—</div>
-            <div class="estimator-card-sub">vs selling at market</div>
+            <div class="estimator-card-sub">return minus input value</div>
           </div>
         </div>
 
@@ -1325,6 +1379,7 @@ body {
             <span style="color:var(--text-3);font-size:10px">Estimates derived from observed vendor session data. Variance is expected — treat these as directional, not exact.</span>
             <span style="color:var(--text-3);font-size:10px;white-space:nowrap;margin-left:12px" id="est-divine-rate-wrap"></span>
           </div>
+          <div id="est-debug" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -1351,19 +1406,18 @@ body {
         <button id="n-viewVendor" onclick="setNinjaView('vendor')">Vendor</button>
         <button id="n-viewKeep" onclick="setNinjaView('keep')">Keep</button>
       </div>
+      <button class="btn" id="n-resetSort" onclick="resetNinjaSort()" style="display:none">↺ Reset sort</button>
     </div>
 
     <div class="table-card">
       <div class="table-head ninja-head">
         <div class="th"></div>
-        <div class="th" style="display:flex;align-items:center;justify-content:space-between">
-          <span>Scarab</span>
-          <span id="n-headerMeta" style="font-size:10px;color:var(--text-3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px"></span>
-        </div>
-        <div class="th" id="n-th-group" onclick="setNinjaSort('group')" style="cursor:pointer;user-select:none">Group <span class="sort-arrow" id="n-sa-group"></span></div>
-        <div class="th right" id="n-th-cea" onclick="setNinjaSort('cea')" style="cursor:pointer;user-select:none"><span class="sort-arrow" id="n-sa-cea"></span> ninja c/ea</div>
-        <div class="th center" id="n-th-diff" onclick="setNinjaSort('diff')" style="cursor:pointer;user-select:none">vs EV <span class="sort-arrow" id="n-sa-diff"></span></div>
-        <div class="th center">Action</div>
+        <div class="th" id="n-th-name" onclick="setNinjaSort('name')" style="cursor:pointer;user-select:none">Scarab</div>
+        <div class="th" id="n-th-group" onclick="setNinjaSort('group')" style="cursor:pointer;user-select:none">Group</div>
+        <div class="th center" id="n-th-trend" onclick="setNinjaSort('trend')" style="cursor:pointer;user-select:none">Trend</div>
+        <div class="th right" id="n-th-cea" onclick="setNinjaSort('cea')" style="cursor:pointer;user-select:none">Cost/ea</div>
+        <div class="th center" id="n-th-diff" onclick="setNinjaSort('diff')" style="cursor:pointer;user-select:none">vs EV</div>
+        <div class="th center" id="n-th-action" onclick="setNinjaSort('action')" style="cursor:pointer;user-select:none">Action</div>
       </div>
       <div id="n-tableBody"></div>
     </div>
@@ -1374,7 +1428,56 @@ body {
 
     <div class="logger-intro">
       <div class="logger-intro-title">Session Logger</div>
-      <div class="logger-intro-sub">Upload two Wealthy Exile CSV snapshots — before and after a vendor session — plus the regex you used. The tool will parse the deltas correctly, accounting for the fact that vendor-targeted scarabs were consumed then partially recovered.</div>
+      <div class="logger-intro-sub">Upload two Wealthy Exile CSV snapshots — before and after a vendor session — plus the regex you used. The tool will parse the deltas and track your input/output profit margins over time.</div>
+    </div>
+
+    <!-- Community data how-to — collapsed by default -->
+    <div style="margin-bottom:16px">
+      <div onclick="toggleLoggerHowTo()" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-card)'" id="loggerHowToToggle">
+        <span style="font-size:10px;color:var(--accent);transition:transform 0.15s" id="loggerHowToChevron">▶</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em">How to contribute clean data to the community database</span>
+        <span style="font-size:11px;color:var(--text-3);margin-left:4px">— optional, for data contributors only</span>
+      </div>
+
+      <div id="loggerHowToBody" style="display:none;margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:16px 18px;font-size:12px;line-height:1.8;color:var(--text-3)">
+
+        <div style="background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:0 5px 5px 0;padding:8px 12px;margin-bottom:14px;color:var(--text-2);font-size:12px">
+          <strong style="color:var(--amber)">You do not need to do this to use the tool.</strong> The standard workflow (start snapshot → finish snapshot) is perfectly fine for tracking your own profit margins. This guide is only for players who want to contribute high-quality weight distribution data to the community database.
+        </div>
+
+        <div style="font-weight:600;color:var(--text-2);margin-bottom:8px">Why single-pass sessions matter for community data</div>
+        <p>The community database builds a <strong>weight distribution</strong> — how often each scarab type appears as a vendor output. This drives the Weighted EV threshold for everyone. To get accurate weights, we need to know what the vendor actually returned on each pass, not the net result after recycling.</p>
+        <p>If you vendor your cheap scarabs, get outputs, then immediately vendor <em>those</em> outputs too — the final snapshot only shows the survivors of multiple passes. The cheap commons that came out and went back in are invisible. This inflates the apparent frequency of expensive scarabs and skews the weights toward keepers, making everyone's threshold too high.</p>
+
+        <div style="font-weight:600;color:var(--text-2);margin:14px 0 8px">The clean data workflow</div>
+
+        <div style="display:grid;grid-template-columns:24px 1fr;gap:6px 12px;align-items:start;margin-bottom:14px">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div>
+          <div><strong style="color:var(--text-2)">Set up a dedicated stash tab for returned scarabs.</strong> When the vendor gives you a scarab back, it goes into this tab — not back into your vendor stack. This physically separates single-pass outputs from your input pool.</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div>
+          <div><strong style="color:var(--text-2)">Export Wealthy Exile before you start</strong> — this is your Snapshot 1 (Before).</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div>
+          <div><strong style="color:var(--text-2)">Run one vendor pass</strong> — vendor all your marked scarabs, place everything you receive into the returns tab. Do not re-vendor anything yet.</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</div>
+          <div><strong style="color:var(--text-2)">Export Wealthy Exile again</strong> — this is Snapshot 2 (After first pass). Upload both to the Session Logger and submit.</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">5</div>
+          <div><strong style="color:var(--text-2)">If you want to continue vendoring</strong> — move the returned vendor-target scarabs back into your main stack, export again (this becomes the new Snapshot 1), run another pass, export after (Snapshot 2), and log that as a second session. Each pass is its own session submission.</div>
+        </div>
+
+        <div style="background:var(--bg-group);border:1px solid var(--border);border-radius:5px;padding:10px 14px;font-size:11px;color:var(--text-3)">
+          <strong style="color:var(--text-2)">Example:</strong> You have 3,000 cheap scarabs to vendor across 10 passes.
+          Export → Pass 1 → Export → <em>log session 1</em> → Export → Pass 2 → Export → <em>log session 2</em> → … and so on.
+          Each logged session is a clean single-pass record with accurate output data.
+        </div>
+
+        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">
+          Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only — they won't be included in the community database. You'll see a message explaining this when you submit.
+        </div>
+      </div>
     </div>
 
     <div class="logger-form">
@@ -1501,10 +1604,9 @@ body {
       <div class="bulk-title">Bulk Buy Analyzer</div>
       <div class="bulk-sub">
         <p class="bulk-sub">
-			Evaluate TFT bulk listings instantly. Upload a screenshot to parse data via AI (requires a free 
-			<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent); font-weight: 600; text-decoration: none;">Gemini API Key</a>) 
-			or paste a CSV in <code>Name,Qty</code> format. Enter the asking price to compare the lot against real-time harmonic EV and poe.ninja market data.
-		</p>
+          Evaluate TFT bulk listings against real-time poe.ninja prices and your current EV threshold. Enter the asking price to see expected return, net value, and per-scarab breakdown.<br><br>
+          <strong style="color:var(--text-2)">Two ways to get your data in:</strong> paste a screenshot into the image drop zone to have Gemini parse it automatically (requires a free <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">Gemini API Key</a>), or manually paste a <code>Name,Qty</code> CSV and use Analyze CSV only. See the tip below for the most accurate method.
+        </p>
       </div>
     </div>
 
@@ -1549,8 +1651,24 @@ body {
       </div>
     </div>
 
+    <div class="bulk-warn-banner">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:14px;flex-shrink:0;margin-top:1px">⚠</span>
+        <span><strong style="color:var(--amber)">AI image parsing via the API is not always accurate.</strong> Gemini may misread quantities, names, or skip rows — especially on cluttered or low-resolution screenshots. Always cross-reference the parsed CSV against the original listing before committing to a purchase.</span>
+      </div>
+      <div class="bulk-warn-banner-divider">
+        <span style="font-size:14px;flex-shrink:0;margin-top:1px">💡</span>
+        <span><strong style="color:var(--text-2)">For more accurate results:</strong> paste your screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to output the listing as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API. Paste the result into the CSV input and use <strong>Analyze CSV only</strong>.</span>
+      </div>
+    </div>
+
     <div id="bulkSummary" class="bulk-summary-card" style="display:none">
       <div class="bulk-summary-grid">
+        <div>
+          <div class="bulk-summary-item-label">Types</div>
+          <div id="bulkTypes" class="bulk-summary-item-value">—</div>
+          <div id="bulkTypesSub" class="bulk-summary-item-sub"></div>
+        </div>
         <div>
           <div class="bulk-summary-item-label">Cost</div>
           <div id="bulkCost" class="bulk-summary-item-value">—</div>
@@ -1638,6 +1756,19 @@ body {
           <div class="bulk-debug-empty">No data yet.</div>
         </div>
       </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════ FAQ TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-faq">
+
+    <div class="logger-intro">
+      <div class="logger-intro-title">FAQ</div>
+      <div class="logger-intro-sub">Quick answers to common questions about how ScarabEV works, how the math is calculated, and how community data is aggregated.</div>
+    </div>
+
+    <div id="faq-list" style="display:flex;flex-direction:column;gap:4px;max-width:860px;margin:0 auto">
     </div>
 
   </div>
@@ -1845,45 +1976,39 @@ let ninjaLoaded = false;
 // No hardcoded fallback: if data isn't loaded yet, the estimator shows nothing.
 let _observedWeights = null;  // { scarabName -> normalizedWeight } from aggregate
 let _weightSessionCount = 0;
-let _calibratedRate = null;   // null = not ready yet; set once weights + ninja both loaded
-let _calibratedMean = null;   // mean rate before σ adjustment, kept for display
-let _calibratedSigma = null;  // 1σ of the single-draw distribution
+let _observedRateRaw = null;  // total_output / total_consumed from real sessions
+let _calibratedRate = null;   // null = not ready; set once weights + ninja + observed rate all loaded
+let _calibratedMean = null;   // theoretical mean (weights × prices / 3), for display
+let _calibratedP20 = null;    // conservative rate after data-driven discount, for display
+let _evMode = 'harmonic';     // 'harmonic' | 'weighted' — which auto EV to use for threshold
 
 function computeWeightBasedRate() {
-  // Returns { mean, sigma, conservative } or null if data not ready
-  if (!_observedWeights || !ninjaLoaded) return null;
+  // mean        = Σ(weight × ninjaPrice) / 3  — theoretical EV from observed drop weights
+  // discount    = _observedRateRaw / mean      — how much real sessions under/over-perform theory
+  // conservative = mean × discount             — fully data-driven, no hardcoded constants
+  // Clamped 0.5–1.0 so a single weird session can't crater the estimate.
+  // Returns null if any required data isn't loaded yet.
+  if (!_observedWeights || !ninjaLoaded || !_observedRateRaw) return null;
   const lower = buildNinjaLookup();
 
-  // Build array of (weight, price) pairs for scarabs with known prices
   const pairs = [];
   for (const [name, weight] of Object.entries(_observedWeights)) {
     const price = getNinjaPrice(name, lower);
-    if (price > 0 && weight > 0) pairs.push({ weight, price });
+    if (price > 0 && weight > 0) pairs.push({ name, weight, price });
   }
   if (!pairs.length) return null;
 
-  // Re-normalize weights in case some scarabs had no ninja price
   const totalWeight = pairs.reduce((s, p) => s + p.weight, 0);
   if (totalWeight <= 0) return null;
-  const norm = pairs.map(p => ({ weight: p.weight / totalWeight, price: p.price }));
+  const norm = pairs.map(p => ({ ...p, weight: p.weight / totalWeight }));
 
-  // Mean of single draw value (before /3 adjustment)
-  const mean1 = norm.reduce((s, p) => s + p.weight * p.price, 0);
+  const mean = norm.reduce((s, p) => s + p.weight * p.price, 0) / 3;
+  if (mean <= 0) return null;
 
-  // Variance of single draw: E[x²] - E[x]²
-  const ex2 = norm.reduce((s, p) => s + p.weight * p.price * p.price, 0);
-  const variance1 = ex2 - mean1 * mean1;
-  const sigma1 = Math.sqrt(Math.max(0, variance1));
+  const discount = Math.min(1.0, Math.max(0.5, _observedRateRaw / mean));
+  const conservative = mean * discount;
 
-  // Apply /3 for the 3→1 trade mechanic
-  // mean and sigma both scale linearly with /3
-  const mean = mean1 / 3;
-  const sigma = sigma1 / 3;
-
-  // Conservative estimate: mean − 1σ, floored at a small positive to avoid negatives
-  const conservative = Math.max(0.001, mean - sigma);
-
-  return { mean, sigma, conservative };
+  return { mean, conservative, discount };
 }
 
 async function fetchObservedWeights() {
@@ -1895,6 +2020,14 @@ async function fetchObservedWeights() {
     const received = data.receivedByScarab || {};
     const totalReceived = Object.values(received).reduce((s, n) => s + n, 0);
     if (totalReceived < 100) return; // not enough observations yet
+
+    // Observed rate: actual chaos returned per scarab consumed across all sessions
+    const totalOutput   = data.totalOutput   || 0;
+    const totalConsumed = data.totalConsumed  || 0;
+    if (totalConsumed > 0 && totalOutput > 0) {
+      _observedRateRaw = totalOutput / totalConsumed;
+    }
+
     // Normalize counts to weights
     const weights = {};
     for (const [name, count] of Object.entries(received)) {
@@ -1902,17 +2035,25 @@ async function fetchObservedWeights() {
     }
     _observedWeights = weights;
     _weightSessionCount = data.sessionCount || 0;
+
     // Compute rate now if ninja prices are already loaded
     if (ninjaLoaded) {
       const result = computeWeightBasedRate();
       if (result) {
         _calibratedMean = result.mean;
-        _calibratedSigma = result.sigma;
+        _calibratedP20  = result.conservative;
         _calibratedRate = result.conservative;
       }
       calcEstimator();
+      // If user already switched to weighted mode before data arrived, apply it now
+      if (_evMode === 'weighted') {
+        ninjaEvOverride = null;
+        try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
+        recalcNinja();
+        renderNinja();
+      }
     }
-  } catch(e) { /* silent — estimator will show nothing until data is available */ }
+  } catch(e) { /* silent — estimator shows nothing until data is available */ }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 let collapsedM = new Set();
@@ -1921,7 +2062,181 @@ let manualView = 'all';
 let sortMode = 'ingame'; // 'ingame' | 'alpha'
 let ninjaView = 'all';
 let currentTab = 'ninja';
-let ninjaSort = null; // null = grouped, 'cea-asc', 'cea-desc', 'diff-asc', 'diff-desc'
+let ninjaSort = null; // null = grouped, 'cea-asc', 'cea-desc', 'diff-asc', 'diff-desc', 'trend-asc', 'trend-desc'
+let _priceHistory = {}; // { scarabName -> [{date, price}, ...] } — 7 days from worker
+
+async function fetchPriceHistory() {
+  if (!WORKER_URL) return;
+  try {
+    const league = document.getElementById('leagueSelect')?.value || 'Mirage';
+    const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=PriceHistory`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    // Only use real data if it has actual entries
+    const hasRealData = data.prices && Object.keys(data.prices).length > 0 &&
+      Object.values(data.prices).some(h => h.length >= 2);
+    if (hasRealData) {
+      _priceHistory = data.prices;
+      if (ninjaLoaded) renderNinja();
+    }
+  } catch(e) { /* silent */ }
+}
+
+// Seed mock price history for visual preview — replaced by real data once available.
+// Generates 7 days of realistic price movement per scarab using the current ninja price
+// as the anchor, so sparklines scale correctly relative to actual prices.
+function seedMockPriceHistory() {
+  if (!ninjaLoaded) return;
+  const lower = buildNinjaLookup();
+  const today = new Date();
+  const mock = {};
+
+  const archetypes = ['up_strong', 'up_gentle', 'flat', 'down_gentle', 'down_strong', 'volatile', 'spike', 'dip'];
+
+  // Seeded pseudo-random so it's stable per scarab name
+  function seededRand(seed, i) {
+    const x = Math.sin(seed * 9301 + i * 49297 + 233) * 803979;
+    return x - Math.floor(x);
+  }
+
+  SCARAB_LIST.forEach((s, idx) => {
+    const price = getNinjaPrice(s.name, lower);
+    if (!price || price <= 0) return;
+    const archetype = archetypes[idx % archetypes.length];
+    const seed = idx + 1;
+    const hist = [];
+
+    // Generate 7 base multipliers for each archetype with natural wobble
+    const baseMultipliers = Array.from({ length: 7 }, (_, i) => {
+      const t = i / 6;
+      const noise = (seededRand(seed, i) - 0.5) * 0.12; // ±6% random wobble
+      let base;
+      switch (archetype) {
+        case 'up_strong':   base = 0.72 + t * 0.50; break;
+        case 'up_gentle':   base = 0.88 + t * 0.20; break;
+        case 'flat':        base = 0.96 + Math.sin(t * Math.PI * 1.5) * 0.06; break;
+        case 'down_gentle': base = 1.14 - t * 0.20; break;
+        case 'down_strong': base = 1.32 - t * 0.50; break;
+        case 'volatile':    base = 1 + Math.sin(t * Math.PI * 2.5) * 0.30; break;
+        case 'spike':       base = t < 0.5 ? 0.85 + t * 1.0 : 1.35 - (t - 0.5) * 0.80; break;
+        case 'dip':         base = t < 0.5 ? 1.05 - t * 0.60 : 0.75 + (t - 0.5) * 0.60; break;
+        default:            base = 1;
+      }
+      return Math.max(0.05, base + noise);
+    });
+
+    for (let d = 6; d >= 0; d--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - d);
+      const dateStr = date.toISOString().slice(0, 10);
+      const multiplier = baseMultipliers[6 - d];
+      hist.push({ date: dateStr, price: parseFloat((price * multiplier).toFixed(4)) });
+    }
+    mock[s.name] = hist;
+  });
+
+  _priceHistory = mock;
+  renderNinja();
+}
+
+// Returns % change from oldest to newest in the 7-day history for a scarab.
+// null if fewer than 2 data points.
+function getPriceTrend(scarabName) {
+  const hist = _priceHistory[scarabName];
+  if (!hist || hist.length < 2) return null;
+  const sorted = [...hist].sort((a, b) => a.date.localeCompare(b.date));
+  const oldest = sorted[0].price;
+  const newest = sorted[sorted.length - 1].price;
+  if (oldest <= 0) return null;
+  return (newest - oldest) / oldest * 100; // percent change
+}
+
+// Renders a smooth SVG sparkline — cubic bezier curve, gradient fill, end dot.
+// % change shown only on hover via the global analysis tooltip.
+function buildSparkline(scarabName) {
+  const hist = _priceHistory[scarabName];
+  if (!hist || hist.length < 2) {
+    return '<div class="sparkline-wrap"><svg width="100%" height="26" viewBox="0 0 56 28" preserveAspectRatio="none"><line x1="4" y1="14" x2="52" y2="14" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,2"/></svg></div>';
+  }
+  const sorted = [...hist].sort((a, b) => a.date.localeCompare(b.date));
+  const prices = sorted.map(h => h.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const W = 56, H = 28, padX = 3, padY = 4;
+  const range = max - min || max * 0.1 || 1;
+
+  const xs = prices.map((_, i) => padX + (i / (prices.length - 1)) * (W - padX * 2));
+  const ys = prices.map(p => H - padY - ((p - min) / range) * (H - padY * 2));
+
+  // Smooth cubic bezier path using Catmull-Rom → bezier conversion
+  function catmullToBezier(pts) {
+    if (pts.length < 2) return '';
+    let d = `M ${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const cp1x = p1[0] + (p2[0] - p0[0]) / 4;
+      const cp1y = p1[1] + (p2[1] - p0[1]) / 4;
+      const cp2x = p2[0] - (p3[0] - p1[0]) / 4;
+      const cp2y = p2[1] - (p3[1] - p1[1]) / 4;
+      d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+    }
+    return d;
+  }
+
+  const pts = xs.map((x, i) => [x, ys[i]]);
+  const linePath = catmullToBezier(pts);
+
+  // Fill path: line path + down to bottom-right + across to bottom-left + close
+  const lastX = xs[xs.length - 1];
+  const firstX = xs[0];
+  const fillPath = `${linePath} L ${lastX.toFixed(2)},${(H - padY + 2).toFixed(2)} L ${firstX.toFixed(2)},${(H - padY + 2).toFixed(2)} Z`;
+
+  const pct = getPriceTrend(scarabName);
+  const isUp   = pct !== null && pct > 1;
+  const isDown = pct !== null && pct < -1;
+  const strokeColor = isUp ? 'var(--green)' : isDown ? 'var(--red)' : 'var(--text-3)';
+  const fillId = `sf-${scarabName.replace(/[^a-z0-9]/gi, '')}`;
+  const fillColor = isUp ? '#1e9c52' : isDown ? '#d63a2c' : '#727890';
+  const pctLabel = pct === null ? 'no data' : (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+
+  // End dot position
+  const endX = xs[xs.length - 1];
+  const endY = ys[ys.length - 1];
+
+  const safeName = (scarabName || '').replace(/'/g, '&apos;').replace(/"/g, '&quot;');
+
+  return `<div class="sparkline-wrap">
+    <svg class="sparkline-svg" width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+      onmouseenter="showSparkTooltip(event,'${safeName}','${pctLabel}')"
+      onmouseleave="hideSparkTooltip()">
+      <defs>
+        <linearGradient id="${fillId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${fillColor}" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="${fillColor}" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <path d="${fillPath}" fill="url(#${fillId})" stroke="none"/>
+      <path d="${linePath}" fill="none" stroke="${strokeColor}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle class="spark-dot" cx="${endX.toFixed(2)}" cy="${endY.toFixed(2)}" r="2.5" fill="${strokeColor}"/>
+    </svg>
+  </div>`;
+}
+
+function showSparkTooltip(e, name, pct) {
+  const tip = document.getElementById('analysisBarTooltip');
+  if (!tip) return;
+  tip.textContent = `${name} · ${pct}`;
+  tip.classList.add('show');
+  tip.style.left = (e.clientX + 12) + 'px';
+  tip.style.top  = (e.clientY - 4) + 'px';
+}
+function hideSparkTooltip() {
+  const tip = document.getElementById('analysisBarTooltip');
+  if (tip) tip.classList.remove('show');
+}
 
 try { const s = localStorage.getItem('poepool28v2'); if (s) prices = JSON.parse(s); } catch(e) {}
 function savePrices() {
@@ -1932,7 +2247,7 @@ function savePrices() {
 function getP(name) { return prices[name] || { qty:0, cost:0 }; }
 
 // Theme
-const savedTheme = localStorage.getItem('poepool-theme') || 'light';
+const savedTheme = localStorage.getItem('poepool-theme') || 'dark';
 if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme','dark');
 function toggleTheme() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -1952,6 +2267,136 @@ function switchTab(tab) {
   if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
   if (tab === 'ninja') renderNinja();
   if (tab === 'analysis') renderAnalysis();
+  if (tab === 'faq') initFaq();
+}
+
+function toggleLoggerHowTo() {
+  const body    = document.getElementById('loggerHowToBody');
+  const chevron = document.getElementById('loggerHowToChevron');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+const FAQ_SECTIONS = [
+  {
+    title: 'What is the scarab vendor recipe?',
+    body: `Trade <strong>3 scarabs of the same tier</strong> to any vendor NPC and receive <strong>1 random scarab</strong> from a higher output pool. Most returns are cheap commons, but occasionally you get something worth 50–500× your inputs. Over enough trades the expected value of outputs tends to exceed the cost — that's the edge this tool finds and tracks.`
+  },
+  {
+    title: 'Why vendor instead of just selling?',
+    body: `<strong>Liquidity</strong> — low-value scarabs tend to move slowly on the market. Listing hundreds of them and waiting days for buyers is impractical. The vendor recipe converts that unsellable bulk into fewer, higher-value scarabs that actually sell. <strong>Profitability</strong> — when your vendor targets cost less than what the vendor returns on average, every trade is mathematically in your favour. It's typically more profitable to vendor them than to sell at market. ScarabEV shows exactly which scarabs fall below that line.`
+  },
+  {
+    title: 'What is the vendor threshold and how is it calculated?',
+    body: `The threshold is the <strong>maximum price per scarab worth feeding into the recipe</strong>. Anything at or below it goes to the vendor; anything above gets sold directly.<br><br>
+<strong>Harmonic EV</strong> (default) — treats all scarab types as equally likely outputs. Uses the harmonic mean of all ninja prices, which naturally resists distortion from rare expensive scarabs:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic EV = N ÷ Σ(1 / price_i)</code>
+<strong>Weighted EV</strong> — uses observed session data to weight each scarab by how often it actually appears as a vendor output. Typically tighter (lower) than harmonic because cheap commons dominate real outputs:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = Σ(weight_i × price_i) / 3<br>weight_i = times scarab_i appeared as output / total outputs observed</code>
+Both modes update live as poe.ninja prices change throughout the day.`
+  },
+  {
+    title: 'How does the Vendor Profit Estimator work?',
+    body: `Import your Wealthy Exile CSV and the estimator computes four numbers using live poe.ninja prices:<br><br>
+<strong>Scarabs to Vendor</strong> — how many of your scarabs fall below the current threshold.<br>
+<strong>Input Value</strong> — their current market value if you sold them all (<code>Σ qty × ninja price</code>).<br>
+<strong>Est. Return</strong> — expected value back from the vendor (<code>qty × calibrated rate</code>).<br>
+<strong>Est. Profit</strong> — return minus input value.<br><br>
+The calibrated rate comes from your observed session data: <code>real sessions output / real sessions input</code>, then discounted against the theoretical weight-predicted mean. No hardcoded numbers — it adjusts as the economy shifts and more sessions are logged.<br><br>
+<em>Note: a negative est. profit doesn't mean you're losing currency. Those scarabs may be unsellable in practice — the vendor recipe is often the only realistic way to extract value from them.</em>`
+  },
+  {
+    title: 'How is community data aggregated and validated?',
+    body: `Every submitted session passes automated quality checks before contributing to the shared database. Sessions that fail are saved to your local history but <strong>never affect community weights or calibration</strong>.<br><br>
+<strong>What gets accepted:</strong> sessions with ≥500 scarabs consumed, meaningful keeper outputs, and a healthy mix of cheap vendor-target scarabs in the return pool.<br><br>
+<strong>What gets excluded:</strong><br>
+• <em>Low sample</em> — fewer than 500 scarabs consumed<br>
+• <em>Zero keeper outputs</em> — nothing came back worth keeping<br>
+• <em>Recycled session</em> — if less than 15% of outputs are vendor-target quality, the person likely re-vendored their returns multiple times in one session. This inflates expensive scarabs in the weight data and gets excluded automatically.<br>
+• <em>Outputs exceed inputs</em> — physically impossible in a single pass<br><br>
+The recycling check matters most. A clean single-pass session always returns a mix of cheap commons and occasional keepers — cheap commons dominate the vendor pool. If almost nothing vendor-target came back, the session was recycled and the data is unusable for weight calibration.`
+  },
+  {
+    title: 'How do I log a session?',
+    body: `<strong>Standard tracking</strong> (personal profit, no data contribution requirements):<br>
+Export Wealthy Exile before your session → vendor your marked scarabs → export after → upload both CSVs on the Session Logger tab with your regex → submit.<br><br>
+<strong>For clean community data contribution</strong> (optional — see the how-to guide on the Session Logger tab):<br>
+Use a dedicated returns stash tab. Vendor once, place all returns there, then export and log before re-vendoring anything. Each single pass = one session submission. This keeps the weight data accurate for everyone.`
+  },
+  {
+    title: 'How does the Bulk Buy Analyzer work, and how do I get the most accurate results?',
+    body: `The Bulk Buy Analyzer evaluates TFT bulk listings against live poe.ninja prices and your current EV threshold — showing expected return, net value, and a per-scarab breakdown.<br><br>
+<strong>Two ways to get listing data in:</strong><br>
+• <strong>API image parsing</strong> — drop a screenshot and let Gemini parse it automatically (requires a free API key from aistudio.google.com). Convenient but less accurate, especially on dense or cluttered listings.<br>
+• <strong>Manual CSV</strong> — paste <code>Name,Qty</code> directly and click Analyze CSV only. Most reliable.<br><br>
+<strong style="color:var(--text-2)">💡 Best method for accuracy:</strong> paste your listing screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and doesn't need an API key. Copy the output, paste it into the CSV box here, and use Analyze CSV only.<br><br>
+Regardless of method, always cross-reference the parsed data against the original listing before committing to a purchase.`
+  },
+  {
+    title: 'Where do prices come from?',
+    body: `All prices are fetched from <strong>poe.ninja</strong> via a Cloudflare Worker proxy on every page load (60-second cache). The divine orb rate is fetched separately and used to display large values in divines. Prices reflect poe.ninja's latest data which typically lags a few hours behind live trade.`
+  },
+  {
+    title: 'Is my data private?',
+    body: `Session history, price overrides, and settings are stored in your <strong>browser's localStorage only</strong> — nothing leaves your device unless you explicitly submit a session. The community database stores only anonymous aggregate data: scarab output counts, total trades, and input/output values. No account, no login, no way to identify individual contributors.`
+  },
+  {
+    title: 'Why do I have to manually export CSVs? Can\'t this be automated?',
+    body: `Yes — and it's the most common piece of feedback. Right now the tool relies on <strong>Wealthy Exile CSV exports</strong> for inventory snapshots because that's the only reliable way to read your stash contents without GGG's direct involvement.<br><br>
+The proper solution is <strong>OAuth access via GGG's official API</strong>. With OAuth, the tool could read your stash tabs directly — no Wealthy Exile, no manual exports, no before/after snapshots. Session logging would be as simple as clicking a button before and after vendoring. Everything tedious about the current workflow goes away.<br><br>
+GGG does offer OAuth access to third-party developers, but it requires a formal application and approval process. I haven't applied yet because I wanted to validate that there's genuine demand for the tool first.<br><br>
+<strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application and take on the engineering work to make the whole experience seamless.`
+  },
+  {
+    title: 'Why use harmonic mean instead of arithmetic mean for EV?',
+    body: `Arithmetic mean is distorted by expensive outliers. With 100 scarabs averaging 0.5c plus one Horned Scarab at 560c, the arithmetic mean implies a threshold of ~6c — far too generous. The harmonic mean weights by reciprocal: a 560c scarab contributes <code>1/560 ≈ 0.002</code> to the calculation, almost nothing, while 100 cheap scarabs at 0.5c each contribute <code>200</code>. The result stays grounded in what the vendor actually returns most of the time.`
+  },
+];
+
+function initFaq() {
+  const list = document.getElementById('faq-list');
+  if (!list || list.children.length > 0) return;
+
+  FAQ_SECTIONS.forEach((section, i) => {
+    const id = `faq-item-${i}`;
+    const bodyId = `faq-body-${i}`;
+    const chevronId = `faq-chevron-${i}`;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div onclick="toggleFaqItem('${bodyId}','${chevronId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-card)'" id="${id}">
+        <span style="font-size:10px;color:var(--accent);transition:transform 0.15s;flex-shrink:0" id="${chevronId}">▶</span>
+        <span style="font-size:12px;font-weight:600;color:var(--text-2)">${section.title}</span>
+      </div>
+      <div id="${bodyId}" class="faq-body" style="display:none;margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:14px 18px;font-size:12px;line-height:1.8">
+        ${section.body}
+      </div>
+    `;
+    list.appendChild(wrapper);
+  });
+}
+
+function toggleFaqItem(bodyId, chevronId) {
+  const body    = document.getElementById(bodyId);
+  const chevron = document.getElementById(chevronId);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function toggleFaq(qEl) {
+  const item = qEl.closest('.faq-item');
+  if (!item) return;
+  item.classList.toggle('open');
+}
+
+function faqScrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ══════════════════════════════════════════════════
@@ -2622,10 +3067,12 @@ async function fetchNinja() {
       const result = computeWeightBasedRate();
       if (result) {
         _calibratedMean = result.mean;
-        _calibratedSigma = result.sigma;
+        _calibratedP20 = result.conservative;
         _calibratedRate = result.conservative;
       }
     }
+    // Seed mock sparkline data for visual preview if no real history has loaded yet
+    if (Object.keys(_priceHistory).length === 0) seedMockPriceHistory();
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
@@ -2718,8 +3165,14 @@ function getNinjaEntries() {
   });
 }
 
+function resetNinjaSort() {
+  ninjaSort = null;
+  document.getElementById('n-resetSort').style.display = 'none';
+  updateSortArrows();
+  renderNinja();
+}
+
 function setNinjaSort(col) {
-  // cycle: null → asc → desc → null (back to grouped)
   if (ninjaSort === null || !ninjaSort.startsWith(col)) {
     ninjaSort = col + '-asc';
   } else if (ninjaSort === col + '-asc') {
@@ -2727,20 +3180,21 @@ function setNinjaSort(col) {
   } else {
     ninjaSort = null;
   }
+  const resetBtn = document.getElementById('n-resetSort');
+  if (resetBtn) resetBtn.style.display = ninjaSort ? '' : 'none';
   updateSortArrows();
   renderNinja();
 }
 
 function updateSortArrows() {
-  ['group','cea','diff'].forEach(col => {
-    const el = document.getElementById(`n-sa-${col}`);
+  // Instead of arrows, highlight the active column header
+  ['name','group','trend','cea','diff','action'].forEach(col => {
+    const el = document.getElementById(`n-th-${col}`);
     if (!el) return;
     if (ninjaSort && ninjaSort.startsWith(col)) {
-      el.textContent = ninjaSort.endsWith('asc') ? '▲' : '▼';
-      el.className = 'sort-arrow active';
+      el.style.color = 'var(--accent)';
     } else {
-      el.textContent = '⇅';
-      el.className = 'sort-arrow';
+      el.style.color = '';
     }
   });
 }
@@ -2748,12 +3202,17 @@ function updateSortArrows() {
 function recalcNinja() {
   const entries = getNinjaEntries();
   const priced = entries.filter(e => e.chaosEa > 0);
-  const calcedEV = calcEV(priced);
+  const calcedEV = calcAutoEV(); // respects _evMode — harmonic or weighted
   const ev = ninjaEvOverride !== null ? ninjaEvOverride : calcedEV;
   const threshold = ev !== null ? ev : null;
   const belowEv = ev !== null ? priced.filter(e => e.chaosEa <= ev) : [];
 
-  const evLabel = ninjaEvOverride !== null ? ev.toFixed(2)+'c ⚡' : (calcedEV !== null ? calcedEV.toFixed(2)+'c' : '—');
+  const modeTag = _evMode === 'weighted' ? 'weighted EV' : 'harmonic EV';
+  const evLabel = ninjaEvOverride !== null
+    ? ev.toFixed(2) + 'c ⚡'
+    : (calcedEV !== null ? calcedEV.toFixed(2) + 'c' : '—');
+  const threshModeEl = document.getElementById('thresholdModeLabel');
+  if (threshModeEl && ninjaEvOverride === null) threshModeEl.textContent = modeTag;
   const statEV = document.getElementById('n-statEV'); if (statEV) statEV.textContent = evLabel;
   const statTgt = document.getElementById('n-statTargets'); if (statTgt) statTgt.textContent = ev !== null ? belowEv.length : '—';
   const threshEl = document.getElementById('n-statThresh'); if (threshEl) threshEl.textContent = threshold !== null ? threshold.toFixed(2)+'c' : '—';
@@ -2762,8 +3221,7 @@ function recalcNinja() {
   if (avgInEl) { const vp = belowEv.map(e=>e.chaosEa).filter(p=>p>0); avgInEl.textContent = vp.length ? (vp.reduce((s,p)=>s+p,0)/vp.length).toFixed(3)+'c' : '—'; }
   const statProfEl = document.getElementById('n-statEstProfit'); if (statProfEl) statProfEl.textContent = '—';
   // Muted EV + vendor targets in table header
-  const headerMeta = document.getElementById('n-headerMeta');
-  if (headerMeta && ev !== null) headerMeta.textContent = `EV ${ev.toFixed(2)}c · ${belowEv.length} vendor`;
+
 
   const aboveEv = priced.filter(e => e.chaosEa > ev);
   updateRegexUI('n', belowEv.map(e => e.name), aboveEv.map(e => e.name));
@@ -2837,14 +3295,24 @@ function renderNinja() {
     const asc = dir === 'asc';
     items.sort((a, b) => {
       let va, vb;
-      if (col === 'cea') {
+      if (col === 'name') {
+        va = a.name; vb = b.name;
+        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      } else if (col === 'cea') {
         va = a.cea ?? Infinity; vb = b.cea ?? Infinity;
       } else if (col === 'diff') {
         va = (a.cea !== null && ev !== null) ? a.cea - ev : Infinity;
         vb = (b.cea !== null && ev !== null) ? b.cea - ev : Infinity;
+      } else if (col === 'trend') {
+        // null trends (no data) sort to the end regardless of direction
+        va = getPriceTrend(a.name) ?? (asc ? Infinity : -Infinity);
+        vb = getPriceTrend(b.name) ?? (asc ? Infinity : -Infinity);
       } else if (col === 'group') {
         va = a.group; vb = b.group;
         return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      } else if (col === 'action') {
+        // asc = vendor targets first, desc = keepers first
+        va = a.isV ? 0 : 1; vb = b.isV ? 0 : 1;
       }
       return asc ? va - vb : vb - va;
     });
@@ -3018,8 +3486,12 @@ function makeNinjaRow(s, ev) {
       <span class="scarab-name">${s.name}</span>
       ${s.isNew?'<span class="new-badge">NEW</span>':''}
     </div></div>
-    <div class="td" style="color:var(--text-3);font-size:11px">${s.group}</div>
+    <div class="td" style="color:var(--text-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.group}</div>
   `;
+  const trendCell = document.createElement('div');
+  trendCell.className = 'td center';
+  trendCell.innerHTML = buildSparkline(s.name);
+  row.appendChild(trendCell);
   row.appendChild(priceCell);
   row.insertAdjacentHTML('beforeend', `
     <div class="td center">${diffHtml}</div>
@@ -3114,11 +3586,35 @@ function resetSlider() {
 }
 
 function calcAutoEV() {
-  // Same logic as recalcNinja but just return the EV value
+  if (_evMode === 'weighted' && _calibratedMean !== null) {
+    // Weighted EV threshold: the expected return per input scarab given observed drop frequencies.
+    // _calibratedMean = Σ(weight × price) / 3 — already per-input-scarab.
+    // Vendor anything worth less than this; keep anything worth more.
+    return _calibratedMean;
+  }
+  // Harmonic mean of all ninja prices — equal weight per scarab type
   const lower = buildNinjaLookup();
   const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
   const priced = entries.filter(e => e.chaosEa > 0);
   return calcEV(priced);
+}
+
+function setEVMode(mode) {
+  _evMode = mode;
+  document.getElementById('evModeHarmonic').classList.toggle('active', mode === 'harmonic');
+  document.getElementById('evModeWeighted').classList.toggle('active', mode === 'weighted');
+  // Only switch to weighted if data is ready
+  if (mode === 'weighted' && _calibratedMean === null) {
+    document.getElementById('thresholdModeLabel').textContent = 'waiting for weight data…';
+    return;
+  }
+  // Reset to auto EV (no manual override) so the new mode takes effect immediately
+  ninjaEvOverride = null;
+  try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
+  document.getElementById('sliderResetBtn').style.display = 'none';
+  recalcNinja();
+  renderNinja();
+  calcEstimator();
 }
 
 function updateSliderROI(threshold) {
@@ -3128,8 +3624,16 @@ function updateSliderROI(threshold) {
 
   if (roiEl) {
     if (threshold <= autoEV) {
-      const avgInput = threshold * 0.55;
-      const estROI   = avgInput > 0 ? Math.round((autoEV - avgInput) / avgInput * 100) : 0;
+      // Compute real average price of vendor targets from live ninja prices
+      const lower = buildNinjaLookup();
+      const vendorPrices = SCARAB_LIST
+        .map(s => getNinjaPrice(s.name, lower))
+        .filter(p => p > 0 && p <= threshold);
+      const avgInput = vendorPrices.length
+        ? vendorPrices.reduce((s, p) => s + p, 0) / vendorPrices.length
+        : 0;
+      const returnPerInput = _calibratedRate || autoEV;
+      const estROI = avgInput > 0 ? Math.round((returnPerInput - avgInput) / avgInput * 100) : 0;
       roiEl.textContent = `~${estROI}% est. ROI`;
       roiEl.className = 'threshold-roi roi-good';
     } else if (threshold <= warnEnd) {
@@ -3142,7 +3646,6 @@ function updateSliderROI(threshold) {
   }
 
   // Color bar — green up to autoEV, amber from autoEV to autoEV+0.10, red beyond
-  // Use strict greater-than so at exactly autoEV the bar is all green
   const cur    = Math.min(1, Math.max(0, threshold));
   const greenW = Math.min(autoEV, cur) * 100;
   const amberW = threshold > autoEV ? Math.min(warnEnd - autoEV, cur - autoEV) * 100 : 0;
@@ -3250,26 +3753,16 @@ function toggleCSVBreakdown() {
   if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
 }
 
-function renderCSVBreakdown() {
+function renderCSVBreakdown(foundItems) {
+  // foundItems is passed from calcEstimator — already filtered by the correct threshold.
+  // We never recompute the threshold here to avoid divergence.
   const raw = _csvRawItems;
   if (!raw) return;
+
+  const found = foundItems || window._csvFoundItems || [];
   const lower = buildNinjaLookup();
-  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
-  const priced = entries.filter(e => e.chaosEa > 0);
-  const autoEV = calcEV(priced);
-  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+  const totalQty = found.reduce((s, f) => s + f.qty, 0);
 
-  const found = [];
-  let totalQty = 0;
-  for (const item of raw) {
-    const price = getNinjaPrice(item.name, lower);
-    if (price > 0 && threshold !== null && price <= threshold) {
-      found.push({ name: item.name, qty: item.qty });
-      totalQty += item.qty;
-    }
-  }
-
-  // If nothing is currently under threshold, just clear the breakdown but keep CSV loaded
   if (!found.length) {
     const st = document.getElementById('csvStatus');
     if (st) st.textContent = 'No vendor targets at current threshold';
@@ -3277,7 +3770,6 @@ function renderCSVBreakdown() {
     return;
   }
 
-  // Update header label
   const st = document.getElementById('csvStatus');
   if (st) {
     const chevron = document.getElementById('csvBreakdownChevron');
@@ -3306,10 +3798,7 @@ function clearCSV() {
 
 function calcEstimator() {
   const lower = buildNinjaLookup();
-  const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
-  const priced = entries.filter(e => e.chaosEa > 0);
-  const autoEV = calcEV(priced);
-  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : autoEV;
+  const threshold = ninjaEvOverride !== null ? ninjaEvOverride : calcAutoEV();
 
   let vendorQty = 0;
   let inputValue = 0; // current market value of scarabs being vendored (qty × ninja price)
@@ -3325,11 +3814,12 @@ function calcEstimator() {
       }
     }
     window._csvFoundItems = found;
+    renderCSVBreakdown(found);
   } else {
     window._csvFoundItems = null;
+    renderCSVBreakdown([]);
   }
 
-  renderCSVBreakdown();
   renderEstimator(vendorQty, inputValue, getDivineRate(), threshold);
 }
 
@@ -3339,7 +3829,7 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
     const result = computeWeightBasedRate();
     if (result) {
       _calibratedMean  = result.mean;
-      _calibratedSigma = result.sigma;
+      _calibratedP20 = result.conservative;
       _calibratedRate  = result.conservative;
     }
   }
@@ -3356,12 +3846,7 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
   // Footer: always show rate info once calibration is ready
   if (divRateEl) {
     if (_calibratedRate !== null) {
-      const meanLabel  = _calibratedMean  ? _calibratedMean.toFixed(4)  + 'c mean' : '';
-      const sigmaLabel = _calibratedSigma ? '−1σ (' + _calibratedSigma.toFixed(4) + ')' : '';
-      divRateEl.textContent = [
-        divRate ? `1d = ${divRate.toFixed(0)}c` : '',
-        `${_calibratedRate.toFixed(4)}c/scarab · ${meanLabel} ${sigmaLabel} · ${_weightSessionCount} sessions`
-      ].filter(Boolean).join(' · ');
+      divRateEl.textContent = divRate ? `1d = ${divRate.toFixed(0)}c` : '';
     } else {
       divRateEl.textContent = divRate ? `1d = ${divRate.toFixed(0)}c` : '';
     }
@@ -3371,6 +3856,8 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
   if (noCSV) {
     if (inputEl)  { inputEl.textContent = '—'; }
     if (inputSub) { inputSub.textContent = 'import your Wealthy Exile CSV to estimate'; inputSub.style.color = 'var(--amber)'; }
+    const inputValueEl = document.getElementById('est-input-value');
+    if (inputValueEl) inputValueEl.textContent = '—';
     if (retEl)    { retEl.textContent = '—'; }
     if (profEl)   { profEl.textContent = '—'; profEl.className = 'estimator-card-value val-return'; }
     if (statProfEl)  { statProfEl.textContent = '—'; statProfEl.className = 'stat-value'; }
@@ -3382,20 +3869,25 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
   if (_calibratedRate === null) {
     if (inputEl)  { inputEl.textContent = vendorQty.toLocaleString(); }
     if (inputSub) { inputSub.textContent = 'loading calibration data…'; inputSub.style.color = 'var(--text-3)'; }
+    const inputValueEl = document.getElementById('est-input-value');
+    if (inputValueEl) inputValueEl.textContent = '—';
     if (retEl)    { retEl.textContent = '—'; }
     if (profEl)   { profEl.textContent = '—'; profEl.className = 'estimator-card-value val-return'; }
     return;
   }
 
   // All data ready — compute
-  // Est. return: how much the vendor outputs are worth at the calibrated rate
-  const retChaos  = vendorQty * _calibratedRate;
-  // Profit: return minus current market value of what we're putting in
-  const profChaos = retChaos - inputValue;
+  const retChaos  = vendorQty * _calibratedRate;  // expected keeper value from vendor outputs
+  const profChaos = retChaos - inputValue;          // net vs just selling at market (usually negative — vendoring costs value)
 
-  if (inputEl)  { inputEl.textContent = vendorQty.toLocaleString(); }
-  if (inputSub) { inputSub.textContent = `market value: ${fmtEst(inputValue, divRate)}`; inputSub.style.color = 'var(--text-3)'; }
-  if (retEl)    { retEl.textContent = fmtEst(retChaos, divRate); }
+  if (inputEl)       { inputEl.textContent = vendorQty.toLocaleString(); }
+  if (inputSub)      { inputSub.textContent = 'from your Wealthy Exile CSV'; inputSub.style.color = 'var(--text-3)'; }
+
+  const inputValueEl = document.getElementById('est-input-value');
+  if (inputValueEl)  { inputValueEl.textContent = fmtEst(inputValue, divRate); }
+
+  if (retEl) { retEl.textContent = fmtEst(retChaos, divRate); }
+
   if (profEl) {
     profEl.textContent = (profChaos >= 0 ? '+' : '') + fmtEst(Math.abs(profChaos), divRate);
     profEl.className   = 'estimator-card-value ' + (profChaos >= 0 ? 'val-profit' : 'val-roi');
@@ -3761,10 +4253,25 @@ async function submitSession() {
   const keeperOutputs = session.keeperRows?.length || 0;
   if (session.totalConsumed >= 500 && keeperOutputs === 0)
     flags.push('zero keeper outputs');
-  const totalReceived = (session.vendorRows || []).reduce((s, r) => s + r.received, 0)
-                      + (session.keeperRows || []).reduce((s, r) => s + r.received, 0);
+  const vendorReceived = (session.vendorRows || []).reduce((s, r) => s + r.received, 0);
+  const keeperReceived = (session.keeperRows || []).reduce((s, r) => s + r.received, 0);
+  const totalReceived  = vendorReceived + keeperReceived;
   if (totalReceived > session.totalConsumed)
     flags.push('outputs > inputs');
+
+  // Recycling check — in a clean single-pass session, a meaningful portion of vendor
+  // outputs should themselves be vendor-target quality scarabs (the vendor hands back
+  // cheap commons frequently). If almost nothing vendor-target came back, the person
+  // recycled their outputs through multiple passes in one session, which contaminates
+  // the weight distribution data. Flag and exclude from community aggregate.
+  // Threshold: vendor-target outputs must be ≥ 15% of total received.
+  // Only applied when we have enough data to be meaningful (≥ 500 consumed, ≥ 10 total received).
+  if (session.totalConsumed >= 500 && totalReceived >= 10) {
+    const vendorReturnRatio = totalReceived > 0 ? vendorReceived / totalReceived : 0;
+    if (vendorReturnRatio < 0.15) {
+      flags.push('recycled session — vendor outputs contain <15% vendor-target scarabs');
+    }
+  }
 
   try {
     const existing = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
@@ -3787,7 +4294,12 @@ async function submitSession() {
     existing.push(record);
     localStorage.setItem('poepool-sessions', JSON.stringify(existing));
     if (flags.length) {
-      status.textContent = `⚠ Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} — excluded from calibration`;
+      const isRecycled = flags.some(f => f.startsWith('recycled'));
+      if (isRecycled) {
+        status.textContent = `⚠ Saved locally — session appears recycled and won't contribute to community data. For clean data, vendor each batch once without re-feeding outputs.`;
+      } else {
+        status.textContent = `⚠ Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} — excluded from community calibration`;
+      }
       status.style.color = 'var(--amber)';
     } else {
       status.textContent = `✓ Session saved (${existing.length} total)`;
@@ -3799,7 +4311,7 @@ async function submitSession() {
           input_value: record.input_value,
           output_value: record.output_value,
           league: record.league || undefined,
-          scarabs: (record.scarabs || []).map(r => ({ name: r.name, received: r.received || 0 }))
+          scarabs: (record.scarabs || []).map(r => ({ name: r.name, received: r.received || 0, was_vendor: r.was_vendor || false }))
         };
         fetch(POOL_API_URL + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
           .then(() => {})
@@ -4677,9 +5189,9 @@ async function runBulkFromImage() {
       ],
 	  generationConfig: {
 		temperature: 0,
-		topP: 1, // Increased to 1 to ensure it doesn't ignore less 'probable' whole numbers
+		topP: 1,
 		topK: 1,
-		maxOutputTokens: 2048,
+		maxOutputTokens: 8192,
 		responseMimeType: "text/plain"
 	  }
 	};
@@ -4856,6 +5368,11 @@ function runBulkFromCsv() {
   document.getElementById('bulkCost').textContent = costLabel;
   document.getElementById('bulkCostSub').textContent = `${totalQty.toLocaleString()} scarabs`;
 
+  const typesEl = document.getElementById('bulkTypes');
+  const typesSub = document.getElementById('bulkTypesSub');
+  if (typesEl) typesEl.textContent = matchedRows.length.toLocaleString();
+  if (typesSub) typesSub.textContent = unmatched.length > 0 ? `${unmatched.length} unmatched` : 'all matched';
+
   document.getElementById('bulkReturn').textContent = retLabel;
   document.getElementById('bulkReturnSub').textContent =
     `Using EV ${threshold.toFixed(2)}c for vendor bucket`;
@@ -4938,6 +5455,7 @@ loadBulkNameMap();
 renderManual(); // keep manual state fresh in background
 fetchNinja();
 fetchObservedWeights(); // pull weight distribution from community aggregate
+fetchPriceHistory();    // pull 7-day per-scarab price history for sparklines
 updateSortArrows();
 initSlider();
 fetchAndRenderEVChart();
