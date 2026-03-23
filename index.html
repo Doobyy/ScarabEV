@@ -454,7 +454,6 @@ body {
 .logger-history-grid .cell-left { text-align: left; }
 .logger-history-grid .cell-right { text-align: right; font-variant-numeric: tabular-nums; }
 .analysis-weight-head .th[data-sort] { cursor: pointer; user-select: none; }
-.analysis-weight-row > * { padding: 6px 10px; }
 .analysis-weight-head .th[data-sort]:hover { color: var(--accent); }
 .analysis-weight-head .th[data-sort].sort-asc::after { content: ' ▲'; font-size: 9px; opacity: 0.7; }
 .analysis-weight-head .th[data-sort].sort-desc::after { content: ' ▼'; font-size: 9px; opacity: 0.7; }
@@ -1472,8 +1471,8 @@ body {
 
   /* ── ANALYSIS WEIGHT TABLE ── */
   .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  #analysisWeightHead { min-width: 329px; }
-  .analysis-weight-row { min-width: 329px; }
+  #analysisWeightHead { grid-template-columns: 112px 55px 65px 85px !important; gap: 4px !important; min-width: 329px; }
+  .analysis-weight-row { grid-template-columns: 112px 55px 65px 85px !important; gap: 4px !important; padding: 6px 4px !important; min-width: 329px; }
 
   /* ── ATLAS GROUP ROWS ── */
   .atlas-group-row {
@@ -1998,7 +1997,7 @@ body {
           <div id="analysisBarTooltip" class="analysis-tooltip"></div>
         </div>
         <div class="table-card" style="margin-top:12px">
-          <div class="table-head analysis-weight-head" style="grid-template-columns:112px 55px 65px 85px;gap:4px" id="analysisWeightHead">
+          <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 90px 90px 90px;gap:8px" id="analysisWeightHead">
             <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
             <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')">Recv</div>
             <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
@@ -5210,7 +5209,7 @@ function renderAnalysisWeightTable() {
     return;
   }
   const rows = data.map(d => `
-    <div class="analysis-weight-row" style="display:grid;grid-template-columns:112px 55px 65px 85px;font-size:12px;border-bottom:1px solid var(--border);align-items:center;gap:4px;">
+    <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 90px 90px 90px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:8px;">
       <div style="overflow:hidden;min-width:0"><span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mobileScarabName(d.name)}</span></div>
       <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
