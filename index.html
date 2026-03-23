@@ -1508,7 +1508,7 @@ body {
 
   /* ── THRESHOLD BAR ── */
   .threshold-top { flex-direction: column; gap: 6px; }
-  .threshold-right { justify-content: flex-start; }
+  .threshold-right { justify-content: flex-end; }
   #evModePill { display: block; }
   .ev-mode-desktop { display: none !important; }
 
@@ -4163,7 +4163,7 @@ function updateSliderROI(threshold) {
         : 0;
       const returnPerInput = _calibratedRate || autoEV;
       const estROI = avgInput > 0 ? Math.round((returnPerInput - avgInput) / avgInput * 100) : 0;
-      roiEl.textContent = `~${estROI}% est. ROI`;
+      roiEl.textContent = `~${estROI}% ROI`;
       roiEl.className = 'threshold-roi roi-good';
     } else if (threshold <= warnEnd) {
       roiEl.textContent = `break-even zone`;
