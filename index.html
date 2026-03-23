@@ -1997,7 +1997,7 @@ body {
           <div id="analysisBarTooltip" class="analysis-tooltip"></div>
         </div>
         <div class="table-card" style="margin-top:12px">
-          <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 90px 90px 90px;gap:8px" id="analysisWeightHead">
+          <div class="table-head analysis-weight-head" style="grid-template-columns:minmax(160px,1fr) 90px 90px 90px;gap:8px" id="analysisWeightHead">
             <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
             <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')">Received</div>
             <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
@@ -2658,10 +2658,12 @@ function switchTab(tab, skipHash) {
   const tabNames = { ninja:'Scarab Vendor', atlas:'Atlas Optimizer', bulk:'Bulk Buy Analyzer', logger:'Session Logger', analysis:'Data Analysis', faq:'FAQ' };
   const currentTabEl = document.getElementById('navCurrentTab');
   if (currentTabEl) currentTabEl.textContent = tabNames[tab] || tab;
-  if (!skipHash) history.replaceState(null, '', '#' + (tab === 'ninja' ? 'scarabEV' : tab));
-  if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
-  if (tab === 'ninja') renderNinja();
-  if (tab === 'analysis') renderAnalysis();
+  if (!skipHash) {
+    const newHash = '#' + (tab === 'ninja' ? 'scarabEV' : tab);
+    if (window.location.hash !== newHash) history.replaceState(null, '', newHash);
+  }
+  if (tab === 'ninja') { if (!ninjaLoaded) fetchNinja(); else renderNinja(); }
+  if (tab === 'analysis') { if (!ninjaLoaded) fetchNinja(); renderAnalysis(); }
   if (tab === 'atlas') renderAtlas();
   if (tab === 'faq') initFaq();
 }
@@ -3527,6 +3529,7 @@ async function fetchNinja() {
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
     if (currentTab === 'atlas') renderAtlas();
+    if (currentTab === 'analysis') renderAnalysis();
     status.className = 'ninja-status loaded';
     clearInterval(window._ninjaAgeTicker);
     window._ninjaPriceTime = now;
