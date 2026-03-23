@@ -6609,7 +6609,7 @@ function checkVersionToast() {
   if (last !== CURRENT_VERSION) {
     localStorage.setItem('scarabev-last-version', CURRENT_VERSION);
     setTimeout(() => {
-      showToast('❆ ScarabEV ' + CURRENT_VERSION + ' — tap to see what's new', 5000, () => {
+      showToast('❆ ScarabEV ' + CURRENT_VERSION + ' — tap to see what’s new', 5000, () => {
         toggleChangelog();
         document.getElementById('toast').classList.remove('show');
       });
