@@ -460,6 +460,8 @@ body {
 .analysis-weight-head .th[data-sort]:hover { color: var(--accent); }
 .analysis-weight-head .th[data-sort].sort-asc::after { content: ' ▲'; font-size: 9px; opacity: 0.7; }
 .analysis-weight-head .th[data-sort].sort-desc::after { content: ' ▼'; font-size: 9px; opacity: 0.7; }
+.recv-mobile { display: none; }
+.recv-desktop { display: inline; }
 .analysis-ev-compare { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .analysis-ev-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
 .analysis-ev-card .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); margin-bottom: 4px; }
@@ -1229,8 +1231,8 @@ body {
 .atlas-col-title-tag.block-tag { background: rgba(214,58,44,0.1); color: var(--red); border: 1px solid rgba(214,58,44,0.25); }
 .atlas-col-title-tag.boost-tag { background: rgba(75,108,247,0.1); color: var(--accent); border: 1px solid rgba(75,108,247,0.3); }
 .atlas-col-subhead {
-  display: grid; grid-template-columns: 34px 1fr 64px 60px 72px 80px 20px;
-  gap: 6px; padding: 5px 10px;
+  display: grid; grid-template-columns: 34px 1fr 64px 56px 60px 76px 20px;
+  gap: 4px; padding: 5px 10px;
   font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-3); border-bottom: 1px solid var(--border);
   background: var(--bg-table-head);
@@ -1257,8 +1259,8 @@ body {
 .atlas-col-wrap .atlas-group-card.is-boosted { border: none; border-left: 3px solid var(--accent); }
 
 .atlas-group-row {
-  display: grid; grid-template-columns: 34px 1fr 64px 60px 72px 80px 20px;
-  align-items: center; gap: 6px; padding: 7px 10px;
+  display: grid; grid-template-columns: 34px 1fr 64px 56px 60px 76px 20px;
+  align-items: center; gap: 4px; padding: 7px 10px;
   cursor: pointer; user-select: none; transition: background 0.1s;
 }
 .atlas-group-row:hover { background: var(--row-hover); }
@@ -1294,7 +1296,7 @@ body {
 }
 .atlas-badge.blocked     { background: rgba(214,58,44,0.12); color: var(--red);   border: 1px solid rgba(214,58,44,0.3); }
 .atlas-badge.boosted     { background: rgba(75,108,247,0.10); color: var(--accent); border: 1px solid rgba(75,108,247,0.3); }
-.atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; flex-shrink: 0; }
+.atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; }
 [data-theme="dark"] .atlas-badge.blocked     { background: rgba(255,95,80,0.12);  color: var(--red); }
 [data-theme="dark"] .atlas-badge.boosted     { background: rgba(112,144,255,0.12); color: var(--accent); }
 [data-theme="dark"] .atlas-badge.recommended { background: rgba(54,216,126,0.10); color: var(--green); border-color: rgba(54,216,126,0.3); }
@@ -1338,8 +1340,8 @@ body {
   border-radius: 0 0 7px 7px; overflow: hidden;
 }
 .atlas-leftover-head {
-  display: grid; grid-template-columns: 1fr 70px 70px 80px;
-  padding: 5px 12px; gap: 8px;
+  display: grid; grid-template-columns: 1fr 70px 70px 80px 20px;
+  padding: 5px 12px; gap: 6px;
   font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-3); border-bottom: 1px solid var(--border);
   background: var(--bg-table-head);
@@ -1347,8 +1349,8 @@ body {
 .atlas-leftover-head span { text-align: right; }
 .atlas-leftover-head span:first-child { text-align: left; }
 .atlas-leftover-row {
-  display: grid; grid-template-columns: 1fr 70px 70px 80px;
-  padding: 6px 12px; gap: 8px; font-size: 12px; align-items: center;
+  display: grid; grid-template-columns: 1fr 70px 70px 80px 20px;
+  padding: 6px 12px; gap: 6px; font-size: 12px; align-items: center;
   border-bottom: 1px solid var(--border);
 }
 .atlas-leftover-row:last-child { border-bottom: none; }
@@ -1482,13 +1484,15 @@ body {
   .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
   #analysisWeightHead { display: grid !important; grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
   .analysis-weight-row { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; padding: 6px 4px !important; width: 100%; box-sizing: border-box; }
+  .recv-desktop { display: none; }
+  .recv-mobile { display: inline; }
 
   /* ── ATLAS GROUP ROWS ── */
   .atlas-group-row {
-    grid-template-columns: 34px 1fr 60px 70px 18px;
+    grid-template-columns: 34px 1fr 56px 66px 18px;
   }
   .atlas-col-subhead {
-    grid-template-columns: 34px 1fr 60px 70px 18px;
+    grid-template-columns: 34px 1fr 56px 66px 18px;
   }
   /* Hide share and contribution columns on mobile — keep group EV and delta */
   .atlas-group-row > span:nth-child(4),
@@ -2017,7 +2021,7 @@ body {
         <div class="table-card" style="margin-top:12px">
           <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 90px 90px 90px;gap:8px" id="analysisWeightHead">
             <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
-            <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')">Recv</div>
+            <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')"><span class="recv-desktop">Received</span><span class="recv-mobile">Recv</span></div>
             <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
             <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">Cost/ea</div>
           </div>
@@ -6259,7 +6263,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   const scarabBreakdown = isExpanded ? `
     <div class="atlas-scarab-rows">
       <div class="atlas-scarab-head">
-        <span>Scarab</span><span>Group share</span><span>Price</span><span>EV contrib</span>
+        <span>Scarab</span><span>Group share</span><span>Price</span><span>Contrib</span>
       </div>
       ${stats.scarabs.map(sc => `
         <div class="atlas-scarab-row">
@@ -6276,7 +6280,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
         <button class="atlas-toggle ${togClass}${toggleOff ? ' off' : ''}"
           title="${isBlockable ? (isBlocked ? 'Unblock' : 'Block') : (isBoosted ? 'Remove boost' : 'Boost')} ${group}"
           onclick="event.stopPropagation(); ${toggleFn}"></button>
-        <span style="display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden"><span class="atlas-group-name">${group}</span>${badgeHtml}</span>
+        <span class="atlas-group-name">${group}${badgeHtml}</span>
         <span class="atlas-group-stat chaos">${stats.groupEV.toFixed(3)}c</span>
         <span class="atlas-group-stat muted">${(stats.groupShare * 100).toFixed(1)}%</span>
         <span class="atlas-group-stat muted">${stats.contribution.toFixed(4)}c</span>
@@ -6325,7 +6329,7 @@ function renderAtlas() {
       <span>Mechanic</span>
       <span>Group EV</span>
       <span>Share</span>
-      <span>Contribution</span>
+      <span>Contrib</span>
       <span>${deltaLabel}</span>
       <span></span>
     </div>`;
@@ -6408,8 +6412,8 @@ function renderAtlas() {
           <div class="atlas-leftover-head">
             <span>Mechanic</span>
             <span>Group EV</span>
-            <span>Live share</span>
-            <span>EV contrib</span>
+            <span>Share</span>
+            <span>Contrib</span>
           </div>
           ${leftovers.map(r => {
             const isEx = _atlasExpanded.has('lft-' + r.g);
@@ -6420,7 +6424,7 @@ function renderAtlas() {
             const scarabBreak = isEx ? `
               <div class="atlas-scarab-rows">
                 <div class="atlas-scarab-head">
-                  <span>Scarab</span><span>Group share</span><span>Price</span><span>EV contrib</span>
+                  <span>Scarab</span><span>Group share</span><span>Price</span><span>Contrib</span>
                 </div>
                 ${scarabs.map(sc => {
                   const w = weights2[sc.name] || 0;
@@ -6437,11 +6441,11 @@ function renderAtlas() {
               </div>` : '';
             return `
               <div class="atlas-group-card" style="border-radius:0;border-left:none;border-right:none;border-top:none;box-shadow:none">
-                <div class="atlas-group-row" style="grid-template-columns:1fr 70px 70px 80px 20px;padding:6px 12px" onclick="atlasToggleExpand('lft-${r.g}')">
+                <div class="atlas-leftover-row" style="gap:6px;padding:6px 12px" onclick="atlasToggleExpand('lft-${r.g}');">
                   <span style="color:var(--text-2);font-size:12px;font-weight:600">${r.g}</span>
-                  <span class="atlas-group-stat chaos">${r.groupEV.toFixed(3)}c</span>
-                  <span class="atlas-group-stat muted">${(r.liveShare * 100).toFixed(1)}%</span>
-                  <span class="atlas-group-stat accent">${r.contribution.toFixed(4)}c</span>
+                  <span class="atlas-leftover-stat chaos">${r.groupEV.toFixed(3)}c</span>
+                  <span class="atlas-leftover-stat muted">${(r.liveShare * 100).toFixed(1)}%</span>
+                  <span class="atlas-leftover-stat muted">${r.contribution.toFixed(4)}c</span>
                   <span class="atlas-chevron${isEx ? ' open' : ''}">▶</span>
                 </div>
                 ${scarabBreak}
