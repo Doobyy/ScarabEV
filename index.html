@@ -1360,31 +1360,178 @@ body {
   grid-column: 1 / -1;
 }
 
-@media (max-width: 780px) {
-  .atlas-two-col { grid-template-columns: 1fr; }
-  .atlas-hero    { grid-template-columns: 1fr 1fr; }
+
+/* ── HAMBURGER NAV (mobile only) ── */
+.ham-btn {
+  display: none;
+  width: 34px; height: 34px; border-radius: 6px;
+  background: rgba(255,255,255,0.07); border: none; cursor: pointer;
+  flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  flex-shrink: 0; margin-left: auto;
+}
+.ham-btn.has-tabs-right { margin-left: 0; }
+.ham-line {
+  width: 14px; height: 1.5px; background: rgba(255,255,255,0.7);
+  border-radius: 1px; transition: transform 0.2s, opacity 0.2s;
+  display: block;
+}
+.ham-btn.open .ham-line:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+.ham-btn.open .ham-line:nth-child(2) { opacity: 0; }
+.ham-btn.open .ham-line:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+.nav-current-tab {
+  display: none;
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.55);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 160px;
 }
 
-@media (max-width: 780px) {
-  .stats-bar { grid-template-columns: repeat(2, 1fr); }
-  .table-head, .scarab-row { grid-template-columns: 36px 1fr 105px 80px 70px; }
+.nav-drawer-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 199;
+}
+.nav-drawer-overlay.open { display: block; }
 
+.nav-drawer {
+  display: none; position: fixed;
+  top: 0; left: 0; bottom: 0; width: 220px;
+  background: var(--header-bg); z-index: 200;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  transform: translateX(-100%); transition: transform 0.22s ease;
+}
+.nav-drawer.open { transform: translateX(0); }
+.nav-drawer-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.nav-drawer-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer; border: none;
+  background: transparent; width: 100%; text-align: left;
+  transition: background 0.1s; color: rgba(255,255,255,0.45);
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  border-left: 2px solid transparent;
+}
+.nav-drawer-item:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.75); }
+.nav-drawer-item.active {
+  color: #fff; background: rgba(200,112,232,0.08);
+  border-left-color: #c870e8;
+}
+.nav-drawer-item.ninja-tab.active { border-left-color: #c870e8; }
 @media (max-width: 780px) {
+  /* ── PAGE ── */
+  .page { padding: 12px 10px 60px; }
+  body { overflow-x: hidden; }
+  .page { overflow-x: hidden; }
+
+  /* ── NAV ── */
+  .topnav { padding: 0 12px; gap: 8px; }
+  .nav-tabs { display: none; }
+  .nav-sep { display: none; }
+  .theme-icon { display: none; }
+  .ham-btn { display: flex !important; }
+  .nav-current-tab { display: block !important; }
+  .nav-drawer { display: flex !important; }
+
+  /* ── STAT CARDS ── */
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .atlas-hero { grid-template-columns: repeat(2, 1fr); }
+  .estimator-results { grid-template-columns: repeat(2, 1fr); }
+  .logger-stats-row { grid-template-columns: repeat(3, 1fr); }
+  .atlas-two-col { grid-template-columns: 1fr; }
+  .compare-bar { grid-template-columns: 1fr; }
   .bulk-controls { grid-template-columns: 1fr; }
   .bulk-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bulk-inputs-row { grid-template-columns: 1fr; }
+  .bulk-right-col { min-height: 0; }
+  .bulk-drop-wrap { flex: 0 0 auto; }
+
+  /* ── SCARAB VENDOR TABLE ── */
+  .table-head, .scarab-row {
+    grid-template-columns: 32px 1fr 80px 60px;
+  }
+  .table-head .th:nth-child(3),
+  .table-head .th:nth-child(5),
+  .table-head .th:nth-child(6),
+  .scarab-row .td:nth-child(3),
+  .scarab-row .td:nth-child(5),
+  .scarab-row .td:nth-child(6) { display: none; }
+
+  /* ── NINJA TABLE ── */
+  .table-head.ninja-head, .scarab-row.ninja-row {
+    grid-template-columns: 32px 1fr 70px 60px;
+  }
+  .table-head.ninja-head .th:nth-child(3),
+  .table-head.ninja-head .th:nth-child(4),
+  .table-head.ninja-head .th:nth-child(5),
+  .scarab-row.ninja-row .td:nth-child(3),
+  .scarab-row.ninja-row .td:nth-child(4),
+  .scarab-row.ninja-row .td:nth-child(5) { display: none; }
+
+  /* ── BULK BUY TABLE ── */
   .bulk-head-row,
   .bulk-body-row {
-    grid-template-columns: 24px minmax(0, 1.7fr) 52px 70px 70px 74px;
+    grid-template-columns: 28px minmax(0, 1fr) 40px 60px 56px;
     font-size: 11px;
   }
-  .table-head, .scarab-row { grid-template-columns: 36px 1fr 105px 80px 70px; }
-  .table-head.ninja-head, .scarab-row.ninja-row { grid-template-columns: 36px 1fr 90px 80px 70px; }
-  .table-head .th:nth-child(4), .table-head .th:nth-child(7),
-  .scarab-row .td:nth-child(4), .scarab-row .td:nth-child(7) { display: none; }
-  .table-head.ninja-head .th:nth-child(3), .table-head.ninja-head .th:nth-child(4),
-  .scarab-row.ninja-row .td:nth-child(3), .scarab-row.ninja-row .td:nth-child(4) { display: none; }
-  .compare-bar { grid-template-columns: 1fr; }
+  .bulk-head-row > div:nth-child(4),
+  .bulk-body-row > div:nth-child(4) { display: none; }
+
+  /* ── LOGGER TABLES ── */
+  .logger-vendor-table-row,
+  [id="loggerVendorTable"] > div {
+    grid-template-columns: 1fr 56px 56px 56px !important;
+  }
+  [id="loggerVendorTable"] > div > span:nth-child(5),
+  [id="loggerVendorTable"] > div > span:nth-child(6) { display: none !important; }
+  [id="loggerKeeperTable"] > div {
+    grid-template-columns: 1fr 56px 56px !important;
+  }
+  [id="loggerKeeperTable"] > div > span:nth-child(4) { display: none !important; }
+
+  /* ── ANALYSIS WEIGHT TABLE ── */
+  #analysisWeightHead,
+  .analysis-weight-row {
+    grid-template-columns: 1fr 70px 70px !important;
+    gap: 6px !important;
+  }
+  #analysisWeightHead .th:nth-child(4),
+  .analysis-weight-row > span:nth-child(4) { display: none !important; }
+
+  /* ── ATLAS GROUP ROWS ── */
+  .atlas-group-row {
+    grid-template-columns: 34px 1fr 60px 70px 18px;
+  }
+  .atlas-col-subhead {
+    grid-template-columns: 34px 1fr 60px 70px 18px;
+  }
+  /* Hide share and contribution columns on mobile — keep group EV and delta */
+  .atlas-group-row > span:nth-child(4),
+  .atlas-group-row > span:nth-child(5),
+  .atlas-col-subhead > span:nth-child(4),
+  .atlas-col-subhead > span:nth-child(5) { display: none; }
+
+  /* ── LEFTOVER TABLE ── */
+  .atlas-leftover-head,
+  .atlas-leftover-row { grid-template-columns: 1fr 64px 70px; }
+  .atlas-leftover-head span:nth-child(3),
+  .atlas-leftover-row .atlas-leftover-stat:nth-child(3) { display: none; }
+
+  /* ── THRESHOLD BAR ── */
+  .threshold-top { flex-direction: column; gap: 6px; }
+  .threshold-right { justify-content: flex-start; }
+
+  /* ── LOGGER HISTORY ── */
+  .logger-history-grid { grid-template-columns: 1fr 56px 56px 56px 56px 40px !important; gap: 6px !important; }
+  .logger-history-grid > span:nth-child(4),
+  .logger-history-grid > span:nth-child(7),
+  .logger-history-grid > span:nth-child(8) { display: none !important; }
+
+  /* ── LOGGER ── */
+  .logger-row { grid-template-columns: 1fr; }
 }
+
 </style>
 </head>
 <body>
@@ -1400,12 +1547,32 @@ body {
     <button class="nav-tab" onclick="switchTab('analysis')">Data Analysis</button>
     <button class="nav-tab" onclick="switchTab('faq')">FAQ</button>
   </div>
+  <span class="nav-current-tab" id="navCurrentTab">Scarab Vendor</span>
   <span class="nav-sep"></span>
   <a href="https://ko-fi.com/dooby0530" target="_blank" title="Support on Ko-fi" style="font-size:16px;text-decoration:none;opacity:0.35;transition:opacity 0.15s;flex-shrink:0;line-height:1" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.35'">☕</a>
   <span class="theme-icon">☀</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode"></button>
   <span class="theme-icon">🌙</span>
+  <button class="ham-btn" id="hamBtn" onclick="toggleHamburger()" aria-label="Menu">
+    <span class="ham-line"></span>
+    <span class="ham-line"></span>
+    <span class="ham-line"></span>
+  </button>
 </nav>
+
+<div class="nav-drawer-overlay" id="drawerOverlay" onclick="toggleHamburger()"></div>
+<div class="nav-drawer" id="navDrawer">
+  <div class="nav-drawer-header">
+    <span class="nav-logo">Scarab<span>EV</span></span>
+    <span class="nav-tag">3.28</span>
+  </div>
+  <button class="nav-drawer-item ninja-tab active" onclick="switchTab('ninja'); toggleHamburger()">Scarab Vendor</button>
+  <button class="nav-drawer-item" onclick="switchTab('atlas'); toggleHamburger()">Atlas Optimizer</button>
+  <button class="nav-drawer-item" onclick="switchTab('bulk'); toggleHamburger()">Bulk Buy Analyzer</button>
+  <button class="nav-drawer-item" onclick="switchTab('logger'); toggleHamburger()">Session Logger</button>
+  <button class="nav-drawer-item" onclick="switchTab('analysis'); toggleHamburger()">Data Analysis</button>
+  <button class="nav-drawer-item" onclick="switchTab('faq'); toggleHamburger()">FAQ</button>
+</div>
 
 <div class="page">
 
@@ -2499,14 +2666,31 @@ function switchTab(tab, skipHash) {
   currentTab = tab;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-drawer-item').forEach(t => t.classList.remove('active'));
   document.querySelector(`.nav-tab[onclick*="${tab}"]`).classList.add('active');
   document.getElementById(`tab-${tab}`).classList.add('active');
+  const drawerItem = document.querySelector(`.nav-drawer-item[onclick*="${tab}"]`);
+  if (drawerItem) drawerItem.classList.add('active');
+  const tabNames = { ninja:'Scarab Vendor', atlas:'Atlas Optimizer', bulk:'Bulk Buy Analyzer', logger:'Session Logger', analysis:'Data Analysis', faq:'FAQ' };
+  const currentTabEl = document.getElementById('navCurrentTab');
+  if (currentTabEl) currentTabEl.textContent = tabNames[tab] || tab;
   if (!skipHash) history.replaceState(null, '', '#' + (tab === 'ninja' ? 'scarabEV' : tab));
   if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
   if (tab === 'ninja') renderNinja();
   if (tab === 'analysis') renderAnalysis();
   if (tab === 'atlas') renderAtlas();
   if (tab === 'faq') initFaq();
+}
+
+function toggleHamburger() {
+  const btn     = document.getElementById('hamBtn');
+  const drawer  = document.getElementById('navDrawer');
+  const overlay = document.getElementById('drawerOverlay');
+  const open    = drawer.classList.contains('open');
+  btn.classList.toggle('open', !open);
+  drawer.classList.toggle('open', !open);
+  overlay.classList.toggle('open', !open);
+  document.body.style.overflow = !open ? 'hidden' : '';
 }
 
 // Load tab from URL hash on page load, and listen for back/forward navigation
@@ -5080,6 +5264,9 @@ function logBulkMismatch(rawName, qty, source) {
   try {
     const existing = localStorage.getItem(BULK_MISMATCH_LOG_KEY);
     const arr = Array.isArray(JSON.parse(existing)) ? JSON.parse(existing) : [];
+    const name = String(rawName || '').trim().toLowerCase();
+    // Only log unique raw strings — skip if already seen
+    if (arr.some(e => String(e.rawName || '').trim().toLowerCase() === name)) return;
     arr.push({
       rawName: String(rawName || ''),
       qty: Number.isFinite(qty) ? qty : null,
@@ -5389,11 +5576,35 @@ function buildBulkScarabIndex() {
   });
 }
 
+// ── Levenshtein edit distance ─────────────────────────────────────────────
+function _lev(a, b) {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+  const dp = Array.from({length: b.length + 1}, (_, i) => i);
+  for (let i = 0; i < a.length; i++) {
+    let prev = i + 1;
+    for (let j = 0; j < b.length; j++) {
+      const curr = Math.min(prev + 1, dp[j + 1] + 1, dp[j] + (a[i] !== b[j] ? 1 : 0));
+      dp[j] = prev;
+      prev = curr;
+    }
+    dp[b.length] = prev;
+  }
+  return dp[b.length];
+}
+
+// Tokens stripped of structural filler words common to all scarab names
+const _BULK_STOP = new Set(['scarab','of','the','a','an']);
+function _bulkTokens(str) {
+  return str.toLowerCase().split(/\s+/).filter(t => t && !_BULK_STOP.has(t));
+}
+
 function matchBulkName(rawName, index) {
   const q = rawName.trim().toLowerCase();
   if (!q) return null;
 
-   // 0) Explicit map overrides from BULK_NAME_MAP
+  // 0) Explicit map — highest priority, catches known-bad OCR patterns
   const mapped = BULK_NAME_MAP && BULK_NAME_MAP[q];
   if (mapped && typeof mapped === 'string' && mapped.trim()) {
     const target = mapped.trim().toLowerCase();
@@ -5405,7 +5616,7 @@ function matchBulkName(rawName, index) {
   let hits = index.filter(e => e.nameLower === q);
   if (hits.length === 1) return hits[0];
 
-  // 2) Exact short name (without "Scarab")
+  // 2) Exact short (without "Scarab")
   hits = index.filter(e => e.short && e.short === q);
   if (hits.length === 1) return hits[0];
 
@@ -5413,11 +5624,54 @@ function matchBulkName(rawName, index) {
   hits = index.filter(e => e.suffix && e.suffix === q);
   if (hits.length === 1) return hits[0];
 
-  // 4) Exact group name -> base scarab for that group
+  // 4) Exact group name → base scarab
   hits = index.filter(e => e.groupLower && e.groupLower === q && /scarab$/.test(e.name));
   if (hits.length === 1) return hits[0];
 
-  // 5) Fuzzy: query contained in canonical or short
+  // 5) First + last token exact match
+  // Strip stop words, compare first meaningful token (group signal) and
+  // last meaningful token (variant signal). Proven conflict-free across the full list.
+  const qToks  = _bulkTokens(q);
+  const qFirst = qToks[0] || '';
+  const qLast  = qToks[qToks.length - 1] || '';
+
+  if (qFirst && qLast && qFirst !== qLast) {
+    // Misc group scarabs have "scarab" as their first real token before stripping —
+    // after stripping they may have no first token, so allow last-only match for those
+    hits = index.filter(e => {
+      const et = _bulkTokens(e.nameLower);
+      const ef = et[0] || '';
+      const el = et[et.length - 1] || '';
+      return ef === qFirst && el === qLast;
+    });
+    if (hits.length === 1) return hits[0];
+  }
+
+  // 6) First + last token fuzzy — edit distance scaled to word length
+  // Threshold: edit distance ≤ max(1, floor(wordLen * 0.35))
+  // This allows 1 typo on short words, up to ~3 on longer ones
+  if (qFirst && qLast) {
+    const scored = index.map(e => {
+      const et    = _bulkTokens(e.nameLower);
+      const ef    = et[0] || '';
+      const el    = et[et.length - 1] || '';
+      const fedMax = Math.max(1, Math.floor(Math.max(qFirst.length, ef.length) * 0.35));
+      const ledMax = Math.max(1, Math.floor(Math.max(qLast.length, el.length) * 0.35));
+      const fed   = _lev(qFirst, ef);
+      const led   = _lev(qLast, el);
+      if (fed <= fedMax && led <= ledMax) {
+        // Score: lower = better. Weight last token more (it's the variant signal)
+        return { e, score: fed * 0.4 + led * 0.6 };
+      }
+      return null;
+    }).filter(Boolean).sort((a, b) => a.score - b.score);
+
+    // Only accept if there's a clear winner — no tie at the same score
+    if (scored.length === 1) return scored[0].e;
+    if (scored.length > 1 && scored[0].score < scored[1].score) return scored[0].e;
+  }
+
+  // 7) Last resort — substring containment (original loose fuzzy)
   hits = index.filter(e =>
     e.nameLower.includes(q) ||
     (e.short && e.short.includes(q)) ||
