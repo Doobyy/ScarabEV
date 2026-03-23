@@ -454,9 +454,7 @@ body {
 .logger-history-grid .cell-left { text-align: left; }
 .logger-history-grid .cell-right { text-align: right; font-variant-numeric: tabular-nums; }
 .analysis-weight-head .th[data-sort] { cursor: pointer; user-select: none; }
-.analysis-weight-row > * { padding: 6px 0; }
-.analysis-weight-row > *:first-child { padding-left: 10px; }
-.analysis-weight-row > *:last-child { padding-right: 10px; }
+.analysis-weight-row > * { padding: 6px 10px; }
 .analysis-weight-head .th[data-sort]:hover { color: var(--accent); }
 .analysis-weight-head .th[data-sort].sort-asc::after { content: ' ▲'; font-size: 9px; opacity: 0.7; }
 .analysis-weight-head .th[data-sort].sort-desc::after { content: ' ▼'; font-size: 9px; opacity: 0.7; }
@@ -5212,7 +5210,7 @@ function renderAnalysisWeightTable() {
     return;
   }
   const rows = data.map(d => `
-    <div class="analysis-weight-row" style="display:grid;grid-template-columns:120px 80px 70px 90px;font-size:12px;border-bottom:1px solid var(--border);align-items:center;">
+    <div class="analysis-weight-row" style="display:grid;grid-template-columns:120px 80px 70px 90px;font-size:12px;border-bottom:1px solid var(--border);align-items:center;gap:8px;">
       <div style="overflow:hidden;min-width:0"><span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mobileScarabName(d.name)}</span></div>
       <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
