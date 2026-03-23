@@ -6693,5 +6693,20 @@ document.addEventListener('click', () => {
 
 
 </script>
+
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<!-- ── CHANGELOG DRAWER ── -->
+<div id="changelogOverlay" class="changelog-overlay" onclick="toggleChangelog()"></div>
+<div id="changelogDrawer" class="changelog-drawer">
+  <div class="changelog-header">
+    <span class="changelog-title">Changelog</span>
+    <button class="changelog-close" onclick="toggleChangelog()">✕</button>
+  </div>
+  <div class="changelog-content" id="changelogContent">
+    <div class="changelog-loading">Loading…</div>
+  </div>
+</div>
+
 </body>
 </html>
