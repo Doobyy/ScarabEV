@@ -6370,16 +6370,16 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
 
   return `
     <div class="atlas-group-card${cardClass}">
-      <div class="atlas-group-row" onclick="atlasToggleExpand('${group}')">
+      <div class="atlas-group-row" onclick="${toggleFn}">
         <button class="atlas-toggle ${togClass}${toggleOff ? ' off' : ''}"
           title="${isBlockable ? (isBlocked ? 'Unblock' : 'Block') : (isBoosted ? 'Remove boost' : 'Boost')} ${group}"
-          onclick="event.stopPropagation(); ${toggleFn}"></button>
+          onclick="${toggleFn}"></button>
         <span class="atlas-group-name">${group}${badgeHtml}</span>
         <span class="atlas-group-stat chaos">${stats.groupEV.toFixed(3)}c</span>
         <span class="atlas-group-stat muted">${(stats.groupShare * 100).toFixed(1)}%</span>
         <span class="atlas-group-stat muted">${stats.contribution.toFixed(4)}c</span>
         ${deltaHtml}
-        <span class="atlas-chevron${isExpanded ? ' open' : ''}">▶</span>
+        <span class="atlas-chevron${isExpanded ? ' open' : ''}" onclick="event.stopPropagation(); atlasToggleExpand('${group}')" title="Show scarabs">▶</span>
       </div>
       ${scarabBreakdown}
     </div>`;
