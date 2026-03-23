@@ -442,7 +442,7 @@ body {
 .analysis-chart-row { display: flex; align-items: stretch; gap: 0; min-height: 0; }
 .analysis-chart-y-label { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; width: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding-right: 8px; }
 .analysis-chart-y-label span { transform: rotate(-90deg); white-space: nowrap; }
-.analysis-chart-vertical-wrap { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 0 0 20px 0; min-height: 0; position: relative; flex: 1; min-width: 0; }
+.analysis-chart-vertical-wrap { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 0 0 20px 0; min-height: 0; position: relative; flex: 1; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .analysis-chart-x-label { font-size: 10px; color: var(--text-3); margin-top: 4px; min-height: 20px; }
 .analysis-chart-note { font-size: 10px; color: var(--text-3); margin-top: 2px; font-style: italic; }
 .analysis-bar-vertical { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: default; }
@@ -1394,11 +1394,11 @@ body {
 
 .nav-drawer {
   display: none; position: fixed;
-  top: 0; left: 0; bottom: 0; width: 220px;
+  top: 0; right: 0; bottom: 0; width: 220px;
   background: var(--header-bg); z-index: 200;
   flex-direction: column;
-  border-right: 1px solid rgba(255,255,255,0.08);
-  transform: translateX(-100%); transition: transform 0.22s ease;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  transform: translateX(100%); transition: transform 0.22s ease;
 }
 .nav-drawer.open { transform: translateX(0); }
 .nav-drawer-header {
@@ -1447,27 +1447,11 @@ body {
   .bulk-right-col { min-height: 0; }
   .bulk-drop-wrap { flex: 0 0 auto; }
 
-  /* ── SCARAB VENDOR TABLE ── */
-  .table-head, .scarab-row {
-    grid-template-columns: 32px 1fr 80px 60px;
-  }
-  .table-head .th:nth-child(3),
-  .table-head .th:nth-child(5),
-  .table-head .th:nth-child(6),
-  .scarab-row .td:nth-child(3),
-  .scarab-row .td:nth-child(5),
-  .scarab-row .td:nth-child(6) { display: none; }
-
-  /* ── NINJA TABLE ── */
-  .table-head.ninja-head, .scarab-row.ninja-row {
-    grid-template-columns: 32px 1fr 70px 60px;
-  }
-  .table-head.ninja-head .th:nth-child(3),
-  .table-head.ninja-head .th:nth-child(4),
-  .table-head.ninja-head .th:nth-child(5),
-  .scarab-row.ninja-row .td:nth-child(3),
-  .scarab-row.ninja-row .td:nth-child(4),
-  .scarab-row.ninja-row .td:nth-child(5) { display: none; }
+  /* ── SCARAB VENDOR & NINJA TABLES: horizontal scroll ── */
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-head, .scarab-row { min-width: 520px; }
+  .table-head.ninja-head, .scarab-row.ninja-row { min-width: 480px; }
+  .scarab-name { max-width: 140px; }
 
   /* ── BULK BUY TABLE ── */
   .bulk-head-row,
@@ -1491,13 +1475,9 @@ body {
   [id="loggerKeeperTable"] > div > span:nth-child(4) { display: none !important; }
 
   /* ── ANALYSIS WEIGHT TABLE ── */
+  .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   #analysisWeightHead,
-  .analysis-weight-row {
-    grid-template-columns: 1fr 70px 70px !important;
-    gap: 6px !important;
-  }
-  #analysisWeightHead .th:nth-child(4),
-  .analysis-weight-row > span:nth-child(4) { display: none !important; }
+  .analysis-weight-row { min-width: 380px; }
 
   /* ── ATLAS GROUP ROWS ── */
   .atlas-group-row {
@@ -1521,6 +1501,10 @@ body {
   /* ── THRESHOLD BAR ── */
   .threshold-top { flex-direction: column; gap: 6px; }
   .threshold-right { justify-content: flex-start; }
+
+  /* ── WEIGHT CHART: scrollable container ── */
+  .analysis-chart-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #analysisWeightChart { min-width: 500px; }
 
   /* ── LOGGER HISTORY ── */
   .logger-history-grid { grid-template-columns: 1fr 56px 56px 56px 56px 40px !important; gap: 6px !important; }
@@ -2016,7 +2000,7 @@ body {
           <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 90px 90px 90px;gap:8px" id="analysisWeightHead">
             <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
             <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')">Received</div>
-            <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight %</div>
+            <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
             <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">ninja c/ea</div>
           </div>
           <div id="analysisWeightTable"></div>
