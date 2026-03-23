@@ -2501,7 +2501,7 @@ function switchTab(tab, skipHash) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelector(`.nav-tab[onclick*="${tab}"]`).classList.add('active');
   document.getElementById(`tab-${tab}`).classList.add('active');
-  if (!skipHash) history.replaceState(null, '', '#' + tab);
+  if (!skipHash) history.replaceState(null, '', '#' + (tab === 'ninja' ? 'scarabEV' : tab));
   if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
   if (tab === 'ninja') renderNinja();
   if (tab === 'analysis') renderAnalysis();
@@ -2511,10 +2511,11 @@ function switchTab(tab, skipHash) {
 
 // Load tab from URL hash on page load, and listen for back/forward navigation
 (function initHashRouting() {
-  const VALID_TABS = ['ninja','atlas','bulk','logger','analysis','faq'];
+  const VALID_TABS = ['scarabEV','atlas','bulk','logger','analysis','faq'];
   function loadFromHash() {
-    const hash = window.location.hash.replace('#', '');
-    if (VALID_TABS.includes(hash)) switchTab(hash, true);
+    const raw = window.location.hash.replace('#', '');
+    const hash = raw === 'scarabEV' ? 'ninja' : raw;
+    if (VALID_TABS.includes(raw)) switchTab(hash, true);
   }
   loadFromHash();
   window.addEventListener('hashchange', () => loadFromHash());
