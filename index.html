@@ -1453,7 +1453,7 @@ body {
 
   /* ── SCARAB VENDOR & NINJA TABLES: horizontal scroll ── */
   .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .table-head, .scarab-row { min-width: 720px; }
+  .table-head:not(#analysisWeightHead), .scarab-row { min-width: 720px; }
   .table-head { grid-template-columns: 44px 120px 110px 130px 100px 92px 80px; }
   .scarab-row  { grid-template-columns: 44px 120px 110px 130px 100px 92px 80px; }
   #m-tableBody .group-header { min-width: 720px; }
@@ -1480,7 +1480,7 @@ body {
 
   /* ── ANALYSIS WEIGHT TABLE ── */
   .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
-  #analysisWeightHead { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; width: 100%; box-sizing: border-box; }
+  #analysisWeightHead { display: grid !important; grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
   .analysis-weight-row { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; padding: 6px 4px !important; width: 100%; box-sizing: border-box; }
 
   /* ── ATLAS GROUP ROWS ── */
@@ -1675,9 +1675,12 @@ body {
           <span class="threshold-label">Vendor Threshold</span>
           <span class="threshold-value" id="sliderValueDisplay">—</span>
           <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
-          <div style="margin-left:6px;display:flex;align-items:center;gap:5px;flex-shrink:0">
-            <span style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em">EV</span>
-            <button id="evModePill" onclick="toggleEVMode()" style="font-family:inherit;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid var(--chaos-border);background:var(--chaos-bg);color:var(--chaos);cursor:pointer;transition:all 0.15s;white-space:nowrap" title="Switch between Harmonic and Weighted EV">Harmonic</button>
+          <div style="margin-left:6px;display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span id="evModeLabel" style="font-size:11px;font-weight:600;color:var(--chaos);white-space:nowrap">Harmonic</span>
+            <button id="evModePill" onclick="toggleEVMode()" title="Switch between Harmonic and Weighted EV"
+              style="position:relative;width:36px;height:20px;border-radius:10px;border:none;background:var(--chaos);cursor:pointer;transition:background 0.2s;flex-shrink:0;padding:0">
+              <span id="evModePillThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;display:block"></span>
+            </button>
           </div>
           <div class="view-toggle ev-mode-desktop" style="margin-left:6px">
             <button id="evModeHarmonic" class="active" onclick="setEVMode('harmonic')">Harmonic</button>
@@ -4102,11 +4105,13 @@ function toggleEVMode() {
 function setEVMode(mode) {
   _evMode = mode;
   const pill = document.getElementById('evModePill');
+  const thumb = document.getElementById('evModePillThumb');
+  const label = document.getElementById('evModeLabel');
   if (pill) {
-    pill.textContent = mode === 'harmonic' ? 'Harmonic' : 'Weighted';
-    pill.style.background = mode === 'weighted' ? 'var(--amber-bg)' : 'var(--chaos-bg)';
-    pill.style.borderColor = mode === 'weighted' ? '#f5d78e' : 'var(--chaos-border)';
-    pill.style.color = mode === 'weighted' ? 'var(--amber)' : 'var(--chaos)';
+    const isWeighted = mode === 'weighted';
+    pill.style.background = isWeighted ? 'var(--amber)' : 'var(--chaos)';
+    if (thumb) thumb.style.transform = isWeighted ? 'translateX(16px)' : 'translateX(0)';
+    if (label) { label.textContent = isWeighted ? 'Weighted' : 'Harmonic'; label.style.color = isWeighted ? 'var(--amber)' : 'var(--chaos)'; }
   }
   const btnH = document.getElementById('evModeHarmonic');
   const btnW = document.getElementById('evModeWeighted');
