@@ -599,6 +599,7 @@ body {
 .scarab-name-cell { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .vendor-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; display: none; }
 .scarab-row.vendor-target .vendor-dot { display: block; }
+.scarab-name-mobile { display: none; }
 .scarab-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .new-badge { font-size: 9px; font-weight: 700; color: #2563eb; background: #dbeafe; border-radius: 3px; padding: 1px 4px; letter-spacing: 0.04em; flex-shrink: 0; }
 [data-theme="dark"] .new-badge { color: #90b8ff; background: #1a2a50; }
@@ -1502,6 +1503,11 @@ body {
   .threshold-top { flex-direction: column; gap: 6px; }
   .threshold-right { justify-content: flex-start; }
 
+
+  /* ── SCARAB NAMES: last-word display on mobile ── */
+  .scarab-name { display: none; }
+  .scarab-name-mobile { display: block; }
+
   /* ── WEIGHT CHART: scrollable container ── */
   .analysis-chart-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   #analysisWeightChart { min-width: 500px; }
@@ -2399,6 +2405,32 @@ const INGAME_ORDER = [
 ];
 const GROUP_ORDER = INGAME_ORDER;
 
+// ── Mobile scarab display name ────────────────────────────────────────────
+// On mobile: show last meaningful word. If that word is ambiguous (shared by
+// multiple scarabs), fall back to last two meaningful words.
+const _SCARAB_STOP = new Set(['scarab','of','the','a','an']);
+const _AMBIGUOUS_LAST = (() => {
+  const counts = {};
+  for (const s of SCARAB_LIST) {
+    const last = s.name.split(' ').pop().toLowerCase();
+    counts[last] = (counts[last] || 0) + 1;
+  }
+  return new Set(Object.keys(counts).filter(k => counts[k] > 1));
+})();
+
+function mobileScarabName(fullName) {
+  const words = fullName.split(' ');
+  const last = words[words.length - 1].toLowerCase();
+  if (!_AMBIGUOUS_LAST.has(last)) return words[words.length - 1];
+  // Ambiguous — use last two meaningful words
+  const meaningful = words.filter(w => !_SCARAB_STOP.has(w.toLowerCase()));
+  if (meaningful.length >= 2) return meaningful.slice(-2).join(' ');
+  return meaningful[meaningful.length - 1] || words[words.length - 1];
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+
 // ══════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════
@@ -3215,6 +3247,7 @@ function renderManual() {
         <div class="td"><div class="scarab-name-cell">
           <span class="vendor-dot"></span>
           <span class="scarab-name">${s.name}</span>
+          <span class="scarab-name-mobile">${mobileScarabName(s.name)}</span>
           ${s.isNew?'<span class="new-badge">NEW</span>':''}
         </div></div>
         <div class="td" style="color:var(--text-3);font-size:11px">${s.group}</div>
@@ -4685,7 +4718,7 @@ function tryPreview() {
   document.getElementById('loggerVendorTable').innerHTML = vendorRows.length
     ? vendorRows.map(r => `
       <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 80px 80px;border-bottom:1px solid var(--border);padding:5px 10px;font-size:12px;align-items:center">
-        <span>${r.name}</span>
+        <span class="scarab-name">${r.name}</span><span class="scarab-name-mobile">${mobileScarabName(r.name)}</span>
         <span style="text-align:right;color:var(--red)">${r.consumed.toLocaleString()}</span>
         <span style="text-align:right;color:var(--green)">${r.received.toLocaleString()}</span>
         <span style="text-align:right;color:${r.net >= 0 ? 'var(--green)' : 'var(--red)'};">${r.net >= 0 ? '+' : ''}${r.net}</span>
@@ -4699,7 +4732,7 @@ function tryPreview() {
   document.getElementById('loggerKeeperTable').innerHTML = keeperRows.length
     ? keeperRows.map(r => `
       <div style="display:grid;grid-template-columns:1fr 80px 80px 80px;border-bottom:1px solid var(--border);padding:5px 10px;font-size:12px;align-items:center">
-        <span>${r.name}</span>
+        <span class="scarab-name">${r.name}</span><span class="scarab-name-mobile">${mobileScarabName(r.name)}</span>
         <span style="text-align:right;color:var(--green)">+${r.received.toLocaleString()}</span>
         <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '—'}</span>
         <span style="text-align:right;color:var(--text-2)">${fmt(r.outputVal)}</span>
@@ -4909,7 +4942,7 @@ function renderSessionDetail(s, fmt) {
 
   const vendorHTML = vendors.length ? vendors.map(r => `
     <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
-      <span>${r.name}</span>
+      <span class="scarab-name">${r.name}</span><span class="scarab-name-mobile">${mobileScarabName(r.name)}</span>
       <span style="text-align:right;color:var(--red)">${r.consumed}</span>
       <span style="text-align:right;color:var(--green)">${r.received}</span>
       <span style="text-align:right;color:${(r.received-r.consumed)>=0?'var(--green)':'var(--red)'}">${r.received-r.consumed>=0?'+':''}${r.received-r.consumed}</span>
@@ -4918,7 +4951,7 @@ function renderSessionDetail(s, fmt) {
 
   const keeperHTML = keepers.length ? keepers.map(r => `
     <div style="display:grid;grid-template-columns:1fr 60px 60px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
-      <span>${r.name}</span>
+      <span class="scarab-name">${r.name}</span><span class="scarab-name-mobile">${mobileScarabName(r.name)}</span>
       <span style="text-align:right;color:var(--green)">+${r.received}</span>
       <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'—'}</span>
     </div>`).join('') : '<div style="font-size:11px;color:var(--text-3);padding:4px 0">None</div>';
@@ -5184,7 +5217,7 @@ function renderAnalysisWeightTable() {
   }
   const rows = data.map(d => `
     <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 90px 90px 90px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:8px">
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span>
+      <span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile">${mobileScarabName(d.name)}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '—'}</span>
@@ -6192,7 +6225,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
       </div>
       ${stats.scarabs.map(sc => `
         <div class="atlas-scarab-row">
-          <span class="atlas-scarab-name">${sc.name}</span>
+          <span class="atlas-scarab-name scarab-name">${sc.name}</span><span class="atlas-scarab-name scarab-name-mobile">${mobileScarabName(sc.name)}</span>
           <span class="atlas-scarab-stat muted">${(sc.localShare * 100).toFixed(1)}%</span>
           <span class="atlas-scarab-stat chaos">${sc.price > 0 ? sc.price.toFixed(2) + 'c' : '—'}</span>
           <span class="atlas-scarab-stat accent">${sc.evContrib.toFixed(4)}c</span>
@@ -6354,7 +6387,7 @@ function renderAtlas() {
                   const price = getNinjaPrice(sc.name, lower2);
                   const evC = localShare * price;
                   return `<div class="atlas-scarab-row">
-                    <span class="atlas-scarab-name">${sc.name}</span>
+                    <span class="atlas-scarab-name scarab-name">${sc.name}</span><span class="atlas-scarab-name scarab-name-mobile">${mobileScarabName(sc.name)}</span>
                     <span class="atlas-scarab-stat muted">${(localShare * 100).toFixed(1)}%</span>
                     <span class="atlas-scarab-stat chaos">${price > 0 ? price.toFixed(2) + 'c' : '—'}</span>
                     <span class="atlas-scarab-stat accent">${evC.toFixed(4)}c</span>
