@@ -1294,7 +1294,7 @@ body {
 }
 .atlas-badge.blocked     { background: rgba(214,58,44,0.12); color: var(--red);   border: 1px solid rgba(214,58,44,0.3); }
 .atlas-badge.boosted     { background: rgba(75,108,247,0.10); color: var(--accent); border: 1px solid rgba(75,108,247,0.3); }
-.atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; }
+.atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; flex-shrink: 0; }
 [data-theme="dark"] .atlas-badge.blocked     { background: rgba(255,95,80,0.12);  color: var(--red); }
 [data-theme="dark"] .atlas-badge.boosted     { background: rgba(112,144,255,0.12); color: var(--accent); }
 [data-theme="dark"] .atlas-badge.recommended { background: rgba(54,216,126,0.10); color: var(--green); border-color: rgba(54,216,126,0.3); }
@@ -6276,7 +6276,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
         <button class="atlas-toggle ${togClass}${toggleOff ? ' off' : ''}"
           title="${isBlockable ? (isBlocked ? 'Unblock' : 'Block') : (isBoosted ? 'Remove boost' : 'Boost')} ${group}"
           onclick="event.stopPropagation(); ${toggleFn}"></button>
-        <span class="atlas-group-name">${group}${badgeHtml}</span>
+        <span style="display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden"><span class="atlas-group-name">${group}</span>${badgeHtml}</span>
         <span class="atlas-group-stat chaos">${stats.groupEV.toFixed(3)}c</span>
         <span class="atlas-group-stat muted">${(stats.groupShare * 100).toFixed(1)}%</span>
         <span class="atlas-group-stat muted">${stats.contribution.toFixed(4)}c</span>
