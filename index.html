@@ -43,6 +43,7 @@
   --ninja-accent: #d4900a;
   --ninja-bg: #fff9ee;
   --ninja-border: #ead898;
+  --atlas-boost: #9a7c00;
 }
 
 /* ── DARK THEME ── */
@@ -81,6 +82,7 @@
   --ninja-accent: #5aaaf5;
   --ninja-bg: #0a1825;
   --ninja-border: #2a5a8a;
+  --atlas-boost: #d4b800;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1167,6 +1169,202 @@ body {
 
 .bulk-gemini-key:focus { border-color: var(--accent); }
 
+/* ── ATLAS OPTIMIZER TAB ── */
+.atlas-intro { margin-bottom: 16px; }
+.atlas-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.atlas-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 720px; }
+[data-theme="dark"] .atlas-sub { color: #7a85a8; }
+
+.atlas-hero {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;
+}
+.atlas-hero-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 13px 16px; box-shadow: var(--shadow-sm);
+}
+.atlas-hero-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 5px;
+}
+.atlas-hero-val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.atlas-hero-val.chaos { color: var(--chaos); }
+.atlas-hero-val.green { color: var(--green); }
+.atlas-hero-val.red   { color: var(--red); }
+.atlas-hero-val.muted { color: var(--text-2); }
+.atlas-hero-sub { font-size: 10px; color: var(--text-3); margin-top: 3px; }
+
+.atlas-note {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 14px; font-size: 11px; color: var(--text-3); line-height: 1.6;
+  margin-bottom: 14px;
+}
+.atlas-note strong { color: var(--text-2); }
+
+.atlas-two-col {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;
+  align-items: start;
+}
+.atlas-col { display: flex; flex-direction: column; }
+
+/* Connected table wrapper — title bar + col headers + card rows all share one border */
+.atlas-col-wrap {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.atlas-col-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border);
+}
+.atlas-col-header-title {
+  font-size: 11px; font-weight: 600; color: var(--text-2); letter-spacing: 0.01em;
+}
+.atlas-col-title-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px;
+}
+.atlas-col-title-tag.block-tag { background: rgba(214,58,44,0.1); color: var(--red); border: 1px solid rgba(214,58,44,0.25); }
+.atlas-col-title-tag.boost-tag { background: rgba(75,108,247,0.1); color: var(--accent); border: 1px solid rgba(75,108,247,0.3); }
+.atlas-col-subhead {
+  display: grid; grid-template-columns: 34px 1fr 64px 60px 72px 80px 20px;
+  gap: 6px; padding: 5px 10px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head);
+}
+.atlas-col-subhead span { text-align: right; }
+.atlas-col-subhead span:first-child,
+.atlas-col-subhead span:nth-child(2) { text-align: left; }
+
+/* Group cards inside the wrapper — no individual borders, just bottom dividers */
+.atlas-col-wrap .atlas-group-card {
+  border: none; border-radius: 0; box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+.atlas-col-wrap .atlas-group-card:last-child { border-bottom: none; }
+
+.atlas-group-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden; box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.atlas-group-card.is-blocked { opacity: 0.5; }
+.atlas-col-wrap .atlas-group-card.is-blocked { border: none; border-left: 3px solid var(--red); opacity: 0.5; }
+.atlas-group-card.is-boosted { border-color: rgba(75,108,247,0.5); }
+.atlas-col-wrap .atlas-group-card.is-boosted { border: none; border-left: 3px solid var(--accent); }
+
+.atlas-group-row {
+  display: grid; grid-template-columns: 34px 1fr 64px 60px 72px 80px 20px;
+  align-items: center; gap: 6px; padding: 7px 10px;
+  cursor: pointer; user-select: none; transition: background 0.1s;
+}
+.atlas-group-row:hover { background: var(--row-hover); }
+
+.atlas-toggle {
+  width: 28px; height: 16px; border-radius: 8px; border: none; cursor: pointer;
+  position: relative; transition: background 0.2s; flex-shrink: 0;
+}
+.atlas-toggle.block-toggle { background: var(--red); }
+.atlas-toggle.block-toggle.off { background: var(--border-strong); }
+.atlas-toggle.boost-toggle { background: var(--accent); }
+.atlas-toggle.boost-toggle.off { background: var(--border-strong); }
+.atlas-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%; background: #fff;
+  transition: transform 0.18s;
+}
+.atlas-toggle:not(.off)::after { transform: translateX(12px); }
+
+.atlas-group-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atlas-group-stat { font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.atlas-group-stat.chaos   { color: var(--chaos); }
+.atlas-group-stat.muted   { color: var(--text-3); }
+.atlas-group-stat.pos      { color: var(--green); font-weight: 600; }
+.atlas-group-stat.marginal { color: #b8a000; font-weight: 600; }
+[data-theme="dark"] .atlas-group-stat.marginal { color: #c8b400; }
+.atlas-group-stat.neg      { color: var(--red); font-weight: 600; }
+.atlas-group-stat.neutral  { color: var(--text-3); }
+
+.atlas-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; white-space: nowrap;
+}
+.atlas-badge.blocked     { background: rgba(214,58,44,0.12); color: var(--red);   border: 1px solid rgba(214,58,44,0.3); }
+.atlas-badge.boosted     { background: rgba(75,108,247,0.10); color: var(--accent); border: 1px solid rgba(75,108,247,0.3); }
+.atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; }
+[data-theme="dark"] .atlas-badge.blocked     { background: rgba(255,95,80,0.12);  color: var(--red); }
+[data-theme="dark"] .atlas-badge.boosted     { background: rgba(112,144,255,0.12); color: var(--accent); }
+[data-theme="dark"] .atlas-badge.recommended { background: rgba(54,216,126,0.10); color: var(--green); border-color: rgba(54,216,126,0.3); }
+
+.atlas-chevron { font-size: 9px; color: var(--text-3); transition: transform 0.15s; text-align: right; }
+.atlas-chevron.open { transform: rotate(90deg); }
+
+.atlas-scarab-rows { border-top: 1px solid var(--border); background: var(--bg); }
+.atlas-scarab-head {
+  display: grid; grid-template-columns: 1fr 54px 54px 64px;
+  padding: 4px 10px 4px 44px; gap: 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border);
+}
+.atlas-scarab-head span { text-align: right; }
+.atlas-scarab-head span:first-child { text-align: left; }
+.atlas-scarab-row {
+  display: grid; grid-template-columns: 1fr 54px 54px 64px;
+  padding: 4px 10px 4px 44px; gap: 6px; align-items: center; font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.atlas-scarab-row:last-child { border-bottom: none; }
+.atlas-scarab-row:hover { background: var(--row-hover); }
+.atlas-scarab-name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-scarab-stat { text-align: right; font-variant-numeric: tabular-nums; }
+.atlas-scarab-stat.chaos  { color: var(--chaos); }
+.atlas-scarab-stat.muted  { color: var(--text-3); }
+.atlas-scarab-stat.accent { color: var(--accent); }
+
+.atlas-leftovers-wrap { margin-top: 2px; }
+.atlas-leftovers-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px 7px 0 0; border-bottom: none;
+  cursor: pointer; user-select: none; transition: background 0.1s;
+}
+.atlas-leftovers-header:hover { background: var(--bg-row-alt); }
+.atlas-leftovers-title { font-size: 11px; font-weight: 600; color: var(--text-2); }
+.atlas-leftovers-body {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 0 0 7px 7px; overflow: hidden;
+}
+.atlas-leftover-head {
+  display: grid; grid-template-columns: 1fr 70px 70px 80px;
+  padding: 5px 12px; gap: 8px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head);
+}
+.atlas-leftover-head span { text-align: right; }
+.atlas-leftover-head span:first-child { text-align: left; }
+.atlas-leftover-row {
+  display: grid; grid-template-columns: 1fr 70px 70px 80px;
+  padding: 6px 12px; gap: 8px; font-size: 12px; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.atlas-leftover-row:last-child { border-bottom: none; }
+.atlas-leftover-row:hover { background: var(--row-hover); }
+.atlas-leftover-stat { text-align: right; font-variant-numeric: tabular-nums; }
+.atlas-leftover-stat.chaos  { color: var(--chaos); }
+.atlas-leftover-stat.muted  { color: var(--text-3); }
+.atlas-leftover-stat.accent { color: var(--accent); }
+
+.atlas-no-data {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
+  padding: 28px; text-align: center; color: var(--text-3); font-size: 13px;
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 780px) {
+  .atlas-two-col { grid-template-columns: 1fr; }
+  .atlas-hero    { grid-template-columns: 1fr 1fr; }
+}
+
 @media (max-width: 780px) {
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
   .table-head, .scarab-row { grid-template-columns: 36px 1fr 105px 80px 70px; }
@@ -1196,9 +1394,10 @@ body {
   <span class="nav-tag">3.28</span>
   <div class="nav-tabs">
     <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
+    <button class="nav-tab" onclick="switchTab('atlas')">Atlas Optimizer</button>
+    <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
     <button class="nav-tab" onclick="switchTab('logger')">Session Logger</button>
     <button class="nav-tab" onclick="switchTab('analysis')">Data Analysis</button>
-    <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
     <button class="nav-tab" onclick="switchTab('faq')">FAQ</button>
   </div>
   <span class="nav-sep"></span>
@@ -1835,9 +2034,50 @@ body {
 
   </div>
 
-</div>
+  <!-- ════════════════════════════ ATLAS OPTIMIZER TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-atlas">
 
-<div class="toast" id="toast">Copied to clipboard</div>
+    <div class="atlas-intro">
+      <div class="atlas-title">Atlas Optimizer</div>
+      <div class="atlas-sub">Use this tool to find the optimal atlas passive configuration for maximizing scarab drop value. Toggle block nodes to remove low-value mechanics from the drop pool entirely, and boost nodes to double the weight of high-value groups. The map drop EV updates live as you experiment — aim for the highest EV Gain % against baseline.</div>
+    </div>
+
+    <div class="atlas-hero">
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">Map Drop EV</div>
+        <div class="atlas-hero-val chaos" id="atlas-ev-current">—</div>
+        <div class="atlas-hero-sub">expected value per scarab drop</div>
+      </div>
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">Baseline EV</div>
+        <div class="atlas-hero-val muted" id="atlas-ev-baseline">—</div>
+        <div class="atlas-hero-sub">no blocks, no boosts</div>
+      </div>
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">EV Gain / Loss</div>
+        <div class="atlas-hero-val" id="atlas-ev-delta">—</div>
+        <div class="atlas-hero-sub" id="atlas-ev-delta-sub">combined effect of all toggles</div>
+      </div>
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">% Change</div>
+        <div class="atlas-hero-val" id="atlas-ev-pct">—</div>
+        <div class="atlas-hero-sub">from baseline</div>
+      </div>
+    </div>
+
+    <div class="atlas-note">
+      <strong>Drop weights</strong> are based on observed vendor session data. <strong>Boost nodes</strong> apply ×2 pool weight <em>(100% increased chance to drop)</em>. Prices live from poe.ninja.
+    </div>
+
+    <div class="atlas-two-col" id="atlasMainCols">
+      <div class="atlas-no-data">Loading prices from poe.ninja…</div>
+    </div>
+
+    <div id="atlasLeftovers"></div>
+
+  </div>
+
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
@@ -2255,17 +2495,30 @@ function toggleTheme() {
 // ══════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════
-function switchTab(tab) {
+function switchTab(tab, skipHash) {
   currentTab = tab;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelector(`.nav-tab[onclick*="${tab}"]`).classList.add('active');
   document.getElementById(`tab-${tab}`).classList.add('active');
+  if (!skipHash) history.replaceState(null, '', '#' + tab);
   if (tab === 'ninja' && !ninjaLoaded) fetchNinja();
   if (tab === 'ninja') renderNinja();
   if (tab === 'analysis') renderAnalysis();
+  if (tab === 'atlas') renderAtlas();
   if (tab === 'faq') initFaq();
 }
+
+// Load tab from URL hash on page load, and listen for back/forward navigation
+(function initHashRouting() {
+  const VALID_TABS = ['ninja','atlas','bulk','logger','analysis','faq'];
+  function loadFromHash() {
+    const hash = window.location.hash.replace('#', '');
+    if (VALID_TABS.includes(hash)) switchTab(hash, true);
+  }
+  loadFromHash();
+  window.addEventListener('hashchange', () => loadFromHash());
+})();
 
 function toggleLoggerHowTo() {
   const body    = document.getElementById('loggerHowToBody');
@@ -3104,6 +3357,7 @@ async function fetchNinja() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
+    if (currentTab === 'atlas') renderAtlas();
     status.className = 'ninja-status loaded';
     clearInterval(window._ninjaAgeTicker);
     window._ninjaPriceTime = now;
@@ -5512,6 +5766,397 @@ function runBulkFromCsv() {
     unmatchedEl.style.display = 'block';
     unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' · ');
   }
+}
+
+// ══════════════════════════════════════════════════
+// ATLAS OPTIMIZER
+// ══════════════════════════════════════════════════
+
+const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum'];
+const ATLAS_BOOSTABLE = ['Essence','Beyond','Torment','Titanic','Cartography','Divination','Ambush','Anarchy','Domination'];
+
+let _atlasBlocked  = new Set();
+let _atlasBosted   = new Set(); // boosted groups (×2 weight multiplier)
+let _atlasExpanded = new Set();
+let _atlasLeftoverOpen = true;
+
+// Returns base weights from community sessions, or equal fallback.
+function atlasGetWeights() {
+  if (_observedWeights && Object.keys(_observedWeights).length > 0) return _observedWeights;
+  const eq = {};
+  const n = SCARAB_LIST.length;
+  for (const s of SCARAB_LIST) eq[s.name] = 1 / n;
+  return eq;
+}
+
+// Compute map drop EV given current blocked + boosted state.
+// blocked: Set of group names to exclude entirely (weight = 0)
+// boosted: Set of group names to double weight (×2 multiplier)
+function atlasComputeEV(blockedGroups, boostedGroups) {
+  const weights = atlasGetWeights();
+  const lower   = buildNinjaLookup();
+  boostedGroups = boostedGroups || new Set();
+
+  const active = SCARAB_LIST.filter(s => !blockedGroups.has(s.group));
+  const totalW = active.reduce((sum, s) => {
+    const mult = boostedGroups.has(s.group) ? 2 : 1;
+    return sum + (weights[s.name] || 0) * mult;
+  }, 0);
+  if (!totalW) return 0;
+
+  return active.reduce((sum, s) => {
+    const mult  = boostedGroups.has(s.group) ? 2 : 1;
+    const w     = (weights[s.name] || 0) * mult;
+    const price = getNinjaPrice(s.name, lower);
+    return sum + (w / totalW) * price;
+  }, 0);
+}
+
+// Per-group stats for one group card.
+function atlasGroupStats(group, isBlockable) {
+  const weights = atlasGetWeights();
+  const lower   = buildNinjaLookup();
+  const scarabs = SCARAB_LIST.filter(s => s.group === group);
+
+  // Baseline pool weight (no blocks, no boosts)
+  const allW   = SCARAB_LIST.reduce((sum, s) => sum + (weights[s.name] || 0), 0);
+  const groupW = scarabs.reduce((sum, s) => sum + (weights[s.name] || 0), 0);
+
+  const groupShare  = allW > 0 ? groupW / allW : 0;
+  const groupEV     = groupW > 0
+    ? scarabs.reduce((sum, s) => sum + ((weights[s.name] || 0) / groupW) * getNinjaPrice(s.name, lower), 0)
+    : 0;
+  const contribution = groupShare * groupEV;
+
+  // Delta = what happens to current live EV if this group is toggled
+  const currentEV = atlasComputeEV(_atlasBlocked, _atlasBosted);
+
+  let toggleDelta = 0;
+  if (isBlockable) {
+    if (_atlasBlocked.has(group)) {
+      // Currently blocked — delta shows gain from unblocking
+      const withoutBlock = new Set([..._atlasBlocked].filter(g => g !== group));
+      toggleDelta = atlasComputeEV(withoutBlock, _atlasBosted) - currentEV;
+    } else {
+      // Currently active — delta shows effect of blocking
+      const withBlock = new Set([..._atlasBlocked, group]);
+      toggleDelta = atlasComputeEV(withBlock, _atlasBosted) - currentEV;
+    }
+  } else {
+    if (_atlasBosted.has(group)) {
+      // Currently boosted — delta shows cost of removing boost
+      const withoutBoost = new Set([..._atlasBosted].filter(g => g !== group));
+      toggleDelta = atlasComputeEV(_atlasBlocked, withoutBoost) - currentEV;
+    } else {
+      // Currently unboosted — delta shows gain from boosting
+      const withBoost = new Set([..._atlasBosted, group]);
+      toggleDelta = atlasComputeEV(_atlasBlocked, withBoost) - currentEV;
+    }
+  }
+
+  // Per-scarab breakdown (sorted by EV contribution desc)
+  const allWforDisplay = active => active.reduce((s, sc) => {
+    const mult = _atlasBosted.has(sc.group) ? 2 : 1;
+    return s + (weights[sc.name] || 0) * mult;
+  }, 0);
+  const livePool  = SCARAB_LIST.filter(s => !_atlasBlocked.has(s.group));
+  const liveTotalW = allWforDisplay(livePool);
+
+  const scarabRows = scarabs.map(s => {
+    const w          = weights[s.name] || 0;
+    const localShare = groupW > 0 ? w / groupW : 0;
+    const price      = getNinjaPrice(s.name, lower);
+    const evContrib  = localShare * price;
+    // Live pool contribution (accounts for boosts on other groups too)
+    const mult       = _atlasBosted.has(s.group) ? 2 : 1;
+    const liveShare  = liveTotalW > 0 ? (w * mult) / liveTotalW : 0;
+    const liveContrib = liveShare * price;
+    return { name: s.name, localShare, price, evContrib, liveContrib };
+  }).sort((a, b) => b.evContrib - a.evContrib);
+
+  return { scarabs: scarabRows, groupShare, groupEV, contribution, toggleDelta };
+}
+
+function atlasUpdateHero() {
+  const currentEV  = atlasComputeEV(_atlasBlocked, _atlasBosted);
+  const baselineEV = atlasComputeEV(new Set(), new Set());
+  const delta      = currentEV - baselineEV;
+  const nb = _atlasBlocked.size;
+  const ns = _atlasBosted.size;
+
+  const curEl   = document.getElementById('atlas-ev-current');
+  const baseEl  = document.getElementById('atlas-ev-baseline');
+  const deltaEl = document.getElementById('atlas-ev-delta');
+  const subEl   = document.getElementById('atlas-ev-delta-sub');
+
+  if (curEl)   curEl.textContent  = currentEV.toFixed(3) + 'c';
+  if (baseEl)  baseEl.textContent = baselineEV.toFixed(3) + 'c';
+  if (deltaEl) {
+    deltaEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(3) + 'c';
+    deltaEl.className   = 'atlas-hero-val ' + (delta > 0.00005 ? 'green' : delta < -0.00005 ? 'red' : 'muted');
+  }
+  const pctEl = document.getElementById('atlas-ev-pct');
+  if (pctEl) {
+    const pct = baselineEV > 0 ? (delta / baselineEV) * 100 : 0;
+    pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+    pctEl.className   = 'atlas-hero-val ' + (pct > 0.005 ? 'green' : pct < -0.005 ? 'red' : 'muted');
+  }
+  const parts = [];
+  if (nb) parts.push(`${nb} blocked`);
+  if (ns) parts.push(`${ns} boosted`);
+  if (subEl) subEl.textContent = parts.length ? parts.join(' · ') : 'no blocks or boosts active';
+}
+
+function atlasGroupCardHTML(group, isBlockable, isRecommended) {
+  const stats     = atlasGroupStats(group, isBlockable);
+  const isBlocked = _atlasBlocked.has(group);
+  const isBoosted = _atlasBosted.has(group);
+  const isExpanded = _atlasExpanded.has(group);
+
+  // Badge: blocked always shows if blocked; recommended shows on best untoggled option; nothing otherwise
+  let badgeHtml = '';
+  if (isBlockable && isBlocked) badgeHtml = '<span class="atlas-badge blocked">blocked</span>';
+  else if (!isBlockable && isBoosted) badgeHtml = '<span class="atlas-badge boosted">boosted ×2</span>';
+  else if (isRecommended) badgeHtml = '<span class="atlas-badge recommended">suggested</span>';
+
+  const togClass  = isBlockable ? 'block-toggle' : 'boost-toggle';
+  // Both block and boost: toggle is OFF (grey) by default, ON when active.
+  // Block ON = red (mechanic is blocked). Boost ON = amber (mechanic is boosted).
+  const toggleOff = isBlockable ? !isBlocked : !isBoosted;
+
+
+  const cardClass = isBlocked ? ' is-blocked' : (isBoosted ? ' is-boosted' : '');
+
+  // Delta column
+  let deltaHtml;
+  const d = stats.toggleDelta;
+  if (Math.abs(d) < 0.000005) {
+    deltaHtml = '<span class="atlas-group-stat neutral">≈0</span>';
+  } else {
+    const baselineEV = atlasComputeEV(new Set(), new Set());
+    const pct = baselineEV > 0 ? d / baselineEV : 0;
+    const dp   = Math.abs(d) < 0.001 ? 5 : Math.abs(d) < 0.01 ? 4 : 3;
+    const sign = d > 0 ? '+' : '';
+    const cls  = d < 0 ? 'neg' : pct < 0.01 ? 'marginal' : 'pos';
+    deltaHtml = `<span class="atlas-group-stat ${cls}">${sign}${d.toFixed(dp)}c</span>`;
+  }
+
+  const toggleFn = isBlockable ? `atlasToggleBlock('${group}')` : `atlasToggleBoost('${group}')`;
+
+  const scarabBreakdown = isExpanded ? `
+    <div class="atlas-scarab-rows">
+      <div class="atlas-scarab-head">
+        <span>Scarab</span><span>Group share</span><span>Price</span><span>EV contrib</span>
+      </div>
+      ${stats.scarabs.map(sc => `
+        <div class="atlas-scarab-row">
+          <span class="atlas-scarab-name">${sc.name}</span>
+          <span class="atlas-scarab-stat muted">${(sc.localShare * 100).toFixed(1)}%</span>
+          <span class="atlas-scarab-stat chaos">${sc.price > 0 ? sc.price.toFixed(2) + 'c' : '—'}</span>
+          <span class="atlas-scarab-stat accent">${sc.evContrib.toFixed(4)}c</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  return `
+    <div class="atlas-group-card${cardClass}">
+      <div class="atlas-group-row" onclick="atlasToggleExpand('${group}')">
+        <button class="atlas-toggle ${togClass}${toggleOff ? ' off' : ''}"
+          title="${isBlockable ? (isBlocked ? 'Unblock' : 'Block') : (isBoosted ? 'Remove boost' : 'Boost')} ${group}"
+          onclick="event.stopPropagation(); ${toggleFn}"></button>
+        <span class="atlas-group-name">${group}${badgeHtml}</span>
+        <span class="atlas-group-stat chaos">${stats.groupEV.toFixed(3)}c</span>
+        <span class="atlas-group-stat muted">${(stats.groupShare * 100).toFixed(1)}%</span>
+        <span class="atlas-group-stat muted">${stats.contribution.toFixed(4)}c</span>
+        ${deltaHtml}
+        <span class="atlas-chevron${isExpanded ? ' open' : ''}">▶</span>
+      </div>
+      ${scarabBreakdown}
+    </div>`;
+}
+
+function renderAtlas() {
+  const mainEl      = document.getElementById('atlasMainCols');
+  const leftoverEl  = document.getElementById('atlasLeftovers');
+  if (!mainEl) return;
+
+  if (!ninjaLoaded) {
+    mainEl.innerHTML = '<div class="atlas-no-data">Loading prices from poe.ninja…</div>';
+    if (leftoverEl) leftoverEl.innerHTML = '';
+    return;
+  }
+
+  atlasUpdateHero();
+
+  const _atlasBaselineEV = atlasComputeEV(new Set(), new Set());
+
+  const colHeader = (title, tagClass, tagLabel, deltaLabel, rows, isBlockable) => {
+    const hasMarginal = rows.some(r => {
+      const d = atlasGroupStats(r.g, isBlockable).toggleDelta;
+      const pct = _atlasBaselineEV > 0 ? d / _atlasBaselineEV : 0;
+      return pct > 0.000005 && pct < 0.01;
+    });
+    const warning = hasMarginal
+      ? `<span style="font-size:10px;color:#c8b400;font-weight:500;margin-left:auto">some gains not worth atlas points</span>`
+      : '';
+    return `
+    <div class="atlas-col-header">
+      <span class="atlas-col-header-title">${title}</span>
+      <span class="atlas-col-title-tag ${tagClass}">${tagLabel}</span>
+      ${warning}
+    </div>
+    <div class="atlas-col-subhead">
+      <span></span>
+      <span>Mechanic</span>
+      <span>Group EV</span>
+      <span>Share</span>
+      <span>Contribution</span>
+      <span>${deltaLabel}</span>
+      <span></span>
+    </div>`;
+  };
+
+  // ── LEFT COLUMN: sorted by groupEV asc — lowest value first, best block candidates at top ──
+  const blockRows = ATLAS_BLOCKABLE
+    .map(g => ({ g, ev: atlasGroupStats(g, true).groupEV, delta: atlasGroupStats(g, true).toggleDelta }))
+    .sort((a, b) => a.ev - b.ev);
+
+  // ── RIGHT COLUMN: sorted by groupEV desc — highest value first, best boost candidates at top ──
+  const boostRows = ATLAS_BOOSTABLE
+    .map(g => ({ g, ev: atlasGroupStats(g, false).groupEV, delta: atlasGroupStats(g, false).toggleDelta }))
+    .sort((a, b) => b.ev - a.ev);
+
+  // ── Find the single best untoggled option across both columns ──
+  // Only consider groups not already in their active state
+  const blockCandidates = blockRows
+    .filter(r => !_atlasBlocked.has(r.g) && r.delta / _atlasBaselineEV >= 0.01)
+    .map(r => ({ g: r.g, delta: r.delta, isBlockable: true }));
+  const boostCandidates = boostRows
+    .filter(r => !_atlasBosted.has(r.g) && r.delta / _atlasBaselineEV >= 0.01)
+    .map(r => ({ g: r.g, delta: r.delta, isBlockable: false }));
+  const allCandidates = [...blockCandidates, ...boostCandidates].sort((a, b) => b.delta - a.delta);
+  const recommendedGroup    = allCandidates[0]?.g || null;
+  const recommendedBlockable = allCandidates[0]?.isBlockable ?? null;
+
+  mainEl.innerHTML = `
+    <div class="atlas-col">
+      <div class="atlas-col-wrap">
+        ${colHeader('Block nodes', 'block-tag', 'removes from pool', 'Delta', blockRows, true)}
+        ${blockRows.map(r => atlasGroupCardHTML(r.g, true, recommendedGroup === r.g && recommendedBlockable === true)).join('')}
+      </div>
+    </div>
+    <div class="atlas-col">
+      <div class="atlas-col-wrap">
+        ${colHeader('Boost nodes', 'boost-tag', '×2 drop weight', 'Delta', boostRows, false)}
+        ${boostRows.map(r => atlasGroupCardHTML(r.g, false, recommendedGroup === r.g && recommendedBlockable === false)).join('')}
+      </div>
+    </div>
+  `;
+
+  // ── LEFTOVER SECTION: groups that are neither blockable nor boostable ──
+  if (leftoverEl) {
+    const allGroups = [...new Set(SCARAB_LIST.map(s => s.group))];
+    const controlled = new Set([...ATLAS_BLOCKABLE, ...ATLAS_BOOSTABLE]);
+    const weights  = atlasGetWeights();
+    const lower    = buildNinjaLookup();
+    const livePool = SCARAB_LIST.filter(s => !_atlasBlocked.has(s.group));
+    const liveTotalW = livePool.reduce((sum, s) => {
+      const mult = _atlasBosted.has(s.group) ? 2 : 1;
+      return sum + (weights[s.name] || 0) * mult;
+    }, 0);
+    const allW = SCARAB_LIST.reduce((sum, s) => sum + (weights[s.name] || 0), 0);
+
+    const leftovers = allGroups
+      .filter(g => !controlled.has(g))
+      .map(g => {
+        const scarabs = SCARAB_LIST.filter(s => s.group === g);
+        const groupW  = scarabs.reduce((sum, s) => sum + (weights[s.name] || 0), 0);
+        const groupEV = groupW > 0
+          ? scarabs.reduce((sum, s) => sum + ((weights[s.name] || 0) / groupW) * getNinjaPrice(s.name, lower), 0)
+          : 0;
+        const baseShare    = allW > 0 ? groupW / allW : 0;
+        const liveShare    = liveTotalW > 0 ? groupW / liveTotalW : 0;
+        const contribution = liveShare * groupEV;
+        return { g, groupEV, baseShare, liveShare, contribution };
+      })
+      .sort((a, b) => b.groupEV - a.groupEV);
+
+    const isOpen = _atlasLeftoverOpen;
+    leftoverEl.innerHTML = `
+      <div class="atlas-leftovers-wrap">
+        <div class="atlas-leftovers-header" onclick="atlasToggleLeftovers()">
+          <span class="atlas-chevron${isOpen ? ' open' : ''}">▶</span>
+          <span class="atlas-leftovers-title">Fixed pool — ${leftovers.length} remaining groups (always active, unaffected by atlas passives)</span>
+        </div>
+        ${isOpen ? `
+        <div class="atlas-leftovers-body">
+          <div class="atlas-leftover-head">
+            <span>Mechanic</span>
+            <span>Group EV</span>
+            <span>Live share</span>
+            <span>EV contrib</span>
+          </div>
+          ${leftovers.map(r => {
+            const isEx = _atlasExpanded.has('lft-' + r.g);
+            const scarabs = SCARAB_LIST.filter(s => s.group === r.g);
+            const weights2 = atlasGetWeights();
+            const lower2   = buildNinjaLookup();
+            const groupW2  = scarabs.reduce((sum, s) => sum + (weights2[s.name] || 0), 0);
+            const scarabBreak = isEx ? `
+              <div class="atlas-scarab-rows">
+                <div class="atlas-scarab-head">
+                  <span>Scarab</span><span>Group share</span><span>Price</span><span>EV contrib</span>
+                </div>
+                ${scarabs.map(sc => {
+                  const w = weights2[sc.name] || 0;
+                  const localShare = groupW2 > 0 ? w / groupW2 : 0;
+                  const price = getNinjaPrice(sc.name, lower2);
+                  const evC = localShare * price;
+                  return `<div class="atlas-scarab-row">
+                    <span class="atlas-scarab-name">${sc.name}</span>
+                    <span class="atlas-scarab-stat muted">${(localShare * 100).toFixed(1)}%</span>
+                    <span class="atlas-scarab-stat chaos">${price > 0 ? price.toFixed(2) + 'c' : '—'}</span>
+                    <span class="atlas-scarab-stat accent">${evC.toFixed(4)}c</span>
+                  </div>`;
+                }).join('')}
+              </div>` : '';
+            return `
+              <div class="atlas-group-card" style="border-radius:0;border-left:none;border-right:none;border-top:none;box-shadow:none">
+                <div class="atlas-group-row" style="grid-template-columns:1fr 70px 70px 80px 20px;padding:6px 12px" onclick="atlasToggleExpand('lft-${r.g}')">
+                  <span style="color:var(--text-2);font-size:12px;font-weight:600">${r.g}</span>
+                  <span class="atlas-group-stat chaos">${r.groupEV.toFixed(3)}c</span>
+                  <span class="atlas-group-stat muted">${(r.liveShare * 100).toFixed(1)}%</span>
+                  <span class="atlas-group-stat accent">${r.contribution.toFixed(4)}c</span>
+                  <span class="atlas-chevron${isEx ? ' open' : ''}">▶</span>
+                </div>
+                ${scarabBreak}
+              </div>`;
+          }).join('')}
+        </div>` : ''}
+      </div>`;
+  }
+}
+
+function atlasToggleBlock(group) {
+  if (_atlasBlocked.has(group)) _atlasBlocked.delete(group);
+  else _atlasBlocked.add(group);
+  renderAtlas();
+}
+
+function atlasToggleBoost(group) {
+  if (_atlasBosted.has(group)) _atlasBosted.delete(group);
+  else _atlasBosted.add(group);
+  renderAtlas();
+}
+
+function atlasToggleExpand(group) {
+  if (_atlasExpanded.has(group)) _atlasExpanded.delete(group);
+  else _atlasExpanded.add(group);
+  renderAtlas();
+}
+
+function atlasToggleLeftovers() {
+  _atlasLeftoverOpen = !_atlasLeftoverOpen;
+  renderAtlas();
 }
 
 // ══════════════════════════════════════════════════
