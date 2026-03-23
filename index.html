@@ -229,6 +229,9 @@ body {
   cursor: pointer; transition: all 0.15s; margin-left: auto;
 }
 .ev-clear-btn:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+/* EV mode toggle — desktop shows two buttons, mobile shows pill */
+#evModePill { display: none; }
+.ev-mode-desktop { display: flex; }
 
 /* ── REGEX PANEL ── */
 .regex-panel {
@@ -1477,8 +1480,8 @@ body {
 
   /* ── ANALYSIS WEIGHT TABLE ── */
   .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
-  #analysisWeightHead { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; width: 100%; }
-  .analysis-weight-row { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; padding: 6px 4px !important; width: 100%; }
+  #analysisWeightHead { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; width: 100%; box-sizing: border-box; }
+  .analysis-weight-row { grid-template-columns: 1fr 58px 68px 90px !important; gap: 4px !important; padding: 6px 4px !important; width: 100%; box-sizing: border-box; }
 
   /* ── ATLAS GROUP ROWS ── */
   .atlas-group-row {
@@ -1502,6 +1505,8 @@ body {
   /* ── THRESHOLD BAR ── */
   .threshold-top { flex-direction: column; gap: 6px; }
   .threshold-right { justify-content: flex-start; }
+  #evModePill { display: block; }
+  .ev-mode-desktop { display: none !important; }
 
 
   /* ── SCARAB NAMES: last-word display on mobile ── */
@@ -1670,7 +1675,11 @@ body {
           <span class="threshold-label">Vendor Threshold</span>
           <span class="threshold-value" id="sliderValueDisplay">—</span>
           <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
-          <div class="view-toggle" style="margin-left:6px">
+          <div style="margin-left:6px;display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <span style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em">EV</span>
+            <button id="evModePill" onclick="toggleEVMode()" style="font-family:inherit;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid var(--chaos-border);background:var(--chaos-bg);color:var(--chaos);cursor:pointer;transition:all 0.15s;white-space:nowrap" title="Switch between Harmonic and Weighted EV">Harmonic</button>
+          </div>
+          <div class="view-toggle ev-mode-desktop" style="margin-left:6px">
             <button id="evModeHarmonic" class="active" onclick="setEVMode('harmonic')">Harmonic</button>
             <button id="evModeWeighted" onclick="setEVMode('weighted')">Weighted</button>
           </div>
@@ -4085,10 +4094,24 @@ function calcAutoEV() {
   return calcEV(priced);
 }
 
+function toggleEVMode() {
+  const current = _evMode || 'harmonic';
+  setEVMode(current === 'harmonic' ? 'weighted' : 'harmonic');
+}
+
 function setEVMode(mode) {
   _evMode = mode;
-  document.getElementById('evModeHarmonic').classList.toggle('active', mode === 'harmonic');
-  document.getElementById('evModeWeighted').classList.toggle('active', mode === 'weighted');
+  const pill = document.getElementById('evModePill');
+  if (pill) {
+    pill.textContent = mode === 'harmonic' ? 'Harmonic' : 'Weighted';
+    pill.style.background = mode === 'weighted' ? 'var(--amber-bg)' : 'var(--chaos-bg)';
+    pill.style.borderColor = mode === 'weighted' ? '#f5d78e' : 'var(--chaos-border)';
+    pill.style.color = mode === 'weighted' ? 'var(--amber)' : 'var(--chaos)';
+  }
+  const btnH = document.getElementById('evModeHarmonic');
+  const btnW = document.getElementById('evModeWeighted');
+  if (btnH) btnH.classList.toggle('active', mode === 'harmonic');
+  if (btnW) btnW.classList.toggle('active', mode === 'weighted');
 
   // Show/hide weighted warning
   const hint = document.getElementById('weightedEvWarning');
