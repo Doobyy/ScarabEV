@@ -2709,7 +2709,7 @@ function switchTab(tab, skipHash) {
     if (window.location.hash !== newHash) history.replaceState(null, '', newHash);
   }
   if (tab === 'ninja') { if (!ninjaLoaded) fetchNinja(); else renderNinja(); }
-  if (tab === 'analysis') { if (!ninjaLoaded) fetchNinja(); renderAnalysis(); }
+  if (tab === 'analysis') { if (!ninjaLoaded) fetchNinja(); else if (!ninjaDivineRate) fetchNinja(); renderAnalysis(); }
   if (tab === 'atlas') { if (!_observedWeights) fetchObservedWeights(); renderAtlas(); }
   if (tab === 'faq') initFaq();
 }
@@ -3603,6 +3603,7 @@ async function fetchNinja() {
             if (d && d > 50) {
               ninjaDivineRate = d;
               calcEstimator();
+              if (currentTab === 'analysis') renderAnalysis();
             }
           } catch(e) { /* silent */ }
         })
