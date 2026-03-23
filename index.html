@@ -2540,6 +2540,8 @@ async function fetchObservedWeights() {
         recalcNinja();
         renderNinja();
       }
+      // If atlas tab is open, render it now that weights are available
+      if (currentTab === 'atlas') renderAtlas();
     }
   } catch(e) { /* silent — estimator shows nothing until data is available */ }
 }
@@ -2708,7 +2710,7 @@ function switchTab(tab, skipHash) {
   }
   if (tab === 'ninja') { if (!ninjaLoaded) fetchNinja(); else renderNinja(); }
   if (tab === 'analysis') { if (!ninjaLoaded) fetchNinja(); renderAnalysis(); }
-  if (tab === 'atlas') renderAtlas();
+  if (tab === 'atlas') { if (!_observedWeights) fetchObservedWeights(); renderAtlas(); }
   if (tab === 'faq') initFaq();
 }
 
@@ -3543,6 +3545,7 @@ async function fetchNinja() {
   const btn    = document.getElementById('refreshBtn');
   status.textContent = 'Loading prices from poe.ninja…'; status.className = 'ninja-status loading';
   btn.disabled = true;
+  ninjaDivineRate = null; // reset stale rate — will be refreshed from worker below
 
   const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
   const log = [];
@@ -6085,10 +6088,7 @@ let _atlasLeftoverOpen = true;
 // Returns base weights from community sessions, or equal fallback.
 function atlasGetWeights() {
   if (_observedWeights && Object.keys(_observedWeights).length > 0) return _observedWeights;
-  const eq = {};
-  const n = SCARAB_LIST.length;
-  for (const s of SCARAB_LIST) eq[s.name] = 1 / n;
-  return eq;
+  return null; // no data yet — callers must handle null
 }
 
 // Compute map drop EV given current blocked + boosted state.
@@ -6096,6 +6096,7 @@ function atlasGetWeights() {
 // boosted: Set of group names to double weight (×2 multiplier)
 function atlasComputeEV(blockedGroups, boostedGroups) {
   const weights = atlasGetWeights();
+  if (!weights) return null; // weights not loaded yet
   const lower   = buildNinjaLookup();
   boostedGroups = boostedGroups || new Set();
 
@@ -6104,7 +6105,7 @@ function atlasComputeEV(blockedGroups, boostedGroups) {
     const mult = boostedGroups.has(s.group) ? 2 : 1;
     return sum + (weights[s.name] || 0) * mult;
   }, 0);
-  if (!totalW) return 0;
+  if (!totalW) return null;
 
   return active.reduce((sum, s) => {
     const mult  = boostedGroups.has(s.group) ? 2 : 1;
@@ -6131,7 +6132,7 @@ function atlasGroupStats(group, isBlockable) {
   const contribution = groupShare * groupEV;
 
   // Delta = what happens to current live EV if this group is toggled
-  const currentEV = atlasComputeEV(_atlasBlocked, _atlasBosted);
+  const currentEV = atlasComputeEV(_atlasBlocked, _atlasBosted) || 0;
 
   let toggleDelta = 0;
   if (isBlockable) {
@@ -6182,7 +6183,6 @@ function atlasGroupStats(group, isBlockable) {
 function atlasUpdateHero() {
   const currentEV  = atlasComputeEV(_atlasBlocked, _atlasBosted);
   const baselineEV = atlasComputeEV(new Set(), new Set());
-  const delta      = currentEV - baselineEV;
   const nb = _atlasBlocked.size;
   const ns = _atlasBosted.size;
 
@@ -6190,14 +6190,24 @@ function atlasUpdateHero() {
   const baseEl  = document.getElementById('atlas-ev-baseline');
   const deltaEl = document.getElementById('atlas-ev-delta');
   const subEl   = document.getElementById('atlas-ev-delta-sub');
+  const pctEl   = document.getElementById('atlas-ev-pct');
 
+  if (currentEV === null || baselineEV === null) {
+    if (curEl)   curEl.textContent  = '—';
+    if (baseEl)  baseEl.textContent = '—';
+    if (deltaEl) { deltaEl.textContent = '—'; deltaEl.className = 'atlas-hero-val muted'; }
+    if (pctEl)   { pctEl.textContent = '—';   pctEl.className   = 'atlas-hero-val muted'; }
+    if (subEl)   subEl.textContent = 'Waiting for weight data…';
+    return;
+  }
+
+  const delta = currentEV - baselineEV;
   if (curEl)   curEl.textContent  = currentEV.toFixed(3) + 'c';
   if (baseEl)  baseEl.textContent = baselineEV.toFixed(3) + 'c';
   if (deltaEl) {
     deltaEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(3) + 'c';
     deltaEl.className   = 'atlas-hero-val ' + (delta > 0.00005 ? 'green' : delta < -0.00005 ? 'red' : 'muted');
   }
-  const pctEl = document.getElementById('atlas-ev-pct');
   if (pctEl) {
     const pct = baselineEV > 0 ? (delta / baselineEV) * 100 : 0;
     pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
@@ -6281,8 +6291,11 @@ function renderAtlas() {
   const leftoverEl  = document.getElementById('atlasLeftovers');
   if (!mainEl) return;
 
-  if (!ninjaLoaded) {
-    mainEl.innerHTML = '<div class="atlas-no-data">Loading prices from poe.ninja…</div>';
+  if (!ninjaLoaded || !_observedWeights) {
+    const msg = !ninjaLoaded
+      ? 'Loading prices from poe.ninja…'
+      : 'Waiting for community weight data…';
+    mainEl.innerHTML = `<div class="atlas-no-data">${msg}</div>`;
     if (leftoverEl) leftoverEl.innerHTML = '';
     return;
   }
