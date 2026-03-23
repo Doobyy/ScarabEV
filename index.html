@@ -1452,7 +1452,6 @@ body {
   .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .table-head, .scarab-row { min-width: 520px; }
   .table-head.ninja-head, .scarab-row.ninja-row { min-width: 480px; }
-  .scarab-name { max-width: 140px; }
 
   /* ── BULK BUY TABLE ── */
   .bulk-head-row,
@@ -1477,8 +1476,8 @@ body {
 
   /* ── ANALYSIS WEIGHT TABLE ── */
   .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  #analysisWeightHead,
-  .analysis-weight-row { min-width: 380px; }
+  #analysisWeightHead { min-width: 400px; }
+  .analysis-weight-row { min-width: 400px; }
 
   /* ── ATLAS GROUP ROWS ── */
   .atlas-group-row {
@@ -1506,7 +1505,7 @@ body {
 
   /* ── SCARAB NAMES: last-word display on mobile ── */
   .scarab-name { display: none; }
-  .scarab-name-mobile { display: block; }
+  .scarab-name-mobile { display: block; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* ── WEIGHT CHART: scrollable container ── */
   .analysis-chart-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -3971,6 +3970,7 @@ function makeNinjaRow(s, ev) {
     <div class="td"><div class="scarab-name-cell">
       <span class="vendor-dot"></span>
       <span class="scarab-name">${s.name}</span>
+      <span class="scarab-name-mobile">${mobileScarabName(s.name)}</span>
       ${s.isNew?'<span class="new-badge">NEW</span>':''}
     </div></div>
     <div class="td" style="color:var(--text-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.group}</div>
@@ -5217,7 +5217,7 @@ function renderAnalysisWeightTable() {
   }
   const rows = data.map(d => `
     <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 90px 90px 90px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:8px">
-      <span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile">${mobileScarabName(d.name)}</span>
+      <span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none">${mobileScarabName(d.name)}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '—'}</span>
