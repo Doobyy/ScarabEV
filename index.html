@@ -1451,7 +1451,9 @@ body {
   /* ── SCARAB VENDOR & NINJA TABLES: horizontal scroll ── */
   .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .table-head, .scarab-row { min-width: 720px; }
-  .table-head.ninja-head, .scarab-row.ninja-row { min-width: 650px; }
+  .table-head.ninja-head, .scarab-row.ninja-row { min-width: 560px; }
+  .table-head.ninja-head .th:nth-child(3),
+  .scarab-row.ninja-row .td:nth-child(3) { display: none; }
 
   /* ── BULK BUY TABLE ── */
   .bulk-head-row,
@@ -1469,8 +1471,8 @@ body {
 
   /* ── ANALYSIS WEIGHT TABLE ── */
   .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  #analysisWeightHead { min-width: 390px; }
-  .analysis-weight-row { min-width: 390px; }
+  #analysisWeightHead { min-width: 410px; }
+  .analysis-weight-row { min-width: 410px; }
 
   /* ── ATLAS GROUP ROWS ── */
   .atlas-group-row {
@@ -5208,7 +5210,7 @@ function renderAnalysisWeightTable() {
   }
   const rows = data.map(d => `
     <div class="analysis-weight-row" style="display:grid;grid-template-columns:120px 80px 70px 90px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:8px">
-      <span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none">${mobileScarabName(d.name)}</span>
+      <div style="overflow:hidden;min-width:0"><span class="scarab-name" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mobileScarabName(d.name)}</span></div>
       <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '—'}</span>
