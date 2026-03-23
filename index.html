@@ -148,6 +148,66 @@ body {
 [data-theme="dark"] .theme-toggle::before { transform: translateX(20px); background: #6b87f9; }
 .theme-icon { font-size: 11px; color: rgba(255,255,255,0.5); }
 
+/* ── CHANGELOG DRAWER ── */
+.changelog-btn {
+  font-family: inherit; font-size: 11px; font-weight: 500;
+  padding: 4px 10px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent; color: rgba(255,255,255,0.45);
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.changelog-btn:hover { color: #fff; border-color: rgba(255,255,255,0.35); }
+.changelog-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.changelog-overlay.open { opacity: 1; pointer-events: all; }
+.changelog-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 100vw;
+  background: var(--bg-card); border-left: 1px solid var(--border);
+  z-index: 201; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+}
+.changelog-drawer.open { transform: translateX(0); }
+.changelog-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head); flex-shrink: 0;
+}
+.changelog-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.changelog-close {
+  font-family: inherit; font-size: 14px; padding: 3px 7px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--text-3); cursor: pointer; transition: all 0.15s;
+}
+.changelog-close:hover { color: var(--red); border-color: var(--red); }
+.changelog-content {
+  flex: 1; overflow-y: auto; padding: 18px; font-size: 12px;
+  line-height: 1.7; color: var(--text-2);
+}
+.changelog-content h2 {
+  font-size: 13px; font-weight: 700; color: var(--chaos);
+  margin: 20px 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.changelog-content h2:first-child { margin-top: 0; }
+.changelog-content h3 {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-3); margin: 10px 0 4px;
+}
+.changelog-content h3.cl-added   { color: var(--green); }
+.changelog-content h3.cl-fixed   { color: var(--accent); }
+.changelog-content h3.cl-changed { color: var(--amber); }
+.changelog-content h3.cl-removed { color: var(--red); }
+.changelog-content ul { padding-left: 14px; margin: 0 0 6px; }
+.changelog-content li { margin-bottom: 3px; color: var(--text-2); }
+.changelog-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.changelog-content p { color: var(--text-3); font-size: 11px; margin-bottom: 12px; }
+.changelog-loading { color: var(--text-3); font-size: 12px; padding: 24px; text-align: center; }
+
 /* ── LAYOUT ── */
 .page {
   max-width: 1120px; margin: 0 auto; padding: 20px 20px 80px;
@@ -997,6 +1057,46 @@ body {
   padding-top: 8px; border-top: 1px solid #f5d78e;
 }
 [data-theme="dark"] .bulk-warn-banner-divider { border-top-color: #2a5a8a; }
+
+/* ── LEFT-BORDER NOTICE BOXES ── */
+.notice {
+  padding: 10px 14px; border-radius: 0 6px 6px 0;
+  font-size: 12px; line-height: 1.7; color: var(--text-2);
+  margin: 10px 0; border-left-width: 3px; border-left-style: solid;
+  border-top: 1px solid transparent; border-right: 1px solid transparent; border-bottom: 1px solid transparent;
+}
+.notice-warn {
+  background: var(--amber-bg); border-color: rgba(212,112,14,0.2); border-left-color: var(--amber);
+}
+.notice-warn strong { color: var(--amber); }
+.notice-tip {
+  background: var(--accent-dim); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent);
+}
+.notice-tip strong { color: var(--accent); }
+.notice-data {
+  background: var(--chaos-bg); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos);
+}
+.notice-data strong { color: var(--chaos); }
+.notice-chaos {
+  background: var(--chaos-bg); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos);
+}
+.notice-chaos strong { color: var(--chaos); }
+.notice-amber {
+  background: var(--amber-bg); border-color: rgba(0,0,0,0.05); border-left-color: var(--amber);
+}
+.notice-amber strong { color: var(--amber); }
+.notice-bulk-warn {
+  background: var(--amber-bg); border-color: rgba(212,112,14,0.2); border-left-color: var(--amber);
+}
+.notice-bulk-warn strong { color: var(--amber); }
+[data-theme="dark"] .notice-warn  { background: rgba(212,112,14,0.08); border-color: rgba(212,112,14,0.15); border-left-color: var(--amber); }
+[data-theme="dark"] .notice-tip   { background: rgba(75,108,247,0.08);  border-color: rgba(75,108,247,0.15);  border-left-color: var(--accent); }
+[data-theme="dark"] .notice-data  { background: rgba(160,62,200,0.08); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos); }
+[data-theme="dark"] .notice-chaos { background: rgba(160,62,200,0.08); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos); }
+[data-theme="dark"] .notice-bulk-warn { background: rgba(75,108,247,0.08); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent); }
+[data-theme="dark"] .notice-bulk-warn strong { color: var(--accent); }
+.notice code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+[data-theme="dark"] .notice code { background: rgba(255,255,255,0.06); }
 .bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
 
 .bulk-debug-toggle {
@@ -1508,7 +1608,8 @@ body {
 
   /* ── THRESHOLD BAR ── */
   .threshold-top { flex-direction: column; gap: 6px; }
-  .threshold-right { justify-content: flex-end; }
+  .threshold-left { justify-content: flex-end; width: 100%; }
+  .threshold-right { justify-content: flex-end; text-align: right; width: 100%; }
   #evModePill { display: block; }
   .ev-mode-desktop { display: none !important; }
 
@@ -1537,7 +1638,7 @@ body {
 
 <nav class="topnav">
   <span class="nav-logo">Scarab<span>EV</span></span>
-  <span class="nav-tag">3.28</span>
+  <span class="nav-tag">1.1</span>
   <div class="nav-tabs">
     <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
     <button class="nav-tab" onclick="switchTab('atlas')">Atlas Optimizer</button>
@@ -1549,6 +1650,7 @@ body {
   <span class="nav-current-tab" id="navCurrentTab">Scarab Vendor</span>
   <span class="nav-sep"></span>
   <a href="https://ko-fi.com/dooby0530" target="_blank" title="Support on Ko-fi" style="font-size:16px;text-decoration:none;opacity:0.35;transition:opacity 0.15s;flex-shrink:0;line-height:1" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.35'">☕</a>
+  <button class="changelog-btn" onclick="toggleChangelog()">changelog</button>
   <span class="theme-icon">☀</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode"></button>
   <span class="theme-icon">🌙</span>
@@ -1563,7 +1665,7 @@ body {
 <div class="nav-drawer" id="navDrawer">
   <div class="nav-drawer-header">
     <span class="nav-logo">Scarab<span>EV</span></span>
-    <span class="nav-tag">3.28</span>
+    <span class="nav-tag">1.1</span>
   </div>
   <button class="nav-drawer-item ninja-tab active" onclick="switchTab('ninja'); toggleHamburger()">Scarab Vendor</button>
   <button class="nav-drawer-item" onclick="switchTab('atlas'); toggleHamburger()">Atlas Optimizer</button>
@@ -1902,9 +2004,7 @@ body {
           <span style="font-size:11px;color:var(--text-3)">Each export does double duty — it closes the previous session and opens the next one.</span>
         </div>
 
-        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">
-          Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only — they won't be included in the community database. You'll see a message explaining this when you submit.
-        </div>
+        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only — they won't be included in the community database. You'll see a message explaining this when you submit.</div>
       </div>
     </div>
 
@@ -2085,16 +2185,8 @@ body {
       </div>
     </div>
 
-    <div class="bulk-warn-banner">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="font-size:14px;flex-shrink:0;margin-top:1px">⚠</span>
-        <span><strong style="color:var(--amber)">AI image parsing via the API is not always accurate.</strong> Gemini may misread quantities, names, or skip rows — especially on cluttered or low-resolution screenshots. Always cross-reference the parsed CSV against the original listing before committing to a purchase.</span>
-      </div>
-      <div class="bulk-warn-banner-divider">
-        <span style="font-size:14px;flex-shrink:0;margin-top:1px">💡</span>
-        <span><strong style="color:var(--text-2)">For more accurate results:</strong> paste your screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to output the listing as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API. Paste the result into the CSV input and use <strong>Analyze CSV only</strong>.</span>
-      </div>
-    </div>
+    <div class="notice notice-bulk-warn"><strong>AI image parsing via the API is not always accurate.</strong> Gemini may misread quantities, names, or skip rows — especially on cluttered or low-resolution screenshots. Always cross-reference the parsed CSV against the original listing before committing to a purchase.</div>
+    <div class="notice notice-chaos"><strong>Best method for accuracy:</strong> paste your screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and doesn't need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div>
 
     <div id="bulkSummary" class="bulk-summary-card" style="display:none">
       <div class="bulk-summary-grid">
@@ -2716,6 +2808,7 @@ function switchTab(tab, skipHash) {
   if (tab === 'analysis') { if (!ninjaLoaded) fetchNinja(); else if (!ninjaDivineRate) fetchNinja(); renderAnalysis(); }
   if (tab === 'atlas') { if (!_observedWeights) fetchObservedWeights(); renderAtlas(); }
   if (tab === 'faq') initFaq();
+  if (tab === 'logger') renderSessionHistory();
 }
 
 function toggleHamburger() {
@@ -2730,16 +2823,7 @@ function toggleHamburger() {
 }
 
 // Load tab from URL hash on page load, and listen for back/forward navigation
-(function initHashRouting() {
-  const VALID_TABS = ['scarabEV','atlas','bulk','logger','analysis','faq'];
-  function loadFromHash() {
-    const raw = window.location.hash.replace('#', '');
-    const hash = raw === 'scarabEV' ? 'ninja' : raw;
-    if (VALID_TABS.includes(raw)) switchTab(hash, true);
-  }
-  loadFromHash();
-  window.addEventListener('hashchange', () => loadFromHash());
-})();
+// initHashRouting moved to bottom of script
 
 function toggleLoggerHowTo() {
   const body    = document.getElementById('loggerHowToBody');
@@ -2768,7 +2852,7 @@ const FAQ_SECTIONS = [
 <strong>Weighted EV</strong> — uses observed community session data to weight each scarab by how often it actually appears as a vendor output, then applies current live prices:<br>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = Σ(weight_i × price_i) / 3<br>weight_i = times scarab_i appeared as output / total outputs observed</code>
 The weights are purely frequency data from real sessions — no historical prices involved. Live poe.ninja prices are applied on top so the threshold always reflects the current economy.<br><br>
-<em>Note: weighted EV is only as accurate as the session data behind it. With fewer sessions the weights carry more variance — a few lucky expensive drops can pull the threshold higher than it should be. As more sessions accumulate the weights converge toward true drop frequencies. Until then, harmonic EV is the more conservative and reliable choice.</em><br><br>
+<div class="notice notice-amber"><strong>Weighted EV accuracy:</strong> weighted EV is only as accurate as the session data behind it. With fewer sessions the weights carry more variance — a few lucky expensive drops can pull the threshold higher than it should be. As more sessions accumulate the weights converge toward true drop frequencies. Until then, harmonic EV is the more conservative and reliable choice.</div><br>
 Both modes update live as poe.ninja prices change throughout the day.`
   },
   {
@@ -2796,8 +2880,7 @@ The recycling check matters most. A clean single-pass session always returns a m
     title: 'How do I log a session?',
     body: `<strong>Standard tracking</strong> (personal profit, no data contribution requirements):<br>
 Export Wealthy Exile before your session → vendor your marked scarabs → export after → upload both CSVs on the Session Logger tab with your regex → submit.<br><br>
-<strong>For clean community data contribution</strong> (optional — see the how-to guide on the Session Logger tab):<br>
-Use a dedicated returns stash tab. Vendor once, place all returns there, then export and log before re-vendoring anything. Each single pass = one session submission. This keeps the weight data accurate for everyone.`
+<div class="notice notice-amber"><strong>For clean community data:</strong> use a dedicated returns stash tab. Vendor once, place all returns there, then export and log before re-vendoring anything. Each single pass = one session submission. This keeps the weight data accurate for everyone.</div>`
   },
   {
     title: 'How does the Bulk Buy Analyzer work, and how do I get the most accurate results?',
@@ -2805,7 +2888,8 @@ Use a dedicated returns stash tab. Vendor once, place all returns there, then ex
 <strong>Two ways to get listing data in:</strong><br>
 • <strong>API image parsing</strong> — drop a screenshot and let Gemini parse it automatically (requires a free API key from aistudio.google.com). Convenient but less accurate, especially on dense or cluttered listings.<br>
 • <strong>Manual CSV</strong> — paste <code>Name,Qty</code> directly and click Analyze CSV only. Most reliable.<br><br>
-<strong style="color:var(--text-2)">💡 Best method for accuracy:</strong> paste your listing screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and doesn't need an API key. Copy the output, paste it into the CSV box here, and use Analyze CSV only.<br><br>
+<div class="notice notice-amber"><strong>Best method for accuracy:</strong> paste your listing screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and doesn't need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div>
+br>
 Regardless of method, always cross-reference the parsed data against the original listing before committing to a purchase.`
   },
   {
@@ -2829,17 +2913,28 @@ GGG does offer OAuth access to third-party developers, but it requires a formal 
 <strong>Harmonic EV</strong> structurally suppresses expensive outliers — a 512c Horned Scarab of Bloodlines contributes almost nothing to the calculation (<code>1/512 ≈ 0.002</code>). This makes it robust and consistent. It's essentially saying: <em>ignore the jackpot, base your threshold on what you reliably get back most of the time.</em> Good if you want predictable returns and don't want to over-extend your vendor budget chasing rare drops.<br><br>
 <strong>Weighted EV</strong> is the mathematically correct expected value given observed drop frequencies. If Bloodlines drops 0.03% of the time and is worth 512c, it contributes <code>0.0003 × 512 / 3 ≈ 0.05c</code> to the threshold. That's real EV you'd be ignoring with harmonic. Weighted EV is essentially saying: <em>the jackpot is real, factor it in, maximise your rolls.</em> If you're running thousands of trades and playing the long game, weighted EV is the theoretically correct threshold to use — every scarab you incorrectly sell instead of vendor is a missed roll at the jackpot pool.<br><br>
 The tradeoff is permanent, not just a data problem. Even with perfect drop rate data, weighted EV will always be higher than harmonic when there are jackpot scarabs in the pool — that's by design, not a flaw. Harmonic protects you from variance. Weighted maximises expected value at the cost of higher variance.<br><br>
-<strong>Practical recommendation:</strong> use Harmonic as your default. Switch to Weighted if you're running large volumes and are comfortable accepting that you might go hundreds of trades below the mean before the jackpots balance it out.`
+<div class="notice notice-amber"><strong>Practical recommendation:</strong> use Harmonic as your default. Switch to Weighted if you're running large volumes and are comfortable accepting that you might go hundreds of trades below the mean before the jackpots balance it out.</div>`
   },
   {
     title: 'Why use harmonic mean instead of arithmetic mean for EV?',
     body: `Arithmetic mean is distorted by expensive outliers. With 100 scarabs averaging 0.5c plus one Horned Scarab at 560c, the arithmetic mean implies a threshold of ~6c — far too generous. The harmonic mean weights by reciprocal: a 560c scarab contributes <code>1/560 ≈ 0.002</code> to the calculation, almost nothing, while 100 cheap scarabs at 0.5c each contribute <code>200</code>. The result stays grounded in what the vendor actually returns most of the time.`
   },
+  {
+    title: 'What is the Atlas Optimizer and how does it calculate EV?',
+    body: `The Atlas Optimizer helps you find the best atlas passive configuration for maximising the value of scarab drops in your maps.<br><br>
+<strong>How it works:</strong> every scarab type has an observed drop weight — how often it appears relative to others, derived from community vendor sessions. The map drop EV is the weighted average price across all active scarabs in the pool:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">Map Drop EV = Σ(weight_i × price_i) / Σ(weight_i)</code>
+<strong>Block nodes</strong> remove a mechanic's scarabs from the pool entirely — their weight drops to zero and the remaining weights are renormalised. This raises the EV if the blocked group is below-average value, because every drop that would have been a cheap common now rolls against a higher-value pool instead.<br><br>
+<strong>Boost nodes</strong> apply a ×2 weight multiplier to a group before renormalising — doubling that mechanic's share of the drop pool. This pays off most when the boosted group's average scarab price is well above the current pool EV.<br><br>
+The <strong>Delta</strong> column shows exactly how much each toggle moves the EV — positive means it helps, negative means it hurts. The <strong>Suggested</strong> badge marks the single toggle with the highest positive delta given your current configuration.<br><br>
+<div class="notice notice-amber"><strong>Weight data variance:</strong> The drop weights come from vendor session outputs submitted by the community. With a smaller dataset, rare expensive scarabs can appear more or less frequently than their true long-run rate — which shifts the EV figures. The relative rankings between mechanics are reliable even with limited data, but the exact numbers will tighten as more sessions accumulate. Treat this as directional guidance, not a precision instrument.</div>`
+  },
 ];
 
 function initFaq() {
   const list = document.getElementById('faq-list');
-  if (!list || list.children.length > 0) return;
+  if (!list) return;
+  list.innerHTML = ''; // always rebuild fresh
 
   FAQ_SECTIONS.forEach((section, i) => {
     const id = `faq-item-${i}`;
@@ -6502,10 +6597,78 @@ updateSortArrows();
 initSlider();
 fetchAndRenderEVChart();
 
+
+// Hash routing — runs after all functions and data are defined
+(function initHashRouting() {
+  const VALID_TABS = ['scarabEV','atlas','bulk','logger','analysis','faq'];
+  function loadFromHash() {
+    const raw = window.location.hash.replace('#', '');
+    const hash = raw === 'scarabEV' ? 'ninja' : raw;
+    if (VALID_TABS.includes(raw)) switchTab(hash, true);
+  }
+  loadFromHash();
+  window.addEventListener('hashchange', () => loadFromHash());
+})();
+
 // Close any open override input when clicking outside the table
 document.addEventListener('click', () => {
   if (_activeOverrideCell) closeActiveOverride();
 });
+
+// ── CHANGELOG ────────────────────────────────────────────────────────────────
+let _changelogLoaded = false;
+
+function toggleChangelog() {
+  const drawer  = document.getElementById('changelogDrawer');
+  const overlay = document.getElementById('changelogOverlay');
+  const open    = drawer.classList.contains('open');
+  drawer.classList.toggle('open', !open);
+  overlay.classList.toggle('open', !open);
+  document.body.style.overflow = !open ? 'hidden' : '';
+  if (!open && !_changelogLoaded) loadChangelog();
+}
+
+async function loadChangelog() {
+  const el = document.getElementById('changelogContent');
+  try {
+    const res  = await fetch('./CHANGELOG.md', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    el.innerHTML = parseChangelog(text);
+    _changelogLoaded = true;
+  } catch(e) {
+    el.innerHTML = '<div class="changelog-loading" style="color:var(--red)">Could not load CHANGELOG.md</div>';
+  }
+}
+
+function parseChangelog(md) {
+  const lines = md.split('
+');
+  let html = '';
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (line.startsWith('## ')) {
+      // ## [3.28] - 2026-03-23  →  version header
+      html += `<h2>${line.slice(3)}</h2>`;
+    } else if (line.startsWith('### ')) {
+      const label = line.slice(4).trim();
+      const cls   = label.toLowerCase();
+      html += `<h3 class="cl-${cls}">${label}</h3>`;
+    } else if (line.startsWith('- ')) {
+      // Start or continue a list
+      html += `<ul><li>${line.slice(2)}</li></ul>`;
+    } else if (line.startsWith('---')) {
+      html += '<hr>';
+    } else if (line.startsWith('# ')) {
+      // Top-level title — skip, we have the drawer header
+    } else if (line.trim()) {
+      html += `<p>${line}</p>`;
+    }
+  }
+  // Merge consecutive <ul> tags
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  return html;
+}
 </script>
 </body>
 </html>
