@@ -750,7 +750,7 @@ body {
   padding: 8px 18px; border-radius: 6px; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 9999;
 }
 [data-theme="dark"] .toast { background: #0e1020; border: 1px solid var(--border); }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
 
 /* ── LEAGUE SELECTOR ── */
 .league-select {
@@ -4530,8 +4530,7 @@ function copyRegex(tab) {
     const btn = document.getElementById(`${prefix}-copyBtn`);
     btn.textContent = 'Copied!'; btn.classList.add('copied');
     setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('copied'); }, 1500);
-    const t = document.getElementById('toast');
-    t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000);
+    showToast('Copied to clipboard', 2000);
   });
 }
 
@@ -5461,9 +5460,9 @@ function saveBulkNameMapFromInput() {
     localStorage.setItem(BULK_NAME_MAP_STORAGE_KEY, JSON.stringify(normalized));
     BULK_USER_NAME_MAP = normalized;
     recomputeBulkNameMap();
-    showToast('Bulk name map saved.');
+    showToast('Bulk name map saved.', 2000);
   } catch (e) {
-    showToast('Invalid bulk name map JSON.');
+    showToast('Invalid bulk name map JSON.', 2000);
   }
 }
 
@@ -6588,35 +6587,35 @@ loadBulkNameMap();
   if (devPanel && devPanel.style) devPanel.style.display = 'none';
 })();
 
-// ══════════════════════════════════════════════════
-renderManual(); // keep manual state fresh in background
-fetchNinja();
-fetchObservedWeights(); // pull weight distribution from community aggregate
-fetchPriceHistory();    // pull 7-day per-scarab price history for sparklines
-updateSortArrows();
-initSlider();
-fetchAndRenderEVChart();
-
-
-// Hash routing — runs after all functions and data are defined
-(function initHashRouting() {
-  const VALID_TABS = ['scarabEV','atlas','bulk','logger','analysis','faq'];
-  function loadFromHash() {
-    const raw = window.location.hash.replace('#', '');
-    const hash = raw === 'scarabEV' ? 'ninja' : raw;
-    if (VALID_TABS.includes(raw)) switchTab(hash, true);
-  }
-  loadFromHash();
-  window.addEventListener('hashchange', () => loadFromHash());
-})();
-
-// Close any open override input when clicking outside the table
-document.addEventListener('click', () => {
-  if (_activeOverrideCell) closeActiveOverride();
-});
-
 // ── CHANGELOG ────────────────────────────────────────────────────────────────
+const CURRENT_VERSION = '1.1';
 let _changelogLoaded = false;
+
+function showToast(msg, duration, onClick) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.cursor = onClick ? 'pointer' : 'default';
+  t.onclick = onClick || null;
+  t.classList.add('show');
+  setTimeout(() => { t.classList.remove('show'); t.onclick = null; }, duration || 2000);
+}
+
+function checkVersionToast() {
+  const last = localStorage.getItem('scarabev-last-version');
+  if (!last) {
+    localStorage.setItem('scarabev-last-version', CURRENT_VERSION);
+    return;
+  }
+  if (last !== CURRENT_VERSION) {
+    localStorage.setItem('scarabev-last-version', CURRENT_VERSION);
+    setTimeout(() => {
+      showToast('❆ ScarabEV ' + CURRENT_VERSION + ' — tap to see what's new', 5000, () => {
+        toggleChangelog();
+        document.getElementById('toast').classList.remove('show');
+      });
+    }, 1200);
+  }
+}
 
 function toggleChangelog() {
   const drawer  = document.getElementById('changelogDrawer');
@@ -6642,33 +6641,57 @@ async function loadChangelog() {
 }
 
 function parseChangelog(md) {
-  const lines = md.split('
-');
+  const lines = md.split('\n');
   let html = '';
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (line.startsWith('## ')) {
-      // ## [3.28] - 2026-03-23  →  version header
-      html += `<h2>${line.slice(3)}</h2>`;
+      html += '<h2>' + line.slice(3) + '</h2>';
     } else if (line.startsWith('### ')) {
       const label = line.slice(4).trim();
-      const cls   = label.toLowerCase();
-      html += `<h3 class="cl-${cls}">${label}</h3>`;
+      html += '<h3 class="cl-' + label.toLowerCase() + '">' + label + '</h3>';
     } else if (line.startsWith('- ')) {
-      // Start or continue a list
-      html += `<ul><li>${line.slice(2)}</li></ul>`;
+      html += '<ul><li>' + line.slice(2) + '</li></ul>';
     } else if (line.startsWith('---')) {
       html += '<hr>';
     } else if (line.startsWith('# ')) {
-      // Top-level title — skip, we have the drawer header
+      // skip top-level title
     } else if (line.trim()) {
-      html += `<p>${line}</p>`;
+      html += '<p>' + line + '</p>';
     }
   }
-  // Merge consecutive <ul> tags
-  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  html = html.replace(/<\/ul><ul>/g, '');
   return html;
 }
+
+// ══════════════════════════════════════════════════
+renderManual(); // keep manual state fresh in background
+fetchNinja();
+fetchObservedWeights(); // pull weight distribution from community aggregate
+fetchPriceHistory();    // pull 7-day per-scarab price history for sparklines
+updateSortArrows();
+initSlider();
+fetchAndRenderEVChart();
+checkVersionToast();
+
+// Hash routing — runs after all functions and data are defined
+(function initHashRouting() {
+  const VALID_TABS = ['scarabEV','atlas','bulk','logger','analysis','faq'];
+  function loadFromHash() {
+    const raw = window.location.hash.replace('#', '');
+    const hash = raw === 'scarabEV' ? 'ninja' : raw;
+    if (VALID_TABS.includes(raw)) switchTab(hash, true);
+  }
+  loadFromHash();
+  window.addEventListener('hashchange', () => loadFromHash());
+})();
+
+// Close any open override input when clicking outside the table
+document.addEventListener('click', () => {
+  if (_activeOverrideCell) closeActiveOverride();
+});
+
+
 </script>
 </body>
 </html>
