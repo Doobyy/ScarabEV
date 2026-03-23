@@ -1451,7 +1451,11 @@ body {
   /* ── SCARAB VENDOR & NINJA TABLES: horizontal scroll ── */
   .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .table-head, .scarab-row { min-width: 720px; }
+  .table-head { grid-template-columns: 44px 120px 110px 130px 100px 92px 80px; }
+  .scarab-row  { grid-template-columns: 44px 120px 110px 130px 100px 92px 80px; }
   .table-head.ninja-head, .scarab-row.ninja-row { min-width: 560px; }
+  .table-head.ninja-head { grid-template-columns: 44px 120px 100px 88px 90px 76px; }
+  .scarab-row.ninja-row  { grid-template-columns: 44px 120px 100px 88px 90px 76px; }
   .table-head.ninja-head .th:nth-child(3),
   .scarab-row.ninja-row .td:nth-child(3) { display: none; }
 
