@@ -19,6 +19,8 @@ export const state = {
   // Weight / calibration
   _observedWeights: null,  // { scarabName -> normalizedWeight } from aggregate
   _weightSessionCount: 0,
+  _weightMeta: null,
+  _weightUnavailableReason: null,
   _observedRateRaw: null,  // kept for admin/historical display only - not used in EV calc
   _calibratedRate: null,   // null = not ready; set once weights + ninja loaded
   _calibratedMean: null,   // sum(weight x ninjaPrice) / 3 - weighted EV threshold

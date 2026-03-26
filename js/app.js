@@ -54,24 +54,45 @@ try { const o = localStorage.getItem('poepool28v2-evoverride'); if (o) state.evO
 
 async function fetchObservedWeights() {
   if (!POOL_API_URL) return;
+  const league = document.getElementById('leagueSelect')?.value || '';
   try {
-    const res = await fetch(POOL_API_URL + '/api/aggregate', { cache: 'no-store' });
+    const url = POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league);
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
+    const providedWeights = data.weights && typeof data.weights === 'object' ? data.weights : null;
     const received = data.receivedByScarab || {};
-    const totalReceived = Object.values(received).reduce((s, n) => s + n, 0);
-    if (totalReceived < 100) return; // not enough observations yet
+    const totalReceived = Object.values(received).reduce((s, n) => s + (Number(n) || 0), 0);
 
-    // Normalize counts to weights - purely frequency data, no prices.
-    const weights = {};
-    for (const [name, count] of Object.entries(received)) {
-      weights[name] = count / totalReceived;
+    let weights = providedWeights;
+    if (!weights && totalReceived > 0) {
+      // Backward compatibility with older API payloads that return only raw received counts.
+      weights = {};
+      for (const [name, count] of Object.entries(received)) {
+        const c = Number(count) || 0;
+        if (c > 0) weights[name] = c / totalReceived;
+      }
     }
-    state._observedWeights = weights;
-    state._weightSessionCount = data.sessionCount || 0;
+    const hasWeights = !!(weights && Object.keys(weights).length > 0);
+    state._observedWeights = hasWeights ? weights : null;
+    state._weightSessionCount = data.weightSessionCount || data.sessionCount || 0;
+    state._weightMeta = data.weightMeta || null;
+    state._weightUnavailableReason = hasWeights ? null : (data?.weightMeta?.reason || 'Not enough community data for weighted mode yet.');
 
-    // Compute rate now if ninja prices are already loaded
-    if (state.ninjaLoaded) {
+    if (!hasWeights) {
+      state._calibratedMean = null;
+      state._calibratedP20 = null;
+      state._calibratedRate = null;
+      if (state._evMode === 'weighted') {
+        setEVMode('harmonic');
+        const threshModeEl = document.getElementById('thresholdModeLabel');
+        if (threshModeEl) threshModeEl.textContent = 'harmonic EV';
+      }
+      calcEstimator();
+      return;
+    }
+
+    if (state.ninjaLoaded && state._observedWeights) {
       const result = computeWeightBasedRate();
       if (result) {
         state._calibratedMean = result.mean;
@@ -799,6 +820,7 @@ async function fetchCurrentLeague() {
 
 async function fetchNinja() {
   const league = document.getElementById('leagueSelect').value;
+  fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
   const btn    = document.getElementById('refreshBtn');
   status.textContent = 'Loading prices from poe.ninja…'; status.className = 'ninja-status loading';
@@ -826,6 +848,10 @@ async function fetchNinja() {
         state._calibratedMean = result.mean;
         state._calibratedP20 = result.conservative;
         state._calibratedRate = result.conservative;
+      } else {
+        state._calibratedMean = null;
+        state._calibratedP20 = null;
+        state._calibratedRate = null;
       }
     }
     // Check atlas revisit warning now that prices are live
@@ -1491,8 +1517,9 @@ function setEVMode(mode) {
 
   // Only switch to weighted if data is ready
   if (mode === 'weighted' && state._calibratedMean === null) {
-    document.getElementById('thresholdModeLabel').textContent = 'waiting for weight data…';
-    return;
+    const reason = state._weightUnavailableReason || 'waiting for weight data…';
+    document.getElementById('thresholdModeLabel').textContent = reason;
+    return setEVMode('harmonic');
   }
   // Reset to auto EV (no manual override) so the new mode takes effect immediately
   state.ninjaEvOverride = null;
@@ -1754,6 +1781,10 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
       state._calibratedMean  = result.mean;
       state._calibratedP20 = result.conservative;
       state._calibratedRate  = result.conservative;
+    } else {
+      state._calibratedMean = null;
+      state._calibratedP20 = null;
+      state._calibratedRate = null;
     }
   }
 
@@ -2398,7 +2429,8 @@ function renderAnalysis() {
     emptyEl.style.display = 'block';
     contentEl.style.display = 'none';
     emptyEl.innerHTML = '<p>Loading community data…</p>';
-    fetch(POOL_API_URL + '/api/aggregate')
+    const league = document.getElementById('leagueSelect')?.value || '';
+    fetch(POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league))
       .then(res => res.ok ? res.json() : null)
       .then(agg => {
         if (agg && (agg.sessionCount > 0 || Object.keys(agg.receivedByScarab || {}).length > 0)) {
