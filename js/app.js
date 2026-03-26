@@ -1367,13 +1367,13 @@ function refreshSliderScale(autoEV) {
 }
 
 function sliderValueToThreshold(val) {
-  const pct = Math.min(100, Math.max(0, parseInt(val, 10) || 0)) / 100;
+  const pct = Math.min(100, Math.max(0, parseFloat(val) || 0)) / 100;
   return Math.min(_sliderMaxChaos, Math.max(0, pct * _sliderMaxChaos));
 }
 
 function thresholdToSliderValue(threshold) {
   if (!_sliderMaxChaos || _sliderMaxChaos <= 0) return 0;
-  return Math.min(100, Math.max(0, Math.round((threshold / _sliderMaxChaos) * 100)));
+  return Math.min(100, Math.max(0, (threshold / _sliderMaxChaos) * 100));
 }
 
 function positionMarker(ev) {
@@ -1457,7 +1457,7 @@ function applySliderChange(val) {
 }
 
 function onSliderChange(val) {
-  _pendingSliderInput = parseInt(val, 10);
+  _pendingSliderInput = parseFloat(val);
   if (_sliderInputRaf !== null) return;
   _sliderInputRaf = requestAnimationFrame(() => {
     _sliderInputRaf = null;
