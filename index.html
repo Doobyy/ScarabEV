@@ -1,0 +1,3342 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScarabEV Draft 7 - Current Layout + Refined Contrast</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── LIGHT THEME ── */
+:root {
+  --bg: #dde1e9;
+  --bg-card: #ffffff;
+  --bg-row-alt: #f8f9fb;
+  --bg-input: #eef0f4;
+  --bg-table-head: #eef0f4;
+  --bg-group: #f0f2f6;
+  --border: #d0d4de;
+  --border-strong: #b0b5c4;
+  --text: #0e1118;
+  --text-2: #363a4a;
+  --text-3: #5f6780;
+  --accent: #4b6cf7;
+  --accent-dim: #dde3fd;
+  --green: #1e9c52;
+  --green-bg: #e8f8ef;
+  --green-border: #8ed9b0;
+  --red: #d63a2c;
+  --amber: #d4700e;
+  --amber-bg: #fef3e4;
+  --chaos: #a03ec8;
+  --chaos-bg: #f3e8fd;
+  --chaos-border: #cc98ee;
+  --header-bg: #141620;
+  --row-hover: #eaedfc;
+  --vendor-row: #e6f7ee;
+  --vendor-row-hover: #d5f0e2;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.10);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+  --tab-inactive: #868c9e;
+  --tab-active-bg: #ffffff;
+  --bg-outer: #dde1e9;
+  --ninja-accent: #d4900a;
+  --ninja-bg: #fff9ee;
+  --ninja-border: #ead898;
+  --atlas-boost: #9a7c00;
+}
+
+/* ── DARK THEME ── */
+[data-theme="dark"] {
+  --bg: #13151f;
+  --bg-card: #1e2235;
+  --bg-row-alt: #222840;
+  --bg-input: #141828;
+  --bg-table-head: #191d30;
+  --bg-group: #1b1f32;
+  --border: #2e3450;
+  --border-strong: #424a68;
+  --text: #e8ecf8;
+  --text-2: #9aa4c4;
+  --text-3: #7a85a8;
+  --accent: #7090ff;
+  --accent-dim: #1a2560;
+  --green: #36d87e;
+  --green-bg: #0e2418;
+  --green-border: #1e5c38;
+  --red: #ff5f50;
+  --amber: #378ADD;
+  --amber-bg: #0d1e2e;
+  --chaos: #d080f8;
+  --chaos-bg: #1e1030;
+  --chaos-border: #5e2880;
+  --header-bg: #0e1020;
+  --row-hover: #222a50;
+  --vendor-row: #0e2418;
+  --vendor-row-hover: #163322;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+  --tab-inactive: #525c7a;
+  --tab-active-bg: #1e2235;
+  --bg-outer: #13151f;
+  --ninja-accent: #5aaaf5;
+  --ninja-bg: #0a1825;
+  --ninja-border: #2a5a8a;
+  --atlas-boost: #d4b800;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: auto;
+  overflow-y: scroll;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  background: var(--bg-outer);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.2s, color 0.2s;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── NAV ── */
+.topnav {
+  background: var(--header-bg);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 46px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.nav-logo { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.02em; cursor: pointer; user-select: none; }
+.nav-logo span { color: #c870e8; }
+.nav-tag {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  background: rgba(200,112,232,0.18); color: #d090ee; padding: 2px 7px; border-radius: 3px;
+}
+.nav-sep { flex: 1; }
+
+/* Tabs in nav */
+.nav-tabs { display: flex; gap: 2px; }
+.nav-tab {
+  font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 14px;
+  border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.76);
+  border-bottom: 2px solid transparent; transition: all 0.15s; letter-spacing: 0.01em;
+  margin-bottom: -1px;
+}
+.nav-tab:hover { color: rgba(255,255,255,0.9); }
+.nav-tab.active { color: #fff; border-bottom-color: #c870e8; }
+.nav-tab.ninja-tab.active { border-bottom-color: var(--ninja-accent); color: var(--ninja-accent); }
+
+/* Dark mode toggle */
+.theme-toggle {
+  width: 44px; height: 20px; border-radius: 20px; cursor: pointer;
+  border: none; padding: 0;
+  background: #e8e8e8;
+  box-shadow: inset 0px 2px 5px rgba(0,0,0,0.25), inset 0px -2px 5px rgba(255,255,255,0.3);
+  display: flex; align-items: center;
+  flex-shrink: 0; transition: background 0.3s;
+  position: relative;
+}
+[data-theme="dark"] .theme-toggle { background: #1e2235; }
+/* sliding circle */
+.theme-toggle::before {
+  content: ''; position: absolute;
+  width: 16px; height: 16px; border-radius: 50%;
+  top: 2px; left: 2px;
+  background: linear-gradient(180deg, #e8b86d, #c07a0a);
+  box-shadow: 0px 2px 4px rgba(0,0,0,0.3);
+  transition: transform 0.3s, background 0.3s, width 0.15s;
+  z-index: 1;
+}
+[data-theme="dark"] .theme-toggle::before {
+  transform: translateX(24px);
+  background: linear-gradient(180deg, #5c74d4, #2e4699);
+}
+.theme-toggle:active::before { width: 22px; }
+/* sun icon */
+.theme-toggle .icon-sun {
+  position: absolute;
+  left: 2px; top: 50%;
+  transform: translateY(-50%);
+  width: 16px; height: 16px;
+  fill: rgba(255,255,255,0.45);
+  stroke: rgba(255,255,255,0.45);
+  z-index: 2;
+  transition: fill 0.3s, stroke 0.3s;
+}
+[data-theme="dark"] .theme-toggle .icon-sun { fill: #3a3a3a; stroke: #3a3a3a; }
+/* moon icon */
+.theme-toggle .icon-moon {
+  position: absolute;
+  right: 3px; top: 50%;
+  transform: translateY(-50%);
+  width: 11px; height: 11px;
+  fill: #888; z-index: 2;
+  transition: fill 0.3s;
+}
+[data-theme="dark"] .theme-toggle .icon-moon { fill: rgba(255,255,255,0.8); }
+.theme-icon { display: none; }
+
+/* ── CHANGELOG DRAWER ── */
+.changelog-btn {
+  font-family: inherit; font-size: 11px; font-weight: 500;
+  padding: 4px 10px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent; color: rgba(255,255,255,0.5);
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.changelog-btn:hover { color: #fff; border-color: rgba(255,255,255,0.35); }
+.changelog-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.changelog-overlay.open { opacity: 1; pointer-events: all; }
+.changelog-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 100vw;
+  background: var(--bg-card); border-left: 1px solid var(--border);
+  z-index: 201; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+}
+.changelog-drawer.open { transform: translateX(0); }
+.changelog-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head); flex-shrink: 0;
+}
+.changelog-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.changelog-close {
+  font-family: inherit; font-size: 14px; padding: 3px 7px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--text-3); cursor: pointer; transition: all 0.15s;
+}
+.changelog-close:hover { color: var(--red); border-color: var(--red); }
+.changelog-content {
+  flex: 1; overflow-y: auto; padding: 18px; font-size: 12px;
+  line-height: 1.7; color: var(--text-2);
+}
+.changelog-content h2 {
+  font-size: 13px; font-weight: 700; color: var(--chaos);
+  margin: 20px 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.changelog-content h2:first-child { margin-top: 0; }
+.changelog-content h3 {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-3); margin: 10px 0 4px;
+}
+.changelog-content h3.cl-added   { color: var(--green); }
+.changelog-content h3.cl-fixed   { color: var(--accent); }
+.changelog-content h3.cl-changed { color: var(--amber); }
+.changelog-content h3.cl-removed { color: var(--red); }
+.changelog-content ul { padding-left: 14px; margin: 0 0 6px; }
+.changelog-content li { margin-bottom: 3px; color: var(--text-2); }
+.changelog-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.changelog-content p { color: var(--text-3); font-size: 11px; margin-bottom: 12px; }
+.changelog-loading { color: var(--text-3); font-size: 12px; padding: 24px; text-align: center; }
+
+/* ── LAYOUT ── */
+.page {
+  max-width: 1120px; margin: 0 auto; padding: 20px 20px 80px;
+  background: var(--bg); border-radius: 10px;
+  box-shadow: none;
+  min-height: calc(100vh - 46px);
+}
+[data-theme="dark"] .page {
+  background: var(--bg);
+}
+
+/* Tab panes */
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 13px 15px; box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s;
+}
+.stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+.stat-value.ev, .stat-value.thresh { color: var(--chaos); }
+.stat-value.green { color: var(--green); }
+.stat-sub { font-size: 10px; color: var(--text-3); margin-top: 3px; }
+
+/* ── EV NOTE ── */
+.ev-note { display: none; }
+.ev-note.show { display: none; }
+
+/* ── INFO BAR (replaces ev-note) ── */
+.info-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; margin-bottom: 14px; font-size: 11px;
+  color: var(--text-3); transition: background 0.2s;
+}
+.info-bar-text { flex: 1; }
+.info-bar-text strong { color: var(--text-2); }
+.info-bar-import {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 4px 11px;
+  border: 1px solid var(--border); border-radius: 4px; background: transparent;
+  color: var(--text-2); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.info-bar-import:hover { border-color: var(--accent); color: var(--accent); }
+.info-bar-clear {
+  font-family: inherit; font-size: 11px; padding: 4px 8px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--text-3);
+  cursor: pointer; transition: all 0.15s;
+}
+.info-bar-clear:hover { color: var(--red); border-color: var(--red); }
+
+.ev-override-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  background: var(--amber-bg); border: 1px solid #f5d78e; border-radius: 6px;
+  margin-bottom: 14px; font-size: 12px; flex-wrap: wrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+[data-theme="dark"] .ev-override-bar { background: #0d1e2e; border-color: #2a5a8a; }
+[data-theme="dark"] .ev-override-input { border-color: #2a5a8a; }
+[data-theme="dark"] .ev-clear-btn { border-color: #2a5a8a; }
+[data-theme="dark"] .bulk-unmatched { background: #0d1e2e; border-color: #2a5a8a; }
+.ev-override-bar label { font-weight: 600; color: var(--amber); white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; }
+.ev-override-input {
+  width: 80px; padding: 4px 8px; border: 1px solid #f5d78e; border-radius: 4px;
+  background: var(--bg-card); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--amber); text-align: center; outline: none;
+  -moz-appearance: textfield;
+}
+.ev-override-input::-webkit-outer-spin-button,
+.ev-override-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.ev-override-input:focus { border-color: var(--amber); }
+.ev-override-hint { font-size: 11px; color: var(--text-3); }
+.ev-override-active { color: var(--amber); font-size: 11px; font-weight: 600; }
+.ev-clear-btn {
+  font-family: inherit; font-size: 11px; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid #f5d78e; background: transparent; color: var(--amber);
+  cursor: pointer; transition: all 0.15s; margin-left: auto;
+}
+.ev-clear-btn:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+/* EV mode toggle — desktop shows two buttons, mobile shows pill */
+#evModePill { display: none; }
+.ev-mode-desktop { display: flex; }
+
+/* ── REGEX PANEL ── */
+.regex-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.regex-header {
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.regex-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.char-pill { font-size: 10px; font-weight: 500; padding: 1px 7px; border-radius: 10px; font-variant-numeric: tabular-nums; color: var(--text-3); background: var(--bg); border: 1px solid var(--border); }
+.char-pill.ok  { color: var(--text-3); background: var(--bg); border-color: var(--border); }
+.char-pill.warn { color: var(--amber); background: var(--amber-bg); border-color: var(--border); }
+.char-pill.over { color: var(--red); background: var(--bg); border-color: var(--border); }
+.copy-btn-sm {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 4px 11px;
+  border: 1px solid var(--accent); border-radius: 4px; background: var(--accent-dim);
+  color: var(--accent); cursor: pointer; transition: all 0.15s; margin-left: auto;
+}
+.copy-btn-sm:hover { background: var(--accent); color: #fff; }
+.copy-btn-sm.copied { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.regex-body {
+  padding: 14px 16px; font-family: 'Courier New', monospace; font-size: 13px; font-weight: 600;
+  color: var(--chaos); word-break: break-all; line-height: 1.7; cursor: pointer;
+  min-height: 42px; user-select: all; transition: background 0.2s;
+  letter-spacing: 0.01em;
+}
+[data-theme="dark"] .regex-body { color: #d080f8; }
+.regex-empty-msg { color: var(--text-3); font-family: inherit; font-style: italic; font-size: 12px; cursor: default; font-weight: 400; }
+.regex-warn { padding: 7px 14px; background: #fdecea; border-top: 1px solid #f5b8b3; font-size: 11px; color: var(--red); display: none; }
+[data-theme="dark"] .regex-warn { background: #2a1010; border-color: #6a2020; }
+.regex-warn.show { display: block; }
+
+/* ── TOOLBAR ── */
+.toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 300px; }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 12px; pointer-events: none; }
+.search-input {
+  width: 100%; padding: 6px 9px 6px 28px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg-card); font-family: inherit; font-size: 12px; color: var(--text);
+  outline: none; transition: border-color 0.15s, background 0.2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-3); }
+
+.btn {
+  font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 13px; border-radius: 5px;
+  cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2);
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn:hover { background: var(--bg-row-alt); border-color: var(--border-strong); color: var(--text); }
+.btn.danger:hover { color: var(--red); border-color: var(--red); }
+
+.view-toggle { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; background: var(--bg-card); }
+.view-toggle button {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 5px 11px;
+  border: none; cursor: pointer; background: transparent; color: var(--text-3); transition: all 0.15s;
+}
+.view-toggle button.active { background: var(--accent); color: #fff; }
+.view-toggle button.ninja-active { background: var(--ninja-accent); color: #fff; }
+
+.sort-arrow { font-size: 9px; color: var(--text-3); opacity: 0.5; }
+.sort-arrow.active { color: var(--accent); opacity: 1; }
+.th:hover .sort-arrow { opacity: 1; }
+
+/* Inline override cell */
+.price-cell {
+  position: relative; display: flex; width: 100%; align-items: center; justify-content: flex-end;
+  cursor: pointer; gap: 5px;
+}
+.price-cell:hover .price-val:not(.overridden) { text-decoration: underline dotted; }
+.price-val { font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; display: inline-block; }
+.price-val.overridden { color: var(--amber); font-weight: 600; }
+/* Trash always shown next to overridden price */
+.price-trash {
+  font-size: 11px; padding: 1px 3px; border: none;
+  background: transparent; color: var(--text-3); cursor: pointer; line-height: 1; flex-shrink: 0;
+  transition: color 0.1s;
+}
+.price-trash:hover { color: var(--red); }
+.override-inputs { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+.override-qty, .override-cost {
+  width: 42px; padding: 2px 4px; border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--bg-card); font-family: inherit; font-size: 11px; color: var(--text);
+  text-align: center; outline: none; -moz-appearance: textfield;
+}
+.override-qty::-webkit-outer-spin-button, .override-qty::-webkit-inner-spin-button,
+.override-cost::-webkit-outer-spin-button, .override-cost::-webkit-inner-spin-button { -webkit-appearance: none; }
+.override-qty::placeholder, .override-cost::placeholder { color: var(--text-3); font-style: italic; }
+.override-sep { font-size: 11px; color: var(--text-3); }
+.override-confirm {
+  font-size: 10px; padding: 2px 5px; border-radius: 3px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; cursor: pointer; font-family: inherit; font-weight: 600;
+}
+.override-confirm:hover { opacity: 0.85; }
+.override-clear {
+  font-size: 11px; padding: 1px 3px; border: none;
+  background: transparent; color: var(--text-3); cursor: pointer; font-family: inherit;
+}
+.override-clear:hover { color: var(--red); }
+
+/* ── THRESHOLD SLIDER ── */
+.threshold-bar {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 12px 16px; margin-bottom: 14px;
+  box-shadow: var(--shadow-sm); transition: background 0.2s, border-color 0.2s;
+}
+.threshold-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.threshold-left { display: flex; align-items: center; gap: 10px; }
+.threshold-right { display: flex; align-items: center; gap: 10px; }
+.threshold-hint { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.threshold-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.threshold-value { font-size: 18px; font-weight: 700; color: var(--chaos); font-variant-numeric: tabular-nums; min-width: 48px; }
+.threshold-mode { font-size: 11px; color: var(--text-3); }
+.threshold-roi { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.threshold-roi.roi-good { color: var(--green); }
+.threshold-roi.roi-warn { color: var(--amber); }
+.threshold-roi.roi-bad  { color: var(--red); }
+.slider-wrap { margin-bottom: 6px; }
+.slider-track-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); margin-bottom: 4px; }
+.breakeven-label { color: var(--green); font-weight: 600; }
+.threshold-slider {
+  width: 100%; cursor: pointer; height: 6px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--border); border-radius: 3px; outline: none;
+}
+.threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 22px; border-radius: 4px;
+  background: var(--chaos); cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  transition: opacity 0.1s;
+}
+.threshold-slider::-webkit-slider-thumb:hover { opacity: 0.85; }
+.threshold-slider::-moz-range-thumb {
+  width: 14px; height: 22px; border-radius: 4px;
+  background: var(--chaos); cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.threshold-slider::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px; background: var(--border);
+}
+.threshold-slider::-moz-range-track {
+  height: 6px; border-radius: 3px; background: var(--border);
+}
+.slider-breakeven-marker {
+  position: absolute; top: -4px; width: 2px; height: calc(100% + 4px);
+  background: var(--green); color: var(--green); border-radius: 1px; pointer-events: none;
+  transform: translateX(-50%); opacity: 0.7;
+}
+.slider-breakeven-marker::before {
+  content: "";
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; color: currentColor; white-space: nowrap; font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.slider-marker-btn {
+  position: absolute; top: -18px; left: 50%; transform: translate(-50%, -2px);
+  font-family: inherit; font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
+  line-height: 1; white-space: nowrap; z-index: 2;
+  border-radius: 4px; padding: 1px 6px; margin: 0;
+  border: 1px solid var(--green);
+  color: var(--green);
+  background: rgba(36, 232, 158, 0.08);
+  pointer-events: none; cursor: default;
+}
+.slider-marker-btn.is-auto { border-color: var(--green); color: var(--green); background: rgba(36, 232, 158, 0.08); }
+[data-theme="light"] .slider-marker-btn.is-auto {
+  color: #2a8f69;
+  border-color: rgba(42, 143, 105, 0.55);
+  background: rgba(42, 143, 105, 0.08);
+}
+.slider-marker-btn.is-reset {
+  border: 1px solid #e7bb66;
+  color: #9a6a13; cursor: pointer; pointer-events: auto;
+  background: rgba(245, 215, 142, 0.16);
+}
+.slider-marker-btn.is-reset:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+[data-theme="dark"] .slider-marker-btn.is-auto {
+  border-color: rgba(98, 240, 189, 0.5);
+  color: #7ce9c0;
+  background: rgba(54, 212, 154, 0.09);
+}
+[data-theme="dark"] .slider-marker-btn.is-reset {
+  border-color: #4b8fcb;
+  color: #8dc5ff;
+  background: rgba(55, 138, 221, 0.12);
+}
+.slider-roi-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 6px; margin-left: 7px; margin-right: 7px; }
+.slider-roi-segment { height: 4px; transition: width 0.15s; border-radius: 1px; }
+/* ── SESSION LOGGER ── */
+.logger-intro { margin-bottom: 16px; }
+.logger-intro-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.logger-intro-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 680px; }
+.logger-form { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+.logger-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.logger-field { display: flex; flex-direction: column; gap: 6px; }
+.logger-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.logger-upload { display: flex; align-items: center; justify-content: center; padding: 10px 14px; border: 1.5px dashed var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-3); transition: all 0.15s; text-align: center; }
+.logger-upload:hover { border-color: var(--accent); color: var(--accent); }
+.logger-upload.loaded { border-color: var(--green); border-style: solid; color: var(--green); }
+.logger-regex-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-card); font-family: 'Courier New', monospace; font-size: 12px; color: var(--chaos); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+.logger-regex-input:focus { border-color: var(--accent); }
+.logger-regex-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; min-height: 16px; }
+.logger-submit-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 20px; border: 1px solid var(--accent); border-radius: 5px; background: var(--accent); color: #fff; cursor: pointer; transition: all 0.15s; }
+.logger-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.logger-submit-btn:not(:disabled):hover { opacity: 0.85; }
+[data-theme="dark"] .logger-submit-btn { background: #378ADD; border-color: #378ADD; color: #fff; }
+[data-theme="dark"] .logger-submit-btn:disabled { background: #0d1e2e; border-color: #2a5a8a; color: #2a5a8a; opacity: 1; }
+[data-theme="dark"] .logger-submit-btn:not(:disabled):hover { background: #4a96e8; border-color: #4a96e8; opacity: 1; }
+.logger-submit-status { font-size: 12px; color: var(--text-3); }
+.logger-preview { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
+.logger-preview-header { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+.logger-stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.logger-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+.logger-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.logger-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.logger-stat-value.green { color: var(--green); }
+.logger-stat-value.red { color: var(--red); }
+.logger-section-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.logger-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; box-shadow: var(--shadow-sm); }
+.logger-history-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 20px; }
+.logger-vendor-head,
+.logger-vendor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 72px 64px 72px 74px;
+  align-items: center;
+}
+.logger-keeper-head,
+.logger-keeper-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 72px 74px;
+  align-items: center;
+}
+.logger-vendor-head .th { white-space: nowrap; }
+.logger-keeper-head .th { white-space: nowrap; }
+.logger-hdr-mobile { display: none; }
+
+/* ── DATA ANALYSIS TAB ── */
+.analysis-intro { margin-bottom: 16px; }
+.analysis-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.analysis-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 720px; }
+.analysis-empty { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 24px; text-align: center; color: var(--text-3); }
+.analysis-empty p { margin: 0; font-size: 13px; }
+.analysis-stats-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.analysis-stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
+.analysis-stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.analysis-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.analysis-stat-value.green { color: var(--green); }
+.analysis-stat-value.amber { color: var(--amber); }
+.analysis-stat-value.red { color: var(--red); }
+.analysis-stat-value.chaos { color: var(--chaos); }
+.analysis-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+.analysis-section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-2); margin-bottom: 4px; }
+.analysis-section-desc { font-size: 11px; color: var(--text-3); margin-bottom: 12px; line-height: 1.5; }
+.analysis-chart-wrapper { position: relative; }
+.analysis-chart-axes { display: flex; flex-direction: column; gap: 4px; }
+.analysis-chart-row { display: flex; align-items: stretch; gap: 0; min-height: 0; }
+.analysis-chart-y-label { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; width: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding-right: 8px; }
+.analysis-chart-y-label span { transform: rotate(-90deg); white-space: nowrap; }
+.analysis-chart-vertical-wrap { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 0 0 20px 0; min-height: 0; position: relative; flex: 1; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.analysis-chart-x-label { font-size: 10px; color: var(--text-3); margin-top: 4px; min-height: 20px; }
+.analysis-chart-note { font-size: 10px; color: var(--text-3); margin-top: 2px; font-style: italic; }
+.analysis-bar-vertical { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: default; }
+.analysis-bar-vertical .bar-inner { width: 100%; max-width: 24px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--accent), var(--chaos)); transition: height 0.2s; min-height: 2px; }
+.analysis-bar-vertical:hover .bar-inner { opacity: 0.9; }
+.analysis-tooltip { position: fixed; z-index: 10000; padding: 6px 10px; background: var(--header-bg); color: #fff; font-size: 11px; border-radius: 4px; box-shadow: var(--shadow-md); pointer-events: none; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; opacity: 0; visibility: hidden; transition: none; }
+.analysis-tooltip.show { opacity: 1; visibility: visible; }
+.logger-history-grid { display: grid; gap: 10px; align-items: center; }
+.logger-history-grid .cell-left { text-align: left; }
+.logger-history-grid .cell-right { text-align: right; font-variant-numeric: tabular-nums; }
+.analysis-weight-head .th[data-sort] { cursor: pointer; user-select: none; }
+.analysis-weight-head .th[data-sort]:hover { color: var(--accent); }
+.analysis-weight-head .th[data-sort] { position: relative; }
+.analysis-weight-head .th[data-sort].sort-asc::after,
+.analysis-weight-head .th[data-sort].sort-desc::after {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  opacity: 0.7;
+  line-height: 1;
+}
+.analysis-weight-head .th[data-sort].sort-asc::after { content: '▲'; }
+.analysis-weight-head .th[data-sort].sort-desc::after { content: '▼'; }
+.recv-mobile { display: none; }
+.recv-desktop { display: inline; }
+.contrib-mobile { display: none; }
+.contrib-desktop { display: inline; }
+.analysis-ev-compare { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.analysis-ev-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+.analysis-ev-card .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); margin-bottom: 4px; }
+.analysis-ev-card .value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.analysis-ev-card .value.green { color: var(--green); }
+.analysis-ev-card .value.amber { color: var(--amber); }
+
+/* Subtle readability bump for fine-print/helper copy (no layout changes). */
+.stat-sub,
+.threshold-mode,
+.ev-override-hint,
+.logger-submit-status,
+.logger-regex-hint,
+.analysis-section-desc,
+.analysis-chart-note,
+.bulk-hint,
+.bulk-summary-item-sub {
+  line-height: 1.45;
+}
+
+.logger-purple-bold {color: var(--chaos) !important; font-weight: 600 !important; }
+
+/* ── EV CHART PANEL ── */
+.ev-chart-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px; transition: background 0.2s; }
+.ev-chart-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--bg-table-head); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+.ev-chart-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.ev-chart-meta { font-size: 11px; color: var(--text-3); flex: 1; }
+.ev-chart-body { padding: 12px 16px; }
+.ev-chart-panel.collapsed .ev-chart-body { display: none; }
+.ev-chart-panel.collapsed .estimator-chevron { transform: rotate(-90deg); }
+
+/* ── ESTIMATOR PANEL ── */
+.estimator-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden;
+  margin-bottom: 14px; transition: background 0.2s, border-color 0.2s;
+}
+.estimator-header {
+  display: flex; align-items: center; padding: 9px 14px; gap: 0;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.estimator-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); flex: 1; min-width: 0; }
+.estimator-subtitle { font-size: 11px; color: var(--text-3); }
+.estimator-chevron { font-size: 10px; color: var(--text-3); transition: transform 0.15s; margin-left: 8px; }
+.estimator-panel.collapsed .estimator-chevron { transform: rotate(-90deg); }
+.estimator-panel.collapsed .estimator-body { display: none; }
+.estimator-body { padding: 14px 16px; }
+.estimator-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.estimator-label { font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.estimator-input {
+  width: 100px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg-input); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text); outline: none; text-align: center; transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.estimator-input::-webkit-outer-spin-button,
+.estimator-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.estimator-input:focus { border-color: var(--accent); }
+.estimator-hint { font-size: 11px; color: var(--text-3); line-height: 1.6; }
+.estimator-results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+.estimator-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 11px 13px; text-align: center;
+}
+.estimator-card-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; }
+.estimator-card-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.estimator-card-value.val-return { color: var(--accent); }
+.estimator-card-value.val-profit { color: var(--green); }
+.estimator-card-value.val-roi    { color: var(--chaos); }
+.estimator-card-sub { font-size: 10px; color: var(--text-3); margin-top: 4px; }
+.estimator-note { font-size: 11px; color: var(--text-2); line-height: 1.4; padding-top: 8px; border-top: 1px solid var(--border); }
+.estimator-top-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.estimator-qty-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+
+/* ── TABLE ── */
+.table-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.table-head {
+  display: grid; grid-template-columns: 48px 1fr 110px 130px 100px 92px 80px;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border);
+}
+.th { padding: 7px 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.th.right { text-align: right; }
+.th.center { text-align: center; }
+
+/* Ninja tab — 7 columns with consistent sizing */
+.table-head.ninja-head { grid-template-columns: 44px 1fr 90px 100px 52px 88px 90px 76px; }
+.scarab-row.ninja-row  { grid-template-columns: 44px 1fr 90px 100px 52px 88px 90px 76px; }
+
+/* Uniform cell padding and font for ninja rows */
+.scarab-row.ninja-row .td {
+  padding: 5px 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+.scarab-row.ninja-row .td.right  { justify-content: flex-end; }
+.scarab-row.ninja-row .td.center { justify-content: center; }
+.table-head.ninja-head .th { padding: 7px 8px; }
+.table-head.ninja-head .th[id] { transition: color 0.15s; }
+.table-head.ninja-head .th[id]:hover { color: var(--text-2); }
+
+.group-header {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: var(--bg-group); border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border); cursor: pointer; user-select: none;
+  transition: background 0.2s;
+}
+.group-header:first-child { border-top: none; }
+.group-name { font-size: 11px; font-weight: 600; color: var(--text-2); }
+.group-count { font-size: 10px; color: var(--text-3); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1px 6px; }
+.group-ev-badge { font-size: 10px; color: var(--chaos); background: var(--chaos-bg); border: 1px solid var(--chaos-border); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+.group-chevron { margin-left: auto; color: var(--text-3); font-size: 10px; transition: transform 0.15s; }
+.group-header.collapsed .group-chevron { transform: rotate(-90deg); }
+
+.scarab-row {
+  display: grid; grid-template-columns: 48px 1fr 110px 130px 100px 92px 80px;
+  border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s;
+}
+.scarab-row:last-child { border-bottom: none; }
+.scarab-row:hover { background: var(--row-hover); }
+.scarab-row.vendor-target { background: var(--vendor-row); }
+.scarab-row.vendor-target:hover { background: var(--vendor-row-hover); }
+
+.td { padding: 6px 10px; font-size: 12px; color: var(--text); }
+.td.right { text-align: right; }
+.td.center { text-align: center; }
+.td.icon-cell { padding: 4px 6px 4px 10px; display: flex; align-items: center; justify-content: center; }
+
+/* Scarab icon — render at 2× then scale down so the browser
+   downsamples from a higher resolution, giving crisp results
+   at small display size without any pixelation. */
+.icon-wrap {
+  width: 28px; height: 28px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.scarab-icon {
+  width: 56px; height: 56px;
+  object-fit: contain;
+  transform: scale(0.5);
+  transform-origin: center center;
+  image-rendering: auto;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+}
+[data-theme="dark"] .scarab-icon { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)) brightness(1.1); }
+
+.scarab-name-cell { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.vendor-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; display: none; }
+.scarab-row.vendor-target .vendor-dot { display: block; }
+.scarab-name-mobile { display: none; min-width: 0; }
+.scarab-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.new-badge { font-size: 9px; font-weight: 700; color: #2563eb; background: #dbeafe; border-radius: 3px; padding: 1px 4px; letter-spacing: 0.04em; flex-shrink: 0; }
+[data-theme="dark"] .new-badge { color: #90b8ff; background: #1a2a50; }
+
+.ratio-wrap { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+.ratio-input {
+  width: 62px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-input); font-family: inherit; font-size: 12px; color: var(--text);
+  text-align: center; outline: none; transition: border-color 0.15s, background 0.2s;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.ratio-input::-webkit-outer-spin-button,
+.ratio-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ratio-input:focus { border-color: var(--accent); background: var(--bg-card); }
+.scarab-row.vendor-target .ratio-input { background: var(--bg-card); }
+.ratio-sep { color: var(--text-3); font-size: 11px; }
+
+.chaos-ea { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--chaos); font-weight: 500; }
+.ev-diff { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
+.ev-diff.below { color: var(--green); font-weight: 500; }
+.ev-diff.above { color: var(--red); }
+
+.vendor-badge { display: none; font-size: 10px; font-weight: 500; color: var(--green); background: transparent; border: 1px solid var(--green-border); border-radius: 3px; padding: 2px 6px; white-space: nowrap; opacity: 0.75; }
+.scarab-row.vendor-target .vendor-badge { display: inline-block; }
+
+.empty-row { padding: 36px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ── NINJA TAB SPECIFIC ── */
+.ninja-banner {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--ninja-bg); border: 1px solid var(--ninja-border);
+  border-radius: 7px; margin-bottom: 14px; font-size: 12px; color: var(--text-2);
+  transition: background 0.2s, border-color 0.2s;
+}
+.ninja-banner strong { color: var(--ninja-accent); }
+.ninja-badge { font-size: 10px; font-weight: 700; background: var(--ninja-accent); color: #fff; border-radius: 4px; padding: 2px 7px; letter-spacing: 0.05em; }
+.ninja-status { font-size: 11px; color: var(--text-3); }
+.ninja-status.loading { color: var(--text-3); }
+.ninja-status.loaded  { color: var(--text-3); }
+.ninja-status.error   { color: var(--red); }
+
+.refresh-btn {
+  font-family: inherit; font-size: 11px; font-weight: 500; padding: 4px 11px;
+  border: 1px solid var(--ninja-border); border-radius: 4px; background: var(--ninja-bg);
+  color: var(--ninja-accent); cursor: pointer; transition: all 0.15s;
+}
+.refresh-btn:hover { background: var(--ninja-accent); color: #fff; border-color: var(--ninja-accent); }
+.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Comparison delta in ninja tab */
+.delta-badge { font-size: 11px; font-variant-numeric: tabular-nums; }
+.delta-badge.pos { color: var(--green); }
+.delta-badge.neg { color: var(--red); }
+.delta-badge.same { color: var(--text-3); }
+.delta-badge.no-data { color: var(--text-3); font-style: italic; }
+
+/* Sparkline trend column */
+.sparkline-wrap { display: flex; align-items: center; justify-content: center; width: 100%; padding: 0 4px; box-sizing: border-box; }
+.sparkline-svg { display: block; width: 100%; height: 26px; cursor: default; overflow: visible; }
+.sparkline-svg:hover .spark-dot { opacity: 1; }
+.spark-dot { opacity: 0; transition: opacity 0.1s; }
+
+/* ── COMPARISON BAR ── */
+.compare-bar {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.compare-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
+  padding: 12px 14px; box-shadow: var(--shadow-sm);
+}
+.compare-label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+.compare-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.compare-val.manual { color: var(--chaos); }
+.compare-val.ninja { color: var(--ninja-accent); }
+.compare-delta { font-size: 11px; margin-top: 4px; color: var(--text-3); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  /* Light mode — dark pill so it pops off the light page */
+  background: #1e2235; color: #e8ecf8;
+  border: 1px solid #2e3450;
+  font-family: inherit; font-size: 12px; font-weight: 500;
+  padding: 8px 18px; border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 9999;
+}
+[data-theme="dark"] .toast { background: #0e1020; border-color: #2e3450; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
+
+/* ── TOAST STACK CONTAINER ── */
+#toastStack {
+  position: fixed; top: 58px; right: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 9999; pointer-events: none;
+  align-items: flex-end;
+}
+
+.version-toast {
+  position: relative;
+  width: 268px;
+  font-family: inherit; font-size: 12px;
+  border-radius: 10px;
+  /* Light mode — dark floating card */
+  background: #1e2030;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.12), 0 12px 28px rgba(0,0,0,0.45);
+  color: #e8ecf8;
+  pointer-events: none;
+  /* Hidden state — collapsed height + faded + shifted */
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.25s, transform 0.25s, max-height 0.3s ease;
+  cursor: pointer;
+  isolation: isolate;
+}
+[data-theme="dark"] .version-toast {
+  background: #2a2e48;
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3), 0 16px 48px rgba(0,0,0,0.7);
+  color: #e8ecf8;
+}
+.version-toast.show {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(0);
+  max-height: 640px;
+  overflow: hidden;
+}
+/* Colored top strip — accent set via --vt-accent on the element */
+.version-toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  /* Light mode: brighter chaos on dark card */
+  background: #d080f8;
+  border-radius: 10px 10px 0 0;
+  z-index: 1;
+}
+[data-theme="dark"] .version-toast::before {
+  background: var(--vt-accent, #a03ec8);
+}
+.version-toast-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  position: relative;
+  z-index: 2;
+  padding: 10px 13px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+[data-theme="dark"] .version-toast-header { border-bottom-color: rgba(255,255,255,0.06); }
+.version-toast-dismiss {
+  font-family: inherit; font-size: 11px; line-height: 1; font-weight: 600;
+  padding: 4px 7px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.72); cursor: pointer;
+  transition: all 0.15s; flex-shrink: 0; margin-left: auto;
+}
+.version-toast-dismiss:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.9);
+}
+[data-theme="dark"] .version-toast-dismiss {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.7);
+}
+[data-theme="dark"] .version-toast-dismiss:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.8);
+}
+.version-toast-title {
+  font-size: 12px; font-weight: 700; letter-spacing: -0.01em;
+  /* Light mode: dark card needs the brighter chaos to be readable */
+  color: #d080f8;
+}
+[data-theme="dark"] .version-toast-title {
+  /* Dark mode: elevated card uses the themed chaos which is darker and works on light bg */
+  color: var(--vt-accent, #a03ec8);
+}
+/* "what's new" label next to title */
+.version-toast-sub { font-size: 10px; color: rgba(255,255,255,0.64); }
+[data-theme="dark"] .version-toast-sub { color: rgba(255,255,255,0.64); }
+/* hint line below header — "prices may have shifted since your last save" */
+.version-toast-hint {
+  padding: 4px 13px 0;
+  font-size: 10px;
+  color: #7bb8f5;
+  line-height: 1.35;
+}
+[data-theme="dark"] .version-toast-hint { color: #6aabf0; }
+.version-toast-body { position: relative; z-index: 2; padding: 8px 13px 8px; }
+.version-toast-body ul,
+.version-toast-body ol {
+  margin: 0;
+  padding: 0;
+}
+.version-toast-body li {
+  font-size: 11px; color: rgba(255,255,255,0.82); line-height: 1.6;
+  list-style: none; padding-left: 10px; position: relative;
+}
+[data-theme="dark"] .version-toast-body li { color: rgba(255,255,255,0.8); }
+.version-toast-body li::before { content: '·'; position: absolute; left: 0; color: #d080f8; }
+[data-theme="dark"] .version-toast-body li::before { color: var(--vt-accent, #a03ec8); }
+.version-toast-body li.vt-item { display: block; }
+.version-toast-body li .vt-key { font-weight: 700; color: #f0b6ff; }
+.version-toast-body li .vt-msg { color: rgba(255,255,255,0.86); }
+.version-toast-body li.vt-added .vt-key { color: #8ef0b8; }
+.version-toast-body li.vt-fixed .vt-key { color: #8ec2ff; }
+.version-toast-body li.vt-changed .vt-key { color: #ffd08a; }
+[data-theme="dark"] .version-toast-body li .vt-key { color: #f0b6ff; }
+[data-theme="dark"] .version-toast-body li .vt-msg { color: rgba(255,255,255,0.84); }
+[data-theme="dark"] .version-toast-body li.vt-added .vt-key { color: #8ef0b8; }
+[data-theme="dark"] .version-toast-body li.vt-fixed .vt-key { color: #8ec2ff; }
+[data-theme="dark"] .version-toast-body li.vt-changed .vt-key { color: #ffd08a; }
+.version-toast-body .vt-muted { font-size: 10px; color: rgba(255,255,255,0.56); padding-top: 4px; }
+[data-theme="dark"] .version-toast-body .vt-muted { color: rgba(255,255,255,0.54); }
+.version-toast-footer {
+  position: relative;
+  z-index: 2;
+  padding: 7px 13px 11px;
+  font-size: 10px; color: rgba(255,255,255,0.56);
+  line-height: 1.35;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+[data-theme="dark"] .version-toast-footer { color: rgba(255,255,255,0.54); border-top-color: rgba(255,255,255,0.06); }
+
+/* Toast palette alignment with current theme */
+.version-toast {
+  background: color-mix(in srgb, var(--header-bg) 86%, #1f2c45 14%);
+  border-color: color-mix(in srgb, var(--accent) 28%, rgba(255,255,255,0.12) 72%);
+}
+[data-theme="dark"] .version-toast {
+  background: color-mix(in srgb, var(--bg-card) 82%, #263756 18%);
+  border-color: color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,0.14) 66%);
+}
+.version-toast::before,
+[data-theme="dark"] .version-toast::before {
+  background: var(--accent);
+}
+.version-toast-title { color: var(--accent); }
+[data-theme="dark"] .version-toast-title { color: #8fc2ff; }
+.version-toast-hint { color: #85bfff; }
+[data-theme="dark"] .version-toast-hint { color: #82b9ff; }
+.version-toast-body li::before,
+[data-theme="dark"] .version-toast-body li::before {
+  color: var(--accent);
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+  top: -1px;
+}
+.version-toast-body li .vt-key,
+[data-theme="dark"] .version-toast-body li .vt-key {
+  color: #9ec8ff;
+}
+.version-toast-body li.vt-added .vt-key,
+[data-theme="dark"] .version-toast-body li.vt-added .vt-key {
+  color: #8ee7b5;
+}
+.version-toast-body li.vt-fixed .vt-key,
+[data-theme="dark"] .version-toast-body li.vt-fixed .vt-key {
+  color: #9ec8ff;
+}
+.version-toast-body li.vt-changed .vt-key,
+[data-theme="dark"] .version-toast-body li.vt-changed .vt-key {
+  color: #ffd08a;
+}
+
+/* ── LEAGUE SELECTOR ── */
+.league-select {
+  font-family: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border);
+  border-radius: 5px; background: var(--bg-card); color: var(--text); outline: none; cursor: pointer;
+  transition: border-color 0.15s, background 0.2s;
+}
+.league-select:focus { border-color: var(--ninja-accent); }
+
+/* ── BULK BUY ANALYZER ── */
+.bulk-intro { margin-bottom: 14px; }
+.bulk-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.bulk-sub { font-size: 12px; color: var(--text-3); max-width: 720px; line-height: 1.6; }
+
+.bulk-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+  align-items: stretch;
+}
+.bulk-csv-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bulk-right-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 306px;
+  justify-content: space-between;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.bulk-drop-wrap {
+  flex: 0 0 58%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bulk-drop-wrap .logger-upload {
+  flex: 1;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+.bulk-drop-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  z-index: 2;
+}
+.bulk-spinner-wheel {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  animation: bulk-spin 0.8s linear infinite;
+}
+.bulk-spinner-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+@keyframes bulk-spin {
+  to { transform: rotate(360deg); }
+}
+/* Light mode: stronger contrast so the drop zone doesn't get lost */
+#bulkDropZone {
+  border-width: 1.5px;
+  border-color: var(--border-strong);
+  background: var(--bg-row-alt);
+}
+#bulkDropZone:hover {
+  border-color: var(--accent);
+  background: var(--bg-input);
+}
+#bulkDropZone.loaded {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+#bulkDropZone.parse-failed,
+#bulkDropZone.parse-failed:hover {
+  border-color: var(--red) !important;
+  background: rgba(214,58,44,0.08) !important;
+  color: var(--red) !important;
+}
+#bulkDropZone.parse-failed #bulkDropText {
+  color: var(--red);
+  font-weight: 600;
+}
+#bulkDropZone.parse-failed #bulkDropHint {
+  color: color-mix(in srgb, var(--red) 82%, var(--text) 18%) !important;
+}
+[data-theme="dark"] #bulkDropZone {
+  border-width: 1.5px;
+  border-color: var(--border);
+  background: transparent;
+}
+[data-theme="dark"] #bulkDropZone:hover {
+  background: transparent;
+}
+[data-theme="dark"] #bulkDropZone.loaded {
+  background: var(--green-bg);
+}
+[data-theme="dark"] #bulkDropZone.parse-failed,
+[data-theme="dark"] #bulkDropZone.parse-failed:hover {
+  border-color: #ff5f50 !important;
+  background: rgba(255,95,80,0.12) !important;
+  color: #ff8d84 !important;
+}
+.bulk-clear-image-btn {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.bulk-clear-image-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+.bulk-right-bottom {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.bulk-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+.bulk-inputs-row .bulk-field { margin-bottom: 0; }
+.bulk-inputs-row .bulk-gemini-key { max-width: 100%; }
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.bulk-field { display: flex; flex-direction: column; gap: 6px; }
+.bulk-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.bulk-textarea {
+  min-height: 306px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--chaos);
+  outline: none;
+  flex: 1;
+}
+.bulk-textarea::placeholder { color: var(--text-3); opacity: 0.7; }
+.bulk-textarea:focus { border-color: var(--accent); }
+
+.bulk-input {
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.bulk-input:focus { border-color: var(--accent); }
+.bulk-hint { font-size: 11px; color: var(--text-3); max-width: 100%; }
+.bulk-side { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.bulk-analyze-btn { margin-top: 0; }
+@media (max-width: 780px) {
+  .bulk-right-col { min-height: 0; }
+  .bulk-drop-wrap { flex: 0 0 auto; }
+  .bulk-inputs-row { grid-template-columns: 1fr; }
+}
+.bulk-error {
+  font-size: 11px;
+  color: var(--red);
+  background: rgba(214,58,44,0.08);
+  border: 1px solid rgba(214,58,44,0.5);
+  padding: 6px 8px;
+  border-radius: 5px;
+}
+
+.bulk-summary-card {
+  background: var(--bg-card);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  padding: 11px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.bulk-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.bulk-summary-item-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: 3px;
+}
+.bulk-summary-item-value {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.bulk-summary-item-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.bulk-summary-profit-pos { color: var(--green); }
+.bulk-summary-profit-neg { color: var(--red); }
+
+.bulk-table-card {
+  background: var(--bg-card);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.bulk-head-row,
+.bulk-body-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1.8fr) 56px 92px 72px 72px;
+  align-items: center;
+  padding: 6px 10px;
+  column-gap: 6px;
+  font-size: 12px;
+}
+.bulk-head-row {
+  background: var(--bg-table-head);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.bulk-body-row:nth-child(odd) { background: var(--bg-row-alt); }
+.bulk-body-row:hover { background: var(--row-hover); }
+.bulk-body-row.vendor-target { background: var(--vendor-row); }
+.bulk-body-row.vendor-target:hover { background: var(--vendor-row-hover); }
+.bulk-td-right { text-align: right; font-variant-numeric: tabular-nums; }
+.bulk-head-row > div:nth-child(n+3),
+.bulk-body-row > div:nth-child(n+3) { justify-self: stretch; width: 100%; text-align: right; }
+.bulk-name-cell { min-width: 0; }
+.bulk-name-cell .scarab-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bulk-name-cell .scarab-name-mobile { display: none; }
+.bulk-group-sub { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bulk-cost-mobile { display: none; }
+.bulk-cost-desktop { display: inline; }
+/* Keep Value before Action even if runtime row cell order drifts. */
+.bulk-body-row > div:nth-child(1) { order: 1; }
+.bulk-body-row > div:nth-child(2) { order: 2; }
+.bulk-body-row > div:nth-child(3) { order: 3; }
+.bulk-body-row > div:nth-child(4) { order: 4; }
+.bulk-body-row > div:has(.bulk-pill) { order: 6; }
+.bulk-body-row > div:nth-child(5):not(:has(.bulk-pill)),
+.bulk-body-row > div:nth-child(6):not(:has(.bulk-pill)) { order: 5; }
+.bulk-icon-wrap {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.5);
+  background: #000;
+}
+.bulk-icon-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bulk-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.bulk-pill-vendor {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid var(--green-border);
+}
+.bulk-pill-keep {
+  background: var(--chaos-bg);
+  color: var(--chaos);
+  border: 1px solid var(--chaos-border);
+}
+.bulk-diff-pos { color: var(--green); }
+.bulk-diff-neg { color: var(--red); }
+
+.bulk-unmatched {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: 6px;
+  border: 1px solid #f5d78e;
+  padding: 7px 10px;
+}
+.bulk-unmatched strong { color: var(--amber); }
+
+.bulk-warn-banner {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 11px 14px; background: var(--amber-bg);
+  border: 1px solid #f5d78e; border-radius: 7px;
+  margin-bottom: 10px; font-size: 12px; color: var(--text-2); line-height: 1.7;
+}
+[data-theme="dark"] .bulk-warn-banner { border-color: #2a5a8a; }
+.bulk-warn-banner-divider {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding-top: 8px; border-top: 1px solid #f5d78e;
+}
+[data-theme="dark"] .bulk-warn-banner-divider { border-top-color: #2a5a8a; }
+
+/* ── LEFT-BORDER NOTICE BOXES ── */
+.notice {
+  padding: 10px 14px; border-radius: 0 6px 6px 0;
+  font-size: 12px; line-height: 1.7; color: var(--text-2);
+  margin: 10px 0; border-left-width: 3px; border-left-style: solid;
+  border-top: 1px solid transparent; border-right: 1px solid transparent; border-bottom: 1px solid transparent;
+}
+.notice-warn {
+  background: var(--amber-bg); border-color: rgba(212,112,14,0.2); border-left-color: var(--amber);
+}
+.notice-warn strong { color: var(--amber); }
+.notice-tip {
+  background: var(--accent-dim); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent);
+}
+.notice-tip strong { color: var(--accent); }
+.notice-data {
+  background: var(--chaos-bg); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos);
+}
+.notice-data strong { color: var(--chaos); }
+.notice-chaos {
+  background: var(--chaos-bg); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos);
+}
+.notice-chaos strong { color: var(--chaos); }
+.notice-amber {
+  background: var(--amber-bg); border-color: rgba(0,0,0,0.05); border-left-color: var(--amber);
+}
+.notice-amber strong { color: var(--amber); }
+.notice-bulk-warn {
+  background: var(--amber-bg); border-color: rgba(212,112,14,0.2); border-left-color: var(--amber);
+}
+.notice-bulk-warn strong { color: var(--amber); }
+#tab-bulk .notice-bulk-warn {
+  margin-bottom: 0;
+  border-radius: 0 6px 0 0;
+}
+#tab-bulk .notice-bulk-warn + .notice-chaos {
+  margin-top: 0;
+  border-top-width: 0;
+  border-radius: 0 0 6px 0;
+}
+[data-theme="dark"] .notice-warn  { background: rgba(212,112,14,0.08); border-color: rgba(212,112,14,0.15); border-left-color: var(--amber); }
+[data-theme="dark"] .notice-tip   { background: rgba(75,108,247,0.08);  border-color: rgba(75,108,247,0.15);  border-left-color: var(--accent); }
+[data-theme="dark"] .notice-data  { background: rgba(160,62,200,0.08); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos); }
+[data-theme="dark"] .notice-chaos { background: rgba(160,62,200,0.08); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos); }
+[data-theme="dark"] .notice-bulk-warn { background: rgba(75,108,247,0.08); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent); }
+[data-theme="dark"] .notice-bulk-warn strong { color: var(--accent); }
+.notice code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+[data-theme="dark"] .notice code { background: rgba(255,255,255,0.06); }
+.bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
+
+.bulk-debug-toggle {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bulk-debug-toggle-icon {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.bulk-debug-toggle.open .bulk-debug-toggle-icon {
+  transform: rotate(90deg);
+}
+.bulk-debug-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px dashed var(--border-soft, var(--border));
+  background: rgba(0, 0, 0, 0.03);
+  display: none;
+}
+[data-theme="dark"] .bulk-debug-panel {
+  background: rgba(255, 255, 255, 0.02);
+}
+.bulk-debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.bulk-debug-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.bulk-debug-actions {
+  display: flex;
+  gap: 6px;
+}
+.bulk-debug-btn {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.bulk-debug-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.bulk-debug-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr);
+  gap: 8px;
+}
+.bulk-debug-log {
+  max-height: 180px;
+  overflow: auto;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-soft, var(--border));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="dark"] .bulk-debug-log {
+  background: rgba(255, 255, 255, 0.01);
+}
+.bulk-debug-empty {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.bulk-debug-map-input {
+  width: 100%;
+  min-height: 80px;
+  max-height: 180px;
+  resize: vertical;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-soft, var(--border));
+  background: var(--bg-card);
+  color: var(--text-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 10px;
+}
+.bulk-debug-map-hint {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.bulk-gemini-key {
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  max-width: 260px;
+}
+
+.help-box {
+  background: var(--bg-group);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.help-box h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-box ol {
+  padding-left: 18px;
+  color: var(--text-3);
+}
+.help-box li { margin-bottom: 4px; }
+.help-box a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.help-box a:hover { text-decoration: underline; }
+
+/* ── Dark mode font smoothing — prevents fuzzy rendering on muted text ── */
+[data-theme="dark"] { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.faq-body { color: var(--text-3); }
+[data-theme="dark"] .faq-body {
+  color: var(--text-2);
+  background: #232a42 !important;
+}
+
+/* ── FAQ question row ── */
+[data-theme="dark"] .faq-question { border-left: 3px solid var(--border) !important; padding-left: 11px !important; border-radius: 7px !important; }
+[data-theme="dark"] .faq-question.open { border-left-color: #378ADD !important; }
+[data-theme="dark"] .faq-question-title { color: var(--text-2); }
+
+/* ── Dark mode body text visibility boosts ── */
+/* Tab intro descriptions */
+[data-theme="dark"] .logger-intro-sub,
+[data-theme="dark"] .analysis-sub,
+[data-theme="dark"] .bulk-sub { color: var(--text-3); }
+
+/* Section descriptions under chart/table headings */
+[data-theme="dark"] .analysis-section-desc { color: var(--text-3); }
+
+/* How-to guide body — same treatment as FAQ */
+[data-theme="dark"] #loggerHowToBody { color: var(--text-2) !important; }
+[data-theme="dark"] #loggerHowToBody strong { color: #7faedc !important; }
+
+/* Submit status feedback — needs to be readable */
+[data-theme="dark"] .logger-submit-status { color: var(--text-3); }
+
+/* Ninja status — loaded/loading states */
+[data-theme="dark"] .ninja-status.loaded,
+[data-theme="dark"] .ninja-status.loading { color: var(--text-3); }
+
+/* Empty state messages */
+[data-theme="dark"] .logger-history-empty,
+[data-theme="dark"] .analysis-empty,
+[data-theme="dark"] .analysis-empty p { color: var(--text-3); }
+
+.bulk-gemini-key:focus { border-color: var(--accent); }
+
+/* ── ATLAS OPTIMIZER TAB ── */
+.atlas-intro { margin-bottom: 16px; }
+.atlas-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.atlas-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; max-width: 720px; }
+[data-theme="dark"] .atlas-sub { color: #7a85a8; }
+
+.atlas-hero {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;
+}
+.atlas-hero-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 13px 16px; box-shadow: var(--shadow-sm);
+}
+.atlas-hero-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 5px;
+}
+.atlas-hero-val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.atlas-hero-val.chaos { color: var(--chaos); }
+.atlas-hero-val.green { color: var(--green); }
+.atlas-hero-val.red   { color: var(--red); }
+.atlas-hero-val.muted { color: var(--text-2); }
+.atlas-hero-sub { font-size: 10px; color: var(--text-3); margin-top: 3px; }
+
+.atlas-note {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 14px; font-size: 11px; color: var(--text-3); line-height: 1.6;
+  margin-bottom: 14px;
+}
+.atlas-note strong { color: var(--text-2); }
+
+.atlas-save-btn {
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  padding: 5px 14px; border-radius: 5px; cursor: pointer;
+  flex-shrink: 0; transition: opacity 0.15s; white-space: nowrap;
+  background: var(--accent); border: 1px solid var(--accent); color: #fff;
+}
+[data-theme="dark"] .atlas-save-btn { color: #0e1020; }
+.atlas-save-btn:hover { opacity: 0.85; }
+
+.atlas-two-col {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;
+  align-items: start;
+}
+.atlas-col { display: flex; flex-direction: column; }
+
+/* Connected table wrapper — title bar + col headers + card rows all share one border */
+.atlas-col-wrap {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.atlas-col-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--bg-table-head); border-bottom: 1px solid var(--border);
+}
+.atlas-col-header-title {
+  font-size: 11px; font-weight: 600; color: var(--text-2); letter-spacing: 0.01em;
+}
+.atlas-col-title-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px;
+}
+.atlas-col-title-tag.block-tag { background: rgba(214,58,44,0.1); color: var(--red); border: 1px solid rgba(214,58,44,0.25); }
+.atlas-col-title-tag.boost-tag { background: rgba(75,108,247,0.1); color: var(--accent); border: 1px solid rgba(75,108,247,0.3); }
+.atlas-col-subhead {
+  display: grid; grid-template-columns: 34px 1fr 64px 56px 60px 76px 20px;
+  gap: 4px; padding: 5px 10px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head);
+}
+.atlas-col-subhead span { text-align: right; }
+.atlas-col-subhead span:first-child,
+.atlas-col-subhead span:nth-child(2) { text-align: left; }
+
+/* Group cards inside the wrapper — no individual borders, just bottom dividers */
+.atlas-col-wrap .atlas-group-card {
+  border: none; border-radius: 0; box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+.atlas-col-wrap .atlas-group-card:last-child { border-bottom: none; }
+
+.atlas-group-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden; box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, opacity 0.15s;
+}
+/* Mute children individually so ev-loss badge can stay vivid.
+   CSS opacity is multiplicative through the stacking context — there's no way
+   to "un-mute" a child once a parent has opacity < 1. Solution: don't put
+   opacity on the card itself, mute the parts we want dimmed instead. */
+.atlas-col-wrap .atlas-group-card.is-blocked { border: none; border-left: 3px solid var(--red); }
+.atlas-col-wrap .atlas-group-card.is-dimmed { border: none; }
+.atlas-group-card.is-dimmed .atlas-toggle,
+.atlas-group-card.is-dimmed .atlas-group-name-text,
+.atlas-group-card.is-dimmed .atlas-group-stat,
+.atlas-group-card.is-dimmed .atlas-chevron,
+.atlas-group-card.is-dimmed .atlas-scarab-rows { opacity: 0.45; }
+.atlas-group-card.is-boosted { border-color: rgba(75,108,247,0.5); }
+.atlas-col-wrap .atlas-group-card.is-boosted { border: none; border-left: 3px solid var(--accent); }
+
+.atlas-group-row {
+  display: grid; grid-template-columns: 34px 1fr 64px 56px 60px 76px 32px;
+  align-items: center; gap: 4px; padding: 7px 0 7px 10px;
+  cursor: pointer; user-select: none; transition: background 0.1s;
+  position: relative;
+}
+.atlas-group-row:hover { background: var(--row-hover); }
+
+.atlas-toggle {
+  width: 28px; height: 16px; border-radius: 8px; border: none; cursor: pointer;
+  position: relative; transition: background 0.2s; flex-shrink: 0;
+}
+.atlas-toggle.block-toggle { background: var(--red); }
+.atlas-toggle.block-toggle.off { background: var(--border-strong); }
+.atlas-toggle.boost-toggle { background: var(--accent); }
+.atlas-toggle.boost-toggle.off { background: var(--border-strong); }
+.atlas-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%; background: #fff;
+  transition: transform 0.18s;
+}
+.atlas-toggle:not(.off)::after { transform: translateX(12px); }
+
+.atlas-group-name { font-size: 12px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.atlas-group-name-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 0; min-width: 0; order: 1; }
+.atlas-badge { flex: 0 0 auto; order: 2; }
+.atlas-group-stat { font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.atlas-group-stat.chaos   { color: var(--chaos); }
+.atlas-group-stat.muted   { color: var(--text-3); }
+.atlas-group-stat.pos      { color: var(--green); font-weight: 600; }
+.atlas-group-stat.marginal { color: #b8a000; font-weight: 600; }
+[data-theme="dark"] .atlas-group-stat.marginal { color: #c8b400; }
+.atlas-group-stat.neg      { color: var(--red); font-weight: 600; }
+.atlas-group-stat.neutral  { color: var(--text-3); }
+
+.atlas-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px; vertical-align: middle; white-space: nowrap; flex-shrink: 0;
+}
+.atlas-badge.blocked     { background: rgba(214,58,44,0.12); color: var(--red);   border: 1px solid rgba(214,58,44,0.3); }
+.atlas-badge.boosted     { background: #3a5cd4; color: #fff; border: 1px solid #2d4fc0; }
+.atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; }
+.atlas-badge.ev-loss     { background: rgba(160,62,200,0.12); color: var(--chaos); border: 1px solid rgba(160,62,200,0.3); }
+[data-theme="dark"] .atlas-badge.blocked     { background: rgba(255,95,80,0.12);  color: var(--red); }
+[data-theme="dark"] .atlas-badge.boosted     { background: #3a5cd4; color: #fff; border-color: #2d4fc0; }
+[data-theme="dark"] .atlas-badge.recommended { background: rgba(54,216,126,0.10); color: var(--green); border-color: rgba(54,216,126,0.3); }
+[data-theme="dark"] .atlas-badge.ev-loss     { background: rgba(208,128,248,0.10); color: var(--chaos); border-color: rgba(208,128,248,0.3); }
+
+.atlas-chevron { font-size: 9px; color: var(--text-3); transition: transform 0.15s; text-align: right; }
+.atlas-chevron.open { transform: rotate(90deg); }
+.atlas-chevron-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 100%;
+  position: absolute; right: 0; top: 0;
+  cursor: pointer; z-index: 3;
+  padding: 0;
+}
+
+.atlas-scarab-rows { border-top: 1px solid var(--border); background: var(--bg); }
+.atlas-scarab-head {
+  display: grid; grid-template-columns: 1fr 54px 54px 64px;
+  padding: 4px 10px 4px 44px; gap: 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border);
+}
+.atlas-scarab-head span { text-align: right; }
+.atlas-scarab-head span:first-child { text-align: left; }
+.atlas-scarab-row {
+  display: grid; grid-template-columns: 1fr 54px 54px 64px;
+  padding: 4px 10px 4px 44px; gap: 6px; align-items: center; font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.atlas-scarab-row:last-child { border-bottom: none; }
+.atlas-scarab-row:hover { background: var(--row-hover); }
+.atlas-scarab-name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-scarab-stat { text-align: right; font-variant-numeric: tabular-nums; }
+.atlas-scarab-stat.chaos  { color: var(--chaos); }
+.atlas-scarab-stat.muted  { color: var(--text-3); }
+.atlas-scarab-stat.accent { color: var(--accent); }
+
+.atlas-leftovers-wrap { margin-top: 0; }
+.atlas-leftovers-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px 7px 0 0; border-bottom: none;
+  cursor: pointer; user-select: none; transition: background 0.1s;
+}
+.atlas-leftovers-header:hover { background: var(--bg-row-alt); }
+.atlas-leftovers-title { font-size: 11px; font-weight: 600; color: var(--text-2); }
+.atlas-leftovers-body {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 0 0 7px 7px; overflow: hidden;
+}
+.atlas-leftover-head {
+  display: grid; grid-template-columns: 1fr 70px 70px 80px 20px;
+  padding: 5px 12px; gap: 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head);
+}
+.atlas-leftover-head span { text-align: right; }
+.atlas-leftover-head span:first-child { text-align: left; }
+.atlas-leftover-row {
+  display: grid; grid-template-columns: 1fr 70px 70px 80px 20px;
+  padding: 6px 12px; gap: 6px; font-size: 12px; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.atlas-leftover-row:last-child { border-bottom: none; }
+.atlas-leftover-row:hover { background: var(--row-hover); }
+.atlas-leftover-stat { text-align: right; font-variant-numeric: tabular-nums; }
+.atlas-leftover-stat.chaos  { color: var(--chaos); }
+.atlas-leftover-stat.muted  { color: var(--text-3); }
+.atlas-leftover-stat.accent { color: var(--accent); }
+
+.atlas-no-data {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
+  padding: 28px; text-align: center; color: var(--text-3); font-size: 13px;
+  grid-column: 1 / -1;
+}
+
+
+/* ── HAMBURGER NAV (mobile only) ── */
+.ham-btn {
+  display: none;
+  width: 34px; height: 34px; border-radius: 6px;
+  background: rgba(255,255,255,0.07); border: none; cursor: pointer;
+  flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  flex-shrink: 0; margin-left: auto;
+}
+.ham-btn.has-tabs-right { margin-left: 0; }
+.ham-line {
+  width: 14px; height: 1.5px; background: rgba(255,255,255,0.7);
+  border-radius: 1px; transition: transform 0.2s, opacity 0.2s;
+  display: block;
+}
+.ham-btn.open .ham-line:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+.ham-btn.open .ham-line:nth-child(2) { opacity: 0; }
+.ham-btn.open .ham-line:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+.nav-current-tab {
+  display: none;
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.78);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; max-width: 160px;
+}
+
+.nav-drawer-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 199;
+}
+.nav-drawer-overlay.open { display: block; }
+
+.nav-drawer {
+  display: none; position: fixed;
+  top: 0; right: 0; bottom: 0; width: 220px;
+  background: var(--header-bg); z-index: 200;
+  flex-direction: column;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  transform: translateX(100%); transition: transform 0.22s ease;
+}
+.nav-drawer.open { transform: translateX(0); }
+.nav-drawer-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.nav-drawer-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer; border: none;
+  background: transparent; width: 100%; text-align: left;
+  transition: background 0.1s; color: rgba(255,255,255,0.78);
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  border-left: 2px solid transparent;
+}
+.nav-drawer-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+.nav-drawer-item.active {
+  color: #fff; background: rgba(200,112,232,0.08);
+  border-left-color: #c870e8;
+}
+.nav-drawer-item.ninja-tab.active { border-left-color: #c870e8; }
+@media (max-width: 780px) {
+  /* ── PAGE ── */
+  .page { padding: 12px 12px 60px; }
+  body { overflow-x: hidden; }
+  .page { overflow-x: hidden; }
+
+  /* ── NAV ── */
+  .topnav { padding: 0 12px; gap: 8px; }
+  .nav-tabs { display: none; }
+  .nav-sep { display: none; }
+  .ham-btn { display: flex !important; }
+  .nav-current-tab { display: block !important; }
+  .nav-drawer { display: flex !important; }
+
+  /* ── STAT CARDS ── */
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .atlas-hero { grid-template-columns: repeat(2, 1fr); }
+  .estimator-results { grid-template-columns: repeat(2, 1fr); }
+  .logger-stats-row { grid-template-columns: repeat(3, 1fr); }
+  .analysis-stats-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .atlas-two-col { grid-template-columns: 1fr; }
+  .compare-bar { grid-template-columns: 1fr; }
+  .bulk-controls { grid-template-columns: 1fr; }
+  .bulk-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bulk-inputs-row { grid-template-columns: 1fr; }
+  .bulk-right-col { min-height: 0; }
+  .bulk-drop-wrap { flex: 0 0 auto; }
+
+  /* ── SCARAB VENDOR & NINJA TABLES: horizontal scroll ── */
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-head:not(#analysisWeightHead):not(.logger-vendor-head):not(.logger-keeper-head), .scarab-row { min-width: 720px; }
+  .table-head { grid-template-columns: 44px 120px 110px 130px 100px 92px 80px; }
+  .scarab-row  { grid-template-columns: 44px 120px 110px 130px 100px 92px 80px; }
+  #m-tableBody .group-header { min-width: 720px; }
+  .table-head.ninja-head, .scarab-row.ninja-row { min-width: 560px; }
+  .table-head.ninja-head { grid-template-columns: 44px 120px 100px 52px 88px 90px 76px; }
+  .scarab-row.ninja-row  { grid-template-columns: 44px 120px 100px 52px 88px 90px 76px; }
+  #n-tableBody .group-header { min-width: 560px; }
+  .table-head.ninja-head .th:nth-child(3),
+  .scarab-row.ninja-row .td:nth-child(3) { display: none; }
+
+  /* ── BULK BUY TABLE ── */
+  .bulk-head-row,
+  .bulk-body-row {
+    grid-template-columns: 28px minmax(0, 1fr) 48px 64px 60px 64px;
+    font-size: 11px;
+  }
+  .bulk-head-row > div { white-space: nowrap; }
+  .bulk-head-row > div:nth-child(4) { white-space: nowrap; }
+  .bulk-cost-mobile { display: inline; }
+  .bulk-cost-desktop { display: none; }
+  .bulk-name-cell .scarab-name { display: none !important; }
+  .bulk-name-cell .scarab-name-mobile { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bulk-group-sub { display: block !important; font-size: 10px; }
+
+  /* ── LOGGER TABLES: horizontal scroll ── */
+  [id="loggerVendorTable"], [id="loggerKeeperTable"] { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  [id="loggerVendorTable"] > div { min-width: 0; }
+  [id="loggerKeeperTable"] > div { min-width: 340px; }
+  .logger-vendor-head,
+  .logger-vendor-row {
+    grid-template-columns: minmax(0, 1fr) 40px 40px 42px 48px 50px !important;
+    column-gap: 3px;
+  }
+  .logger-vendor-head .th {
+    padding: 6px 4px;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+  .logger-keeper-head,
+  .logger-keeper-row {
+    grid-template-columns: minmax(0, 1fr) 50px 56px 56px !important;
+    column-gap: 4px;
+  }
+  .logger-keeper-head .th {
+    padding: 6px 4px;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+  .logger-keeper-head > .th:nth-child(2) { text-align: left; }
+  .logger-vendor-row {
+    padding: 6px 6px !important;
+    font-size: 11px !important;
+  }
+  .logger-keeper-row {
+    padding: 6px 6px !important;
+    font-size: 11px !important;
+  }
+  .logger-keeper-row > span:nth-child(2) {
+    text-align: left !important;
+    padding-left: 0;
+    transform: translateX(-3px);
+  }
+  .logger-hdr-desktop { display: none; }
+  .logger-hdr-mobile { display: inline; }
+
+  /* ── ANALYSIS WEIGHT TABLE ── */
+  .analysis-section .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+  #analysisWeightHead { display: grid !important; grid-template-columns: minmax(0, 1fr) 44px 52px 62px 62px !important; column-gap: 5px !important; width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
+  .analysis-weight-row { grid-template-columns: minmax(0, 1fr) 44px 52px 62px 62px !important; column-gap: 5px !important; padding: 6px 4px !important; width: 100%; box-sizing: border-box; }
+  #analysisWeightHead .th { padding: 6px 4px; font-size: 9px; letter-spacing: 0.04em; white-space: nowrap; }
+  #analysisWeightHead .th[data-sort] { padding-right: 4px; }
+  #analysisWeightHead .th[data-sort].sort-asc,
+  #analysisWeightHead .th[data-sort].sort-desc { padding-right: 10px; }
+  #analysisWeightHead .th[data-sort].sort-asc::after,
+  #analysisWeightHead .th[data-sort].sort-desc::after {
+    right: 1px;
+    font-size: 8px;
+  }
+  #analysisWeightHead .th:nth-child(n+2),
+  #analysisWeightTable .analysis-weight-row > span {
+    justify-self: stretch;
+    width: auto;
+    text-align: right !important;
+    padding-right: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  #analysisWeightTable .analysis-weight-row > div:first-child .scarab-name { display: none !important; }
+  #analysisWeightTable .analysis-weight-row > div:first-child .scarab-name-mobile { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recv-desktop { display: none; }
+  .recv-mobile { display: inline; }
+  .contrib-desktop { display: none; }
+  .contrib-mobile { display: inline; }
+
+  /* ── ATLAS GROUP ROWS ── */
+  .atlas-group-row {
+    grid-template-columns: 34px 1fr 56px 66px 32px;
+  }
+  .atlas-col-subhead {
+    grid-template-columns: 34px 1fr 56px 66px 32px;
+  }
+  .atlas-col-subhead span { white-space: nowrap; }
+  /* Hide share and contribution columns on mobile — keep group EV and delta */
+  .atlas-group-row > span:nth-child(4),
+  .atlas-group-row > span:nth-child(5),
+  .atlas-col-subhead > span:nth-child(4),
+  .atlas-col-subhead > span:nth-child(5) { display: none; }
+
+  /* ── LEFTOVER TABLE ── */
+  .atlas-leftover-head,
+  .atlas-leftover-row { grid-template-columns: 1fr 64px 70px; }
+  .atlas-leftover-head span:nth-child(3),
+  .atlas-leftover-row .atlas-leftover-stat:nth-child(3) { display: none; }
+  .atlas-leftover-row .atlas-chevron { display: none; }
+  .atlas-leftover-row > span:first-child {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── THRESHOLD BAR ── */
+  .threshold-top { flex-direction: row; gap: 8px; align-items: flex-start; }
+  .threshold-left { justify-content: flex-start; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; row-gap: 6px; }
+  .threshold-right { justify-content: flex-end; text-align: right; flex: 0 0 auto; margin-left: auto; flex-wrap: wrap; row-gap: 4px; }
+  .threshold-ev-pill-wrap { margin-left: 0 !important; }
+  #thresholdModeLabel { display: none; }
+  #evModePill { display: none; }
+  .ev-mode-desktop { display: flex !important; }
+  .threshold-left .ev-mode-desktop { margin-left: auto !important; }
+
+
+  /* ── SCARAB NAMES: last-word display on mobile ── */
+  .scarab-name { display: none; }
+  .scarab-name-mobile { display: block !important; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── WEIGHT CHART: scrollable container ── */
+  .analysis-chart-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #analysisWeightChart { min-width: 500px; }
+
+  /* ── LOGGER HISTORY ── */
+  .logger-history-grid { grid-template-columns: 1fr 56px 56px 56px 56px 40px !important; gap: 6px !important; }
+  .logger-history-grid > span:nth-child(4),
+  .logger-history-grid > span:nth-child(7),
+  .logger-history-grid > span:nth-child(8) { display: none !important; }
+
+  /* ── LOGGER ── */
+  .logger-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .page { padding: 10px 8px 56px; }
+  .topnav { padding: 0 8px; gap: 6px; }
+  .nav-current-tab { max-width: 132px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .ninja-banner { padding: 8px 10px; gap: 8px; flex-wrap: nowrap; align-items: center; }
+  .ninja-status { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .league-select { flex: 0 0 auto; }
+  .refresh-btn { margin-left: auto; }
+
+  .toolbar { gap: 6px; margin-bottom: 10px; }
+  .toolbar .search-wrap { flex: 1 1 180px; max-width: none; min-width: 140px; }
+  .toolbar .view-toggle { flex: 0 0 auto; min-width: 0; }
+  .toolbar .view-toggle button { padding: 5px 8px; font-size: 10px; }
+  .toolbar .btn { padding: 6px 9px; }
+  .toolbar-hint { display: none; }
+
+  .threshold-bar,
+  .analysis-section,
+  .logger-form,
+  .logger-preview,
+  .logger-history,
+  .bulk-summary-card { padding: 12px; }
+
+  .regex-header,
+  .ev-chart-header,
+  .estimator-header { padding: 8px 10px; }
+
+  .regex-body,
+  .ev-chart-body,
+  .estimator-body { padding: 10px 12px; }
+
+  .estimator-header > div { padding-left: 8px !important; gap: 6px !important; flex-wrap: wrap; }
+  .info-bar-import { font-size: 10px; padding: 4px 8px; }
+
+  .bulk-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .logger-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  #tab-manual .table-head,
+  #tab-manual .scarab-row { min-width: 560px; }
+
+  #tab-manual .table-head {
+    grid-template-columns: 40px minmax(0, 1fr) 118px 88px 72px 68px;
+  }
+
+  #tab-manual .scarab-row {
+    grid-template-columns: 40px minmax(0, 1fr) 118px 88px 72px 68px;
+  }
+
+  #m-tableBody .group-header { min-width: 560px; }
+  #tab-manual .table-head .th:nth-child(3),
+  #tab-manual .scarab-row .td:nth-child(3) { display: none; }
+
+  #tab-ninja .table-head.ninja-head,
+  #tab-ninja .scarab-row.ninja-row { min-width: 100%; }
+
+  #tab-ninja .table-head.ninja-head {
+    grid-template-columns: 36px minmax(0, 1fr) 44px 66px 68px 58px;
+  }
+
+  #tab-ninja .scarab-row.ninja-row {
+    grid-template-columns: 36px minmax(0, 1fr) 44px 66px 68px 58px;
+  }
+
+  #n-tableBody .group-header { min-width: 100%; }
+  #tab-ninja .table-head.ninja-head .th { padding: 6px 5px; font-size: 9px; letter-spacing: 0.04em; }
+  #tab-ninja .scarab-row.ninja-row .td { padding: 5px 5px; font-size: 11px; }
+  #tab-ninja .scarab-row.ninja-row .td.icon-cell { padding: 3px 2px 3px 6px; }
+  #tab-ninja .scarab-row.ninja-row .sparkline-wrap { padding: 0 1px; }
+  #tab-ninja .table-head.ninja-head .th:nth-child(3),
+  #tab-ninja .scarab-row.ninja-row .td:nth-child(3),
+  #tab-ninja .table-head.ninja-head .th:nth-child(8),
+  #tab-ninja .scarab-row.ninja-row .td:nth-child(8) { display: none; }
+
+  .session-workflow-flow .workflow-mobile-break {
+    flex-basis: 100%;
+    width: 100%;
+    height: 0;
+  }
+  .session-workflow-flow .workflow-mobile-break-soft {
+    flex-basis: 100%;
+    width: 100%;
+    height: 0;
+  }
+}
+
+</style>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2e77fb6a216d4318ae15b73cdea43380"}'></script><!-- End Cloudflare Web Analytics -->
+
+<style id="draft-layout-7">
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-kerning: normal;
+  font-optical-sizing: auto;
+}
+
+:root {
+  --accent: #3a7d87;
+  --accent-dim: #d9eaed;
+  --chaos: #a844d1;
+  --green: #1d834e;
+  --amber: #bb6f12;
+  --bg-outer-light: #71829d;
+  --bg-outer: var(--bg-outer-light);
+  --bg: #e5edf7;
+  --bg-card: rgba(255,255,255,0.88);
+  --bg-row-alt: #f3f7fb;
+  --bg-input: #edf3f8;
+  --bg-table-head: #eaf1f7;
+  --bg-group: #edf3f8;
+  --border: rgba(86,108,134,0.23);
+  --border-strong: rgba(70,92,120,0.38);
+  --text: #0f1624;
+  --text-2: #2f3d54;
+  --text-3: #4f6180;
+  --shadow-sm: 0 2px 6px rgba(19,35,55,0.11);
+  --shadow-md: 0 14px 34px rgba(19,35,55,0.17);
+  --row-hover: #e7eff8;
+  --vendor-row: #e6f4ec;
+  --vendor-row-hover: #d9eddf;
+  --ninja-accent: #4b909b;
+  --ninja-bg: #eef7f8;
+  --ninja-border: #bdd7db;
+}
+
+[data-theme="dark"] {
+  --accent: #85bac3;
+  --accent-dim: #1d3137;
+  --chaos: #cc8cf1;
+  --green: #45c981;
+  --amber: #dca14a;
+  --bg-outer:
+    radial-gradient(3970px 824px at 50% -8.8%, rgba(54, 92, 138, 0.688) 0%, rgba(24, 42, 66, 0.560) 43.2%, rgba(10,16,24,0) 82.4%),
+    #0a1018;
+  --bg: #101a2a;
+  --bg-card: #172234;
+  --bg-row-alt: #17243a;
+  --bg-input: #111a2b;
+  --bg-table-head: #131f32;
+  --bg-group: #141f31;
+  --border: rgba(129,157,193,0.24);
+  --border-strong: rgba(129,157,193,0.38);
+  --text: #eaf1fb;
+  --text-2: #b4c3da;
+  --text-3: #9eb1cc;
+  --header-bg: #0e1524;
+  --row-hover: #1a2a44;
+  --vendor-row: #122a1d;
+  --vendor-row-hover: #1a3928;
+  --ninja-accent: #85bac3;
+  --ninja-bg: #122330;
+  --ninja-border: #33596b;
+}
+[data-theme="dark"] body {
+  background: var(--bg-outer);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.topnav {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--header-bg) 92%, black 8%), color-mix(in srgb, var(--header-bg) 84%, #263851 16%));
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(8px);
+}
+
+.nav-logo span { color: var(--chaos); }
+.nav-tab.active { border-bottom-color: var(--accent); color: #fff; }
+.nav-tab.ninja-tab.active { border-bottom-color: var(--ninja-accent); color: var(--ninja-accent); }
+
+.page {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 16px 38px rgba(15, 28, 45, 0.22);
+  position: relative;
+  overflow: hidden;
+}
+[data-theme="dark"] .page {
+  border: none;
+  box-shadow: 0 -35px 34px 3px rgba(2, 8, 18, 0.90);
+  margin-top: -2px;
+  background: var(--bg);
+}
+
+.ninja-card,
+.analysis-stat-card,
+.atlas-group-card,
+.table-card,
+.threshold-bar,
+.estimator-panel,
+.ev-chart-panel,
+.regex-panel,
+.logger-form,
+.logger-preview,
+.logger-history,
+.analysis-section,
+.faq-question,
+.faq-body,
+.bulk-summary-card,
+#toastVersion,
+.changelog-drawer {
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-sm);
+}
+#tab-faq .faq-question {
+  background: #dbe4ee !important;
+  border: 1px solid var(--border) !important;
+  border-left: 3px solid var(--border-strong) !important;
+  padding-left: 11px !important;
+}
+
+#tab-faq .faq-question.open {
+  background: color-mix(in srgb, #dbe4ee 88%, var(--accent-dim) 12%) !important;
+  border-left-color: var(--accent) !important;
+}
+
+#tab-faq .faq-question-title { color: var(--text) !important; }
+
+#tab-faq .faq-body {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-top: none !important;
+  color: var(--text-2) !important;
+}
+
+#tab-faq .faq-body strong { color: var(--text) !important; }
+#tab-faq .faq-body code {
+  background: color-mix(in srgb, var(--bg-table-head) 88%, var(--bg-card) 12%) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+[data-theme="dark"] #tab-faq .faq-body {
+  background: color-mix(in srgb, #0b1524 88%, #050b14 12%) !important;
+  border-color: color-mix(in srgb, var(--border) 92%, #22364f 8%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-question {
+  background: color-mix(in srgb, var(--bg-card) 82%, #233a57 18%) !important;
+  border-color: color-mix(in srgb, var(--border) 85%, #3d5f86 15%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-question.open {
+  background: color-mix(in srgb, var(--bg-table-head) 76%, var(--accent-dim) 24%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-body strong { color: #7faedc !important; }
+[data-theme="dark"] #tab-faq .notice,
+[data-theme="dark"] #tab-faq .notice-amber,
+[data-theme="dark"] #tab-faq .notice-warn,
+[data-theme="dark"] #tab-faq .notice-bulk-warn,
+[data-theme="dark"] #tab-faq .notice-tip,
+[data-theme="dark"] #tab-faq .notice-data,
+[data-theme="dark"] #tab-faq .notice-chaos {
+  background: #23324a !important;
+  border-color: #3e5578 !important;
+  border-left-color: #83b7ff !important;
+  border-left-width: 3px !important;
+  color: var(--text-2) !important;
+}
+[data-theme="dark"] #tab-faq .notice strong { color: #7faedc !important; }
+
+.btn,
+.subtab,
+.copy-btn-sm,
+.changelog-btn,
+.refresh-btn,
+.league-select,
+.search-input,
+.logger-regex-input,
+.bulk-input,
+.bulk-btn,
+input,
+select,
+textarea {
+  border-radius: 8px;
+}
+
+.changelog-btn {
+  color: rgba(255,255,255,0.58);
+  border-color: rgba(255,255,255,0.22);
+}
+
+.ninja-status.loaded,
+.analysis-ev-card .value.accent,
+.atlas-hero-val.accent,
+.threshold-mode,
+.nav-current-tab {
+  color: var(--accent) !important;
+}
+
+[data-theme="dark"] .threshold-roi.roi-good,
+[data-theme="dark"] .analysis-stat-value.green {
+  color: #63d596;
+}
+
+/* Improve readability on accent-filled toggles/buttons */
+.view-toggle button.active,
+.view-toggle button.ninja-active,
+.subtab.active,
+#evModeHarmonic.active,
+#evModeWeighted.active {
+  color: #132a31 !important;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] .view-toggle button.active,
+[data-theme="dark"] .view-toggle button.ninja-active,
+[data-theme="dark"] .subtab.active,
+[data-theme="dark"] #evModeHarmonic.active,
+[data-theme="dark"] #evModeWeighted.active {
+  color: #0f2228 !important;
+  letter-spacing: 0.01em;
+}
+
+/* Analysis bar palettes */
+:root {
+  --analysis-bar-top: #66aeb7;
+  --analysis-bar-bottom: #7a67bf;
+}
+
+[data-theme="dark"] {
+  --analysis-bar-top: #7fc0ca;
+  --analysis-bar-bottom: #9683d8;
+}
+
+body.graph-palette-forest {
+  --analysis-bar-top: #57a985;
+  --analysis-bar-bottom: #4e73bb;
+}
+body.graph-palette-copper {
+  --analysis-bar-top: #f2b268;
+  --analysis-bar-bottom: #9b4218;
+}
+body.graph-palette-ruby {
+  --analysis-bar-top: #e35d66;
+  --analysis-bar-bottom: #8f2342;
+}
+
+[data-theme="dark"] body.graph-palette-forest {
+  --analysis-bar-top: #6dbc9a;
+  --analysis-bar-bottom: #6b8fd4;
+}
+[data-theme="dark"] body.graph-palette-copper {
+  --analysis-bar-top: #ffc27d;
+  --analysis-bar-bottom: #bf5a26;
+}
+[data-theme="dark"] body.graph-palette-ruby {
+  --analysis-bar-top: #ff7d86;
+  --analysis-bar-bottom: #b8395f;
+}
+
+.analysis-bar-vertical .bar-inner {
+  background: linear-gradient(180deg, var(--analysis-bar-top), var(--analysis-bar-bottom)) !important;
+}
+
+/* Keep horizontal swipe on mobile, hide scrollbar chrome */
+.analysis-chart-vertical-wrap {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scrollbar-color: transparent transparent;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+}
+.analysis-chart-vertical-wrap::-webkit-scrollbar {
+  display: none !important;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+.analysis-chart-vertical-wrap::-webkit-scrollbar-thumb { background: transparent; }
+.analysis-chart-vertical-wrap::-webkit-scrollbar-track { background: transparent; }
+.analysis-chart-wrapper {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.analysis-chart-wrapper::-webkit-scrollbar {
+  display: none !important;
+  width: 0;
+  height: 0;
+}
+@media (max-width: 760px) {
+  .analysis-chart-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .analysis-chart-vertical-wrap {
+    scrollbar-width: none !important;
+    gap: 2px;
+    padding-bottom: 16px;
+  }
+  .analysis-bar-vertical {
+    flex: 0 0 4px;
+    min-width: 4px;
+  }
+  .analysis-bar-vertical .bar-inner {
+    max-width: 4px;
+  }
+}
+
+/* Logger how-to callout contrast */
+[data-theme="dark"] #loggerHowToToggle {
+  background: color-mix(in srgb, var(--bg-card) 82%, #233a57 18%) !important;
+  border-color: color-mix(in srgb, var(--border) 85%, #3d5f86 15%) !important;
+}
+[data-theme="dark"] #loggerHowToBody {
+  background: color-mix(in srgb, #0b1524 88%, #050b14 12%) !important;
+  border-color: color-mix(in srgb, var(--border) 92%, #22364f 8%) !important;
+  color: var(--text-2) !important;
+}
+#loggerHowToBody > div:first-child {
+  background: color-mix(in srgb, var(--amber-bg) 88%, var(--bg-card) 12%) !important;
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--border) 70%) !important;
+  border-left: 3px solid var(--amber) !important;
+  color: var(--text-2) !important;
+}
+[data-theme="dark"] #loggerHowToBody > div:first-child {
+  background: rgba(75, 108, 247, 0.08) !important;
+  border: 1px solid rgba(75, 108, 247, 0.18) !important;
+  border-left: 3px solid var(--accent) !important;
+  color: var(--text-2) !important;
+}
+[data-theme="dark"] #loggerHowToBody > div:first-child strong {
+  color: #7faedc !important;
+}
+
+/* Session Logger how-to chips in dark mode */
+[data-theme="dark"] #loggerHowToBody span[style*="background:var(--bg-card)"][style*="border:1px solid var(--border-strong)"] {
+  background: rgba(75, 108, 247, 0.08) !important;
+  border-color: rgba(126, 201, 255, 0.26) !important;
+  color: var(--text-2) !important;
+}
+[data-theme="dark"] #loggerHowToBody span[style*="background:var(--amber-bg)"][style*="border:1px solid var(--ninja-border)"] {
+  background: rgba(75, 108, 247, 0.1) !important;
+  border-color: rgba(126, 201, 255, 0.3) !important;
+  color: #7faedc !important;
+}
+
+/* Session Logger workflow step circles (1-5) */
+[data-theme="light"] #loggerHowToBody div[style*="width:22px"][style*="height:22px"][style*="border-radius:50%"][style*="background:var(--accent)"] {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+[data-theme="dark"] #loggerHowToBody div[style*="width:22px"][style*="height:22px"][style*="border-radius:50%"][style*="background:var(--accent)"] {
+  color: #132a31 !important;
+  text-shadow: none !important;
+}
+
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="nav-logo" onclick="switchTab('ninja')" title="Go to Scarab Vendor">Scarab<span>EV</span></span>
+  <span class="nav-tag">1.4</span>
+  <div class="nav-tabs">
+    <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
+    <button class="nav-tab" onclick="switchTab('atlas')">Atlas Optimizer</button>
+    <button class="nav-tab" onclick="switchTab('bulk')">Bulk Buy Analyzer</button>
+    <button class="nav-tab" onclick="switchTab('logger')">Session Logger</button>
+    <button class="nav-tab" onclick="switchTab('analysis')">Data Analysis</button>
+    <button class="nav-tab" onclick="switchTab('faq')">FAQ</button>
+  </div>
+  <span class="nav-sep"></span>
+  <span class="nav-current-tab" id="navCurrentTab">Scarab Vendor</span>
+  <a href="https://ko-fi.com/dooby0530" target="_blank" title="Support on Ko-fi" style="text-decoration:none;opacity:0.35;transition:opacity 0.15s;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.35'"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi" style="height:18px;width:auto;display:block"></a>
+  <button class="changelog-btn" onclick="toggleChangelog()">changelog</button>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="22" stroke-width="2.5" stroke-linecap="round"/><line x1="2" y1="12" x2="5" y2="12" stroke-width="2.5" stroke-linecap="round"/><line x1="19" y1="12" x2="22" y2="12" stroke-width="2.5" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34" stroke-width="2.5" stroke-linecap="round"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke-width="2.5" stroke-linecap="round"/><line x1="19.78" y1="4.22" x2="17.66" y2="6.34" stroke-width="2.5" stroke-linecap="round"/><line x1="6.34" y1="17.66" x2="4.22" y2="19.78" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-width="0" /></svg>
+  </button>
+  <button class="ham-btn" id="hamBtn" onclick="toggleHamburger()" aria-label="Menu">
+    <span class="ham-line"></span>
+    <span class="ham-line"></span>
+    <span class="ham-line"></span>
+  </button>
+</nav>
+
+<div class="nav-drawer-overlay" id="drawerOverlay" onclick="toggleHamburger()"></div>
+<div class="nav-drawer" id="navDrawer">
+  <div class="nav-drawer-header">
+    <span class="nav-logo" onclick="switchTab('ninja')" title="Go to Scarab Vendor">Scarab<span>EV</span></span>
+    <span class="nav-tag">1.3</span>
+  </div>
+  <button class="nav-drawer-item ninja-tab active" onclick="switchTab('ninja'); toggleHamburger()">Scarab Vendor</button>
+  <button class="nav-drawer-item" onclick="switchTab('atlas'); toggleHamburger()">Atlas Optimizer</button>
+  <button class="nav-drawer-item" onclick="switchTab('bulk'); toggleHamburger()">Bulk Buy Analyzer</button>
+  <button class="nav-drawer-item" onclick="switchTab('logger'); toggleHamburger()">Session Logger</button>
+  <button class="nav-drawer-item" onclick="switchTab('analysis'); toggleHamburger()">Data Analysis</button>
+  <button class="nav-drawer-item" onclick="switchTab('faq'); toggleHamburger()">FAQ</button>
+</div>
+
+<div class="page">
+
+  <!-- ════════════════════════════ MANUAL TAB (hidden — overrides now inline on ninja tab) ════════════════════════════ -->
+  <div class="tab-pane" id="tab-manual" style="display:none!important">
+
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-label">Auto EV</div><div class="stat-value ev" id="m-statEV">—</div><div class="stat-sub">chaos per 3→1 trade</div></div>
+      <div class="stat-card"><div class="stat-label">Priced Scarabs</div><div class="stat-value" id="m-statPool">—</div><div class="stat-sub">types with prices entered</div></div>
+      <div class="stat-card"><div class="stat-label">Vendor Targets</div><div class="stat-value green" id="m-statTargets">—</div><div class="stat-sub">scarabs ≤ EV threshold</div></div>
+      <div class="stat-card"><div class="stat-label">Threshold</div><div class="stat-value thresh" id="m-statThresh">—</div><div class="stat-sub">max c/ea to vendor</div></div>
+      <div class="stat-card"><div class="stat-label">Est. Profit / 3 Vendored</div><div class="stat-value green" id="m-statProfit">—</div><div class="stat-sub" id="m-statProfitSub">per vendor trade</div></div>
+    </div>
+
+    <div class="ev-note" id="m-evNote"></div>
+
+    <div class="ev-override-bar">
+      <label>⚡ EV OVERRIDE</label>
+      <input class="ev-override-input" type="number" step="0.01" min="0"
+        id="evOverrideInput" placeholder="auto"
+        oninput="setEVOverride(this.value)" onchange="setEVOverride(this.value)">
+      <span class="ev-override-hint">Leave blank to use calculated EV — or enter a custom threshold in chaos</span>
+      <span class="ev-override-active" id="evOverrideActive" style="display:none"></span>
+      <button class="ev-clear-btn" id="evClearBtn" style="display:none" onclick="clearEVOverride()">✕ Clear override</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+      <button class="btn" onclick="exportPrices()" title="Download prices as JSON">⬇ Export prices</button>
+      <label class="btn" style="cursor:pointer" title="Load prices from JSON file">⬆ Import prices<input type="file" accept=".json" style="display:none" onchange="importPrices(event)"></label>
+      <span style="font-size:11px;color:var(--text-3)">Prices auto-save to browser localStorage</span>
+    </div>
+
+    <div class="regex-panel">
+      <div class="regex-header">
+        <span class="regex-title">Item Filter Regex</span>
+        <span class="char-pill ok" id="m-charPill">0 / 250</span>
+        <button class="copy-btn-sm" id="m-copyBtn" onclick="copyRegex('manual')">Copy</button>
+      </div>
+      <div class="regex-body" id="m-regexBody" onclick="copyRegex('manual')">
+        <span class="regex-empty-msg">Enter prices to generate regex</span>
+      </div>
+      <div class="regex-warn" id="m-regexWarn">⚠ Regex exceeds 250 characters.</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">×</span>
+        <input type="text" class="search-input" id="m-filter" placeholder="Filter scarabs..." oninput="renderManual()">
+      </div>
+      <div class="view-toggle">
+        <button id="m-viewAll" class="active" onclick="setManualView('all')">All</button>
+        <button id="m-viewVendor" onclick="setManualView('vendor')">Vendor</button>
+        <button id="m-viewKeep" onclick="setManualView('keep')">Keep</button>
+      </div>
+      <div class="view-toggle">
+        <button id="sortIngame" class="active" onclick="setSortMode('ingame')">In-game order</button>
+        <button id="sortAlpha" onclick="setSortMode('alpha')">Alphabetical</button>
+      </div>
+      <button class="btn danger" onclick="resetPrices()">Reset prices</button>
+      <span class="toolbar-hint">Enter <strong>qty : chaos</strong> per scarab</span>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head">
+        <div class="th"></div>
+        <div class="th">Scarab</div>
+        <div class="th">Group</div>
+        <div class="th right">Qty&nbsp;:&nbsp;Chaos</div>
+        <div class="th right">c / each</div>
+        <div class="th center">vs EV</div>
+        <div class="th center">Action</div>
+      </div>
+      <div id="m-tableBody"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ NINJA TAB ════════════════════════════ -->
+  <div class="tab-pane active" id="tab-ninja">
+
+    <div class="ninja-banner">
+      <span class="ninja-status" id="ninjaStatus">Loading prices…</span>
+      <span style="flex:1"></span>
+      <select class="league-select" id="leagueSelect" onchange="fetchNinja(); fetchPriceHistory()">
+        <option value="" data-current="1">Detecting league…</option>
+        <option value="Standard">Standard</option>
+      </select>
+      <button class="refresh-btn" id="refreshBtn" onclick="fetchNinja()" style="display:none">↻ Refresh</button>
+    </div>
+
+    <!-- Debug panel — shows raw API names for diagnosis -->
+    <div id="debugPanel" style="display:none;margin-bottom:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:14px;font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto">
+      <strong style="color:var(--text-2)">Raw API names (first 40):</strong>
+      <div id="debugContent" style="margin-top:8px;color:var(--text-3);font-family:monospace;font-size:10px;columns:2;gap:16px"></div>
+      <div style="margin-top:10px"><strong style="color:var(--text-2)">Unmatched (in our list, missing from API):</strong>
+      <div id="debugUnmatched" style="margin-top:4px;color:var(--red);font-family:monospace;font-size:10px"></div></div>
+    </div>
+
+
+    <!-- THRESHOLD SLIDER -->
+    <div class="threshold-bar" id="thresholdBar">
+      <div class="threshold-top">
+        <div class="threshold-left">
+          <span class="threshold-label">Vendor Threshold</span>
+          <span class="threshold-value" id="sliderValueDisplay">—</span>
+          <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
+          <div class="threshold-ev-pill-wrap" style="margin-left:6px;display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button id="evModePill" onclick="toggleEVMode()" title="Switch between Harmonic and Weighted EV"
+              style="position:relative;width:36px;height:20px;border-radius:10px;border:none;background:var(--chaos);cursor:pointer;transition:background 0.2s;flex-shrink:0;padding:0">
+              <span id="evModePillThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;display:block"></span>
+            </button>
+          </div>
+          <div class="view-toggle ev-mode-desktop" style="margin-left:6px">
+            <button id="evModeHarmonic" class="active" onclick="setEVMode('harmonic')">Harmonic EV</button>
+            <button id="evModeWeighted" onclick="setEVMode('weighted')">Weighted EV</button>
+          </div>
+        </div>
+        <div class="threshold-right">
+          <span class="threshold-hint" id="sliderHint" style="display:none"></span>
+          <span class="threshold-roi" id="sliderROI"></span>
+          <button class="ev-clear-btn" id="sliderResetBtn" style="display:none" onclick="resetSlider()">↺ Reset to auto EV</button>
+        </div>
+      </div>
+      <div class="slider-wrap">
+        <div class="slider-track-labels">
+          <span>0.00c</span>
+          <span></span>
+          <span id="sliderMaxLabel">1.00c</span>
+        </div>
+        <div style="position:relative;padding-bottom:4px">
+          <input type="range" id="thresholdSlider" class="threshold-slider"
+            min="0" max="100" step="1" value="38"
+            oninput="onSliderChange(this.value)">
+          <div class="slider-breakeven-marker" id="sliderMarker"></div>
+        </div>
+      </div>
+      <div class="slider-roi-bar">
+        <div class="slider-roi-segment" style="background:var(--green)" id="roiSegGreen"></div>
+        <div class="slider-roi-segment" style="background:var(--amber)" id="roiSegAmber"></div>
+        <div class="slider-roi-segment" style="background:var(--red)" id="roiSegRed"></div>
+      </div>
+      <div id="weightedEvWarning" style="display:none;margin-top:10px;padding:7px 12px;background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;font-size:11px;color:var(--amber);line-height:1.6">
+        ⚠ <strong style="color:var(--amber)">Weighted EV carries more variance.</strong> Based on <span id="weightedSessionCount">—</span> community sessions — rare expensive drops in limited data can skew the threshold higher than the true long-run rate. <span style="color:var(--text-2)">Harmonic EV is the safer default — weighted is for high-volume runs where you're comfortable riding out the variance chasing jackpot drops.</span>
+      </div>
+    </div>
+
+    <!-- EV HISTORY CHART -->
+    <div class="ev-chart-panel" id="evChartPanel">
+      <div class="ev-chart-header" onclick="toggleEVChart()">
+        <span class="ev-chart-title">EV Trend</span>
+        <span class="ev-chart-meta" id="evChartMeta"></span>
+        <span class="estimator-chevron" id="evChartChevron">▼</span>
+      </div>
+      <div class="ev-chart-body" id="evChartBody">
+        <div style="position:relative;width:100%;height:140px">
+          <canvas id="evHistoryChart"></canvas>
+        </div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Daily EV snapshot at 7PM UTC · 90 day window</div>
+      </div>
+    </div>
+
+    <div class="regex-panel">
+      <div class="regex-header">
+        <span class="regex-title">Auto Regex</span>
+        <span class="char-pill ok" id="n-charPill">0 / 250</span>
+        <button class="copy-btn-sm" id="n-copyBtn" onclick="copyRegex('ninja')">Copy</button>
+      </div>
+      <div class="regex-body" id="n-regexBody" onclick="copyRegex('ninja')">
+        <span class="regex-empty-msg">Load live price data to generate regex</span>
+      </div>
+      <div class="regex-warn" id="n-regexWarn">⚠ Regex exceeds 250 characters.</div>
+    </div>
+
+    <!-- PROFIT ESTIMATOR — sits where stat cards were -->
+    <div class="estimator-panel" id="estimatorPanel">
+      <div class="estimator-header" onclick="toggleEstimator()">
+        <span class="estimator-title">Vendor Profit Estimator</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;padding-left:12px" onclick="event.stopPropagation()">
+          <label class="info-bar-import" title="Export from Wealthy Exile and import here">
+            ⬆ Import Wealthy Exile CSV
+            <input type="file" accept=".csv" style="display:none" onchange="importWealthyCSV(event)">
+          </label>
+          <button class="info-bar-clear" id="csvClearBtn" style="display:none" onclick="clearCSV()">✕ CSV</button>
+        </div>
+        <span class="estimator-chevron" style="margin-left:10px">▼</span>
+      </div>
+      <div class="estimator-body">
+
+        <div class="estimator-results">
+          <div class="estimator-card">
+            <div class="estimator-card-label">Scarabs to Vendor</div>
+            <div class="estimator-card-value val-roi" id="est-input">—</div>
+            <div class="estimator-card-sub" id="est-input-sub">import CSV to estimate</div>
+          </div>
+          <div class="estimator-card">
+            <div class="estimator-card-label">Input Value</div>
+            <div class="estimator-card-value val-return" id="est-input-value">—</div>
+            <div class="estimator-card-sub">current market value of vendor targets</div>
+          </div>
+          <div class="estimator-card">
+            <div class="estimator-card-label">Est. Return</div>
+            <div class="estimator-card-value val-profit" id="est-return">—</div>
+            <div class="estimator-card-sub">expected keeper value from vendor</div>
+          </div>
+          <div class="estimator-card">
+            <div class="estimator-card-label">Est. Profit</div>
+            <div class="estimator-card-value val-profit" id="est-profit">—</div>
+            <div class="estimator-card-sub">return minus input value</div>
+          </div>
+        </div>
+
+        <div id="csvBreakdown" style="display:none;margin-top:10px">
+          <div id="csvStatus" onclick="toggleCSVBreakdown()" style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">
+            <span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s">▶</span>
+          </div>
+          <div id="csvBreakdownTable" style="font-size:11px;line-height:1.9;color:var(--text-3);display:none"></div>
+        </div>
+
+        <div class="estimator-note">
+          <div>Import your Wealthy Exile CSV to calculate estimates based on your actual inventory. Results update live as you adjust the threshold slider.</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="color:var(--text-3);font-size:11px">Estimates derived from observed vendor session data. Variance is expected — treat these as directional, not exact.</span>
+            <span style="color:var(--text-3);font-size:11px;white-space:nowrap;margin-left:12px" id="est-divine-rate-wrap"></span>
+          </div>
+          <div id="est-debug" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+		
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">×</span>
+        <input type="text" class="search-input" id="n-filter" placeholder="Filter scarabs..." oninput="renderNinja()">
+      </div>
+      <div class="view-toggle">
+        <button id="n-viewAll" class="active" onclick="setNinjaView('all')">All</button>
+        <button id="n-viewVendor" onclick="setNinjaView('vendor')">Vendor</button>
+        <button id="n-viewKeep" onclick="setNinjaView('keep')">Keep</button>
+      </div>
+      <button class="btn" id="n-resetSort" onclick="resetNinjaSort()" style="display:none">↺ Reset sort</button>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head ninja-head">
+        <div class="th"></div>
+        <div class="th" id="n-th-name" onclick="setNinjaSort('name')" style="cursor:pointer;user-select:none">Scarab</div>
+        <div class="th" id="n-th-group" onclick="setNinjaSort('group')" style="cursor:pointer;user-select:none">Group</div>
+        <div class="th center" id="n-th-trend" onclick="setNinjaSort('trend')" style="cursor:pointer;user-select:none">History</div>
+        <div class="th right" id="n-th-delta" onclick="setNinjaSort('delta')" style="cursor:pointer;user-select:none">Trend</div>
+        <div class="th right" id="n-th-cea" onclick="setNinjaSort('cea')" style="cursor:pointer;user-select:none">Cost/ea</div>
+        <div class="th center" id="n-th-diff" onclick="setNinjaSort('diff')" style="cursor:pointer;user-select:none">vs EV</div>
+        <div class="th center" id="n-th-action" onclick="setNinjaSort('action')" style="cursor:pointer;user-select:none">Action</div>
+      </div>
+      <div id="n-tableBody"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ SESSION LOGGER TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-logger">
+
+    <div class="logger-intro">
+      <div class="logger-intro-title">Session Logger</div>
+      <div class="logger-intro-sub">Upload two Wealthy Exile CSV snapshots — before and after a vendor session — plus the regex you used. The tool will parse the deltas and track your input/output profit margins over time.</div>
+    </div>
+
+    <!-- Community data how-to — collapsed by default -->
+    <div style="margin-bottom:16px">
+      <div onclick="toggleLoggerHowTo()" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-card)'" id="loggerHowToToggle">
+        <span style="font-size:10px;color:var(--accent);transition:transform 0.15s" id="loggerHowToChevron">▶</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em">How to contribute clean data to the community database</span>
+        <span style="font-size:11px;color:var(--text-3);margin-left:4px">— optional, for data contributors only</span>
+      </div>
+
+      <div id="loggerHowToBody" style="display:none;margin-top:0;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:16px;font-size:12px;line-height:1.8;color:var(--text-3)">
+
+        <div style="background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:0 5px 5px 0;padding:8px 12px;margin-bottom:12px;color:var(--text-2);font-size:12px">
+          <strong style="color:var(--amber)">You do not need to do this to use the tool.</strong> The standard workflow (start snapshot → finish snapshot) is perfectly fine for tracking your own profit margins. This guide is only for players who want to contribute high-quality weight distribution data to the community database.
+        </div>
+
+        <div style="font-weight:600;color:var(--text-2);margin-bottom:8px">Why single-pass sessions matter for community data</div>
+        <p>The community database builds a <strong>weight distribution</strong> — how often each scarab type appears as a vendor output. This drives the Weighted EV threshold for everyone. To get accurate weights, we need to know what the vendor actually returned on each pass, not the net result after recycling.</p>
+        <p>If you vendor your cheap scarabs, get outputs, then immediately vendor <em>those</em> outputs too — the final snapshot only shows the survivors of multiple passes. The cheap commons that came out and went back in are invisible. This inflates the apparent frequency of expensive scarabs and skews the weights toward keepers, making everyone's threshold too high.</p>
+
+        <div style="font-weight:600;color:var(--text-2);margin:12px 0 8px">The clean data workflow</div>
+
+        <div style="display:grid;grid-template-columns:24px 1fr;gap:6px 12px;align-items:start;margin-bottom:14px">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div>
+          <div><strong style="color:var(--text-2)">Set up a dedicated stash tab for returned scarabs.</strong> When the vendor gives you a scarab back, it goes into this tab — not back into your vendor stack. This physically separates single-pass outputs from your input pool.</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div>
+          <div><strong style="color:var(--text-2)">Export Wealthy Exile before you start</strong> — this is your Snapshot 1 (Before).</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div>
+          <div><strong style="color:var(--text-2)">Run one vendor pass</strong> — vendor all your marked scarabs, place everything you receive into the returns tab. Do not re-vendor anything yet.</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</div>
+          <div><strong style="color:var(--text-2)">Export Wealthy Exile again</strong> — this is Snapshot 2 (After first pass). Upload both to the Session Logger and submit.</div>
+
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">5</div>
+          <div><strong style="color:var(--text-2)">If you want to continue vendoring</strong> — move the returned vendor-target scarabs back into your main stack, export again (this becomes the new Snapshot 1), run another pass, export after (Snapshot 2), and log that as a second session. Each pass is its own session submission.</div>
+        </div>
+
+        <div style="background:var(--bg-group);border:1px solid var(--border);border-radius:5px;padding:12px 14px;font-size:12px;color:var(--text-3)">
+          <strong style="color:var(--text-2)">Example: 10,000 scarabs across multiple passes</strong>
+          <div style="height:1px;background:var(--border);margin:10px 0"></div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-bottom:6px">Workflow</div>
+          <div class="session-workflow-flow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">A</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ vendor →</span>
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">B</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→</span>
+            <span class="workflow-mobile-break-soft" aria-hidden="true"></span>
+            <span style="font-size:11px;color:var(--text-3)">vendor →</span>
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">C</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ vendor →</span>
+            <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">D</span></span>
+            <span style="font-size:11px;color:var(--text-3)">→ …</span>
+          </div>
+          <div style="margin-top:10px">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-bottom:6px">Sessions to submit</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">A + B → session 1</span>
+              <span style="color:var(--text-3)">·</span>
+              <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">B + C → session 2</span>
+              <span style="color:var(--text-3)">·</span>
+              <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">C + D → session 3</span>
+            </div>
+          </div>
+          <div style="height:1px;background:var(--border);margin:10px 0"></div>
+          <span style="font-size:11px;color:var(--text-3)">Each export does double duty — it closes the previous session and opens the next one.</span>
+        </div>
+
+        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only — they won't be included in the community database. You'll see a message explaining this when you submit.</div>
+      </div>
+    </div>
+
+    <div class="logger-form">
+      <div class="logger-row">
+        <div class="logger-field">
+          <div class="logger-label">Snapshot 1 — <span class="logger-purple-bold">Before trade</span></div>
+          <label class="logger-upload" id="snap1Label">
+            <span id="snap1Text">Choose CSV file</span>
+            <input type="file" accept=".csv" id="snap1Input" onchange="handleSnap(1, event)" style="display:none">
+          </label>
+        </div>
+        <div class="logger-field">
+          <div class="logger-label">Snapshot 2 — <span class="logger-purple-bold">After trade</span></div>
+          <label class="logger-upload" id="snap2Label">
+            <span id="snap2Text">Choose CSV file</span>
+            <input type="file" accept=".csv" id="snap2Input" onchange="handleSnap(2, event)" style="display:none">
+          </label>
+        </div>
+      </div>
+
+      <div class="logger-field" style="margin-top:12px">
+        <div class="logger-label" style="display:flex;align-items:center;gap:8px">
+          Regex used during this session
+          <span id="loggerRegexBadge" style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:3px;background:var(--ninja-bg);color:var(--ninja-accent);border:1px solid var(--ninja-border);letter-spacing:0.03em">auto</span>
+          <span id="loggerRegexNote" style="font-size:11px;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">Auto-filled from Scarab Vendor tab — click to replace</span>
+        </div>
+        <input class="logger-regex-input" type="text" id="loggerRegex" placeholder='e.g. "lk|dg|rus|arr|nsc"'>
+        <div style="margin-top:4px;min-height:16px">
+          <div class="logger-regex-hint" id="loggerRegexHint"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+        <button class="logger-submit-btn" id="loggerSubmitBtn" onclick="submitSession()" disabled>Submit Session</button>
+        <span class="logger-submit-status" id="loggerSubmitStatus"></span>
+      </div>
+    </div>
+
+    <!-- Preview panel — shows after both CSVs + regex loaded -->
+    <div class="logger-preview" id="loggerPreview" style="display:none">
+      <div class="logger-preview-header">Session Preview</div>
+
+      <div class="logger-stats-row" id="loggerStats"></div>
+
+      <div style="margin-top:14px">
+        <div class="logger-section-label">Vendor targets — consumed &amp; recovered</div>
+        <div class="table-card" style="margin-top:6px">
+          <div class="table-head logger-vendor-head" style="grid-template-columns:minmax(0,1fr) 72px 72px 64px 72px 74px">
+            <div class="th">Scarab</div>
+            <div class="th right"><span class="logger-hdr-desktop">OUT</span><span class="logger-hdr-mobile">OUT</span></div>
+            <div class="th right"><span class="logger-hdr-desktop">IN</span><span class="logger-hdr-mobile">IN</span></div>
+            <div class="th right">Net</div>
+            <div class="th right"><span class="logger-hdr-desktop">COST</span><span class="logger-hdr-mobile">COST</span></div>
+            <div class="th right"><span class="logger-hdr-desktop">INPUT</span><span class="logger-hdr-mobile">INPUT</span></div>
+          </div>
+          <div id="loggerVendorTable"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="logger-section-label">Keeper outputs — net gains</div>
+        <div class="table-card" style="margin-top:6px">
+          <div class="table-head logger-keeper-head" style="grid-template-columns:minmax(0,1fr) 72px 72px 74px">
+            <div class="th">Scarab</div>
+            <div class="th right">Received</div>
+            <div class="th right">COST</div>
+            <div class="th right">Output</div>
+          </div>
+          <div id="loggerKeeperTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session history -->
+    <div class="logger-history" id="loggerHistory" style="margin-top:20px">
+      <div class="logger-preview-header" style="margin-bottom:10px">Session History</div>
+      <div id="loggerHistoryTable"></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════ DATA ANALYSIS TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-analysis">
+    <div class="analysis-intro">
+      <div class="analysis-title">Session Data Analysis</div>
+      <div class="analysis-sub">Aggregated stats from all logged sessions: observed 3→1 weight distribution, real-world returns vs market EV, and profit breakdown.</div>
+    </div>
+    <div id="analysisEmpty" class="analysis-empty" style="display:none">
+      <p>No session data yet. Log sessions on the <strong>Session Logger</strong> tab to see analytics here.</p>
+    </div>
+    <div id="analysisContent" style="display:none">
+      <div class="analysis-stats-bar" id="analysisStatsBar"></div>
+      <div class="analysis-section">
+        <div class="analysis-section-title">Real vs Market EV</div>
+        <div class="analysis-section-desc">Average value per vendor trade from your sessions vs theoretical EV from current market prices.</div>
+        <div id="analysisEvCompare" class="analysis-ev-compare"></div>
+      </div>
+      <div class="analysis-section">
+        <div class="analysis-section-title">Observed weight distribution (3→1 outputs)</div>
+        <div class="analysis-section-desc">How often each scarab type was returned across all vendor trades. Hover a bar to see scarab name.</div>
+        <div class="analysis-chart-wrapper">
+          <div class="analysis-chart-axes">
+            <div class="analysis-chart-row">
+              <div class="analysis-chart-y-label"><span>Count</span></div>
+              <div id="analysisWeightChart" class="analysis-chart-vertical-wrap"></div>
+            </div>
+            <div class="analysis-chart-x-label" id="analysisChartXLabel"></div>
+          </div>
+          <div id="analysisBarTooltip" class="analysis-tooltip"></div>
+        </div>
+        <div class="table-card" style="margin-top:12px">
+          <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 82px 76px 82px 84px;gap:6px" id="analysisWeightHead">
+            <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
+            <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')"><span class="recv-desktop">Received</span><span class="recv-mobile">Recv</span></div>
+            <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
+            <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">COST/EA</div>
+            <div class="th right" data-sort="contrib" onclick="sortAnalysisWeight('contrib')"><span class="contrib-desktop">CONTRIB</span><span class="contrib-mobile">CONTRIB</span></div>
+          </div>
+          <div id="analysisWeightTable"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ BULK BUY ANALYZER TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-bulk">
+
+    <div class="bulk-intro">
+      <div class="bulk-title">Bulk Buy Analyzer</div>
+      <div class="bulk-sub">
+        <p class="bulk-sub">
+          Evaluate TFT bulk listings against real-time market prices and your current EV threshold. Enter the asking price to see expected return, net value, and per-scarab breakdown.<br><br>
+          <strong style="color:var(--text-2)">Two ways to get your data in:</strong> paste a screenshot into the image drop zone to have Gemini parse it automatically (requires a free <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">Gemini API Key</a>), or manually paste a <code>Name,Qty</code> CSV and use Analyze CSV only. See the tip below for the most accurate method.
+        </p>
+      </div>
+    </div>
+
+    <div class="bulk-controls">
+      <div class="bulk-csv-col">
+        <label class="bulk-label">Gemini CSV (name,qty)</label>
+        <textarea id="bulkCsv" class="bulk-textarea" placeholder="Name,Qty&#10;Horned of Bloodlines,3&#10;Breach of Instability,21&#10;Ultimatum of Catalysing,1&#10;..."></textarea>
+      </div>
+      <div class="bulk-right-col">
+        <div class="bulk-drop-wrap">
+          <label class="bulk-label">Listing image (drag, paste, or click)</label>
+          <div id="bulkDropZone" class="logger-upload">
+            <div id="bulkDropZoneSpinner" class="bulk-drop-spinner" style="display:none">
+              <div class="bulk-spinner-wheel"></div>
+              <div class="bulk-spinner-label">Parsing…</div>
+            </div>
+            <input id="bulkImageInput" type="file" accept="image/*" style="display:none" onchange="handleBulkImage(event)">
+            <div id="bulkDropText">Drop a TFT listing screenshot here, paste with Ctrl+V, or click to browse.</div>
+            <div id="bulkDropHint" style="font-size:11px;color:var(--text-3)">Tab must be on Bulk Buy Analyzer for paste to work.</div>
+            <button type="button" id="bulkClearImageBtn" class="bulk-clear-image-btn" style="display:none" onclick="event.stopPropagation(); clearBulkImage();" title="Clear image and load a new one">✕ Clear image</button>
+          </div>
+        </div>
+        <div class="bulk-right-bottom">
+          <div class="bulk-inputs-row">
+            <div class="bulk-field">
+              <label class="bulk-label">Asking price (chaos)</label>
+              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { const v = parseFloat(this.value); if (Number.isFinite(v) && v > 0) runBulkFromImage(); } }" />
+              <div class="bulk-hint">Use the seller's total chaos cost for the lot.</div>
+            </div>
+            <div class="bulk-field">
+              <label class="bulk-label">Gemini API key</label>
+              <input id="bulkGeminiKey" class="bulk-gemini-key" type="password" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)">
+              <div class="bulk-hint">Stored locally in your browser.</div>
+            </div>
+          </div>
+          <div class="bulk-actions">
+            <button id="bulkAnalyzeImageBtn" class="btn bulk-analyze-btn" onclick="runBulkFromImage()">Analyze Image</button>
+            <button id="bulkAnalyzeBtn" class="btn bulk-analyze-btn" onclick="runBulkFromCsv()">Analyze CSV only</button>
+          </div>
+          <div id="bulkError" class="bulk-error" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice notice-bulk-warn"><strong>AI image parsing via the API is not always accurate.</strong> Gemini may misread quantities, names, or skip rows — especially on cluttered or low-resolution screenshots. Always cross-reference the parsed CSV against the original listing before committing to a purchase.</div>
+    <div class="notice notice-chaos"><strong>Best method for accuracy:</strong> paste your screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and doesn't need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div>
+
+    <div id="bulkResultWarning" class="bulk-unmatched" style="display:none"></div>
+
+    <div id="bulkSummary" class="bulk-summary-card" style="display:none">
+      <div class="bulk-summary-grid">
+        <div>
+          <div class="bulk-summary-item-label">Types</div>
+          <div id="bulkTypes" class="bulk-summary-item-value">—</div>
+          <div id="bulkTypesSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Cost</div>
+          <div id="bulkCost" class="bulk-summary-item-value">—</div>
+          <div id="bulkCostSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Expected return</div>
+          <div id="bulkReturn" class="bulk-summary-item-value">—</div>
+          <div id="bulkReturnSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Net</div>
+          <div id="bulkNet" class="bulk-summary-item-value">—</div>
+          <div id="bulkNetSub" class="bulk-summary-item-sub"></div>
+        </div>
+        <div>
+          <div class="bulk-summary-item-label">Margin</div>
+          <div id="bulkMargin" class="bulk-summary-item-value">—</div>
+          <div id="bulkMarginSub" class="bulk-summary-item-sub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bulkTableWrap" class="bulk-table-card" style="display:none">
+      <div class="bulk-head-row">
+        <div></div>
+        <div>Scarab</div>
+        <div class="bulk-td-right">Qty</div>
+        <div class="bulk-td-right"><span class="bulk-cost-desktop">Cost / ea</span><span class="bulk-cost-mobile">Cost</span></div>
+        <div class="bulk-td-right">Value</div>
+        <div class="bulk-td-right">Action</div>
+      </div>
+      <div id="bulkTableBody"></div>
+    </div>
+
+    <div id="bulkUnmatched" class="bulk-unmatched" style="display:none">
+      <strong>Note:</strong> Some rows could not be matched to known scarabs.
+      <div class="bulk-unmatched-list" id="bulkUnmatchedList"></div>
+    </div>
+
+    <div class="bulk-debug-toggle" onclick="toggleBulkDev()">
+      <span class="bulk-debug-toggle-icon">▶</span>
+      <span>Developer tools</span>
+    </div>
+    <div id="bulkDevPanel" style="display:none;margin-top:6px">
+      <div class="bulk-debug-toggle" onclick="toggleBulkDebug()">
+        <span class="bulk-debug-toggle-icon">▶</span>
+        <span>Bulk analyzer debug</span>
+      </div>
+      <div id="bulkDebugPanel" class="bulk-debug-panel">
+        <div class="bulk-debug-header">
+          <div class="bulk-debug-title">Mismatch log &amp; name map</div>
+          <div class="bulk-debug-actions">
+            <button type="button" class="bulk-debug-btn" onclick="refreshBulkDebug()">Refresh</button>
+            <button type="button" class="bulk-debug-btn" onclick="clearBulkMismatchLog()">Clear mismatch log</button>
+          </div>
+        </div>
+        <div class="bulk-debug-body">
+          <div>
+            <div class="bulk-debug-title" style="margin-bottom:4px">Recent mismatches</div>
+            <div id="bulkDebugLog" class="bulk-debug-log">
+              <div class="bulk-debug-empty">No mismatches logged yet.</div>
+            </div>
+          </div>
+          <div>
+            <div class="bulk-debug-title" style="margin-bottom:4px">Bulk name map (JSON)</div>
+            <textarea id="bulkNameMapInput" class="bulk-debug-map-input" placeholder='{\n  "horned of bloodlines": "Horned Scarab of Bloodlines"\n}'></textarea>
+            <div class="bulk-debug-map-hint">
+              Lowercase keys → canonical scarab names. Stored locally only.
+              <button type="button" class="bulk-debug-btn" style="margin-left:6px" onclick="saveBulkNameMapFromInput()">Save map</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bulk-debug-toggle" style="margin-top:8px" onclick="toggleBulkScarabList()">
+        <span class="bulk-debug-toggle-icon">▶</span>
+        <span>Scarab reference list</span>
+      </div>
+      <div id="bulkScarabPanel" class="bulk-debug-panel">
+        <div class="bulk-debug-header">
+          <div class="bulk-debug-title">Canonical scarab names</div>
+        </div>
+        <div id="bulkScarabList" class="bulk-debug-log">
+          <div class="bulk-debug-empty">No data yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════ FAQ TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-faq">
+
+    <div class="logger-intro">
+      <div class="logger-intro-title">FAQ</div>
+      <div class="logger-intro-sub">Quick answers to common questions about how ScarabEV works, how the math is calculated, and how community data is aggregated.</div>
+    </div>
+
+    <div id="faq-list" style="display:flex;flex-direction:column;gap:4px;max-width:860px;margin:0 auto">
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════ ATLAS OPTIMIZER TAB ════════════════════════════ -->
+  <div class="tab-pane" id="tab-atlas">
+
+    <div class="atlas-intro">
+      <div class="atlas-title" style="margin-bottom:6px">Atlas Optimizer</div>
+      <div class="atlas-sub">Toggle block nodes to remove low-value mechanics from the drop pool, and boost nodes to double the weight of high-value groups. Map drop EV updates live as you experiment.</div>
+      <div class="notice notice-tip" style="margin-top:10px;margin-bottom:0"><strong>Your config is saved manually.</strong> Set up your blocks and boosts, then hit <strong>Save config</strong> to lock it in. On your next visit we'll compare your saved toggles against current prices — if anything has flipped to an <span style="color:var(--chaos);font-weight:600">EV loss</span>, we'll flag it. Those pills also show in real time on any toggle that's currently costing you map value.</div>
+    </div>
+
+    <div class="atlas-hero">
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">Map Drop EV</div>
+        <div class="atlas-hero-val chaos" id="atlas-ev-current">—</div>
+        <div class="atlas-hero-sub">expected value per scarab drop</div>
+      </div>
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">Baseline EV</div>
+        <div class="atlas-hero-val muted" id="atlas-ev-baseline">—</div>
+        <div class="atlas-hero-sub">no blocks, no boosts</div>
+      </div>
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">EV Gain / Loss</div>
+        <div class="atlas-hero-val" id="atlas-ev-delta">—</div>
+        <div class="atlas-hero-sub" id="atlas-ev-delta-sub">combined effect of all toggles</div>
+      </div>
+      <div class="atlas-hero-card">
+        <div class="atlas-hero-label">% Change</div>
+        <div class="atlas-hero-val" id="atlas-ev-pct">—</div>
+        <div class="atlas-hero-sub">from baseline</div>
+      </div>
+    </div>
+
+    <div class="atlas-note" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <span><strong>Drop weights</strong> are based on observed vendor session data. <strong>Boost nodes</strong> apply ×2 pool weight <em>(100% increased chance to drop)</em>. Prices use live market data.</span>
+      <button id="atlasSaveBtn" class="atlas-save-btn" onclick="atlasSave()">Save config</button>
+    </div>
+
+    <div class="atlas-two-col" id="atlasMainCols">
+      <div class="atlas-no-data">Loading market prices...</div>
+    </div>
+
+    <div id="atlasLeftovers"></div>
+
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script type="module" src="./js/app.js"></script>
+
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<!-- STACKING TOAST CONTAINER -->
+<div id="toastStack">
+  <div class="version-toast" id="toastVersion" onclick="versionToastClick()"></div>
+  <div class="version-toast" id="toastAtlas"></div>
+</div>
+
+<!-- CHANGELOG DRAWER -->
+
+
+<div id="changelogOverlay" class="changelog-overlay" onclick="toggleChangelog()"></div>
+<div id="changelogDrawer" class="changelog-drawer">
+  <div class="changelog-header">
+    <span class="changelog-title">Changelog</span>
+    <button class="changelog-close" onclick="toggleChangelog()">×</button>
+  </div>
+  <div class="changelog-content" id="changelogContent">
+    <div class="changelog-loading">Loading...</div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const paletteClasses = ['graph-palette-forest', 'graph-palette-copper', 'graph-palette-ruby'];
+
+    function applyPalette(name) {
+      const chosen = (name === 'copper' || name === 'ruby') ? name : 'forest';
+      document.body.classList.remove(...paletteClasses);
+      document.body.classList.add('graph-palette-' + chosen);
+    }
+
+    function parseWeightStabilityPct() {
+      const cards = document.querySelectorAll('#analysisStatsBar .analysis-stat-card');
+      for (const card of cards) {
+        const label = card.querySelector('.analysis-stat-label');
+        if (!label) continue;
+        if (label.textContent.trim().toLowerCase() !== 'weight stability') continue;
+        const value = card.querySelector('.analysis-stat-value');
+        if (!value) return null;
+        const pct = parseFloat(value.textContent);
+        return Number.isFinite(pct) ? pct : null;
+      }
+      return null;
+    }
+
+    function paletteFromStability(pct) {
+      if (!Number.isFinite(pct)) return 'forest';
+      if (pct >= 70) return 'forest';
+      if (pct >= 45) return 'copper';
+      return 'ruby';
+    }
+
+    function syncPaletteToWeightStability() {
+      const pct = parseWeightStabilityPct();
+      applyPalette(paletteFromStability(pct));
+    }
+
+    const bar = document.getElementById('analysisStatsBar');
+    if (bar) {
+      const obs = new MutationObserver(syncPaletteToWeightStability);
+      obs.observe(bar, { childList: true, subtree: true, characterData: true });
+    }
+
+    // Initial/default state
+    applyPalette('forest');
+    // Also refresh when navigation changes tab hash.
+    window.addEventListener('hashchange', syncPaletteToWeightStability);
+    // Small delayed sync after boot once app has had time to render stats.
+    setTimeout(syncPaletteToWeightStability, 300);
+  })();
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
