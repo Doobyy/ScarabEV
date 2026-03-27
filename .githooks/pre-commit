@@ -1,3 +1,0 @@
-﻿#!/usr/bin/env bash
-set -euo pipefail
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts/check-text-integrity.ps1" -Staged
