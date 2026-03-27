@@ -4,85 +4,84 @@
 
 ## [1.4] - 2026-03-26
 ### Focus: UX & Mobile Reliability
-- Mobile navigation + layout stabilization across tabs.
-- Hash routing + tab deep-linking + back/forward support.
-- FAQ/how-to readability and contrast upgrades.
-- Vendor/analysis table readability + sorting consistency fixes.
-- Bulk/Toast/Loading-state reliability fixes.
+- Mobile layout stability: Improved tab navigation and phone-width layout behavior across the app.
+- Deep-link routing: Strengthened hash routing support for direct links plus back/forward navigation.
+- Readability polish: Upgraded FAQ/how-to contrast and tightened vendor/analysis table clarity.
+- Reliability cleanup: Fixed bulk, toast, and loading-state edge cases that affected UX consistency.
 
 ---
 
 ## [1.3] - 2026-03-25
 ### Focus: EV Model Maturity
-- Weighted EV mode (observed frequencies × live prices).
-- Harmonic vs weighted mode switching.
-- Estimator math alignment to recycle-loop behavior.
-- Contribution/risk insights (Weight Stability, Jackpot Reliance, EV contribution).
+- Weighted EV mode: Added observed-frequency pricing using live market values.
+- EV mode controls: Introduced harmonic and weighted mode switching in the main workflow.
+- Estimation alignment: Matched estimator math to recycle-loop vendor behavior.
+- Risk visibility: Added Weight Stability, Jackpot Reliance, and EV contribution insights.
 
 ---
 
 ## [1.2] - 2026-03-24
 ### Focus: Expansion Tabs
-- Bulk Buy Analyzer with CSV + image-assisted parsing.
-- Data Analysis tab (aggregate stats, distribution/EV views).
-- Atlas Optimizer tab with block/boost EV modeling.
-- EV trend history and vendor sparklines.
+- Bulk analysis tools: Added Bulk Buy Analyzer with CSV and image-assisted parsing.
+- Data analysis views: Added aggregate stats plus distribution and EV comparison panels.
+- Atlas optimization: Added Atlas Optimizer with block/boost EV modeling controls.
+- Trend visuals: Added EV trend history and vendor sparkline views.
 
 ---
 
 ## [1.1] - 2026-03-23
 ### Focus: Session Data Pipeline
-- Session Logger (before/after Wealthy Exile workflow).
-- Community submissions to Cloudflare D1.
-- Session quality gating (recycled/invalid/low-signal detection).
-- Admin moderation tools for session data.
+- Session logging: Added before/after Wealthy Exile workflow for vendor sessions.
+- Community sync: Added submission pipeline to Cloudflare D1.
+- Quality controls: Added recycled, invalid, and low-signal session gating.
+- Admin moderation: Added tools to review and manage submitted session data.
 
 ---
 
 ## [1.0] - 2026-03-22
 ### Focus: Platform Foundation
-- Initial ScarabEV release with harmonic EV + regex generation.
-- Dark/light theme support.
-- poe.ninja pricing integration (via worker proxy).
-- Core vendor workflow controls (league/filter/group controls).
+- Initial release: Shipped harmonic EV and auto-regex generation baseline.
+- Theme support: Added dark and light mode switching.
+- Live pricing: Integrated poe.ninja prices through the worker proxy path.
+- Vendor controls: Added league, filter, and group interaction controls.
 
 ---
 
 ## [0.5] - 2026-03-15
 ### Focus: Closed Beta Tooling
-- First stable Session Logger + aggregate analysis loop.
-- Community dataset collection flow established.
-- Early recycle-detection and data-quality filtering introduced.
+- Logger stability: Reached first stable Session Logger and aggregate analysis loop.
+- Data collection: Established community dataset submission flow.
+- Data hygiene: Introduced recycle-detection and quality filtering.
 
 ---
 
 ## [0.4] - 2026-03-13
 ### Focus: Bulk Workflow Prototyping
-- Bulk Buy Analyzer prototype launched.
-- Screenshot-to-CSV parsing path introduced.
-- Early fuzzy matching for OCR/noisy scarab names.
+- Bulk prototype: Launched the first Bulk Buy Analyzer workflow.
+- Image extraction: Added screenshot-to-CSV parsing path.
+- Name matching: Added fuzzy handling for OCR and noisy scarab names.
 
 ---
 
 ## [0.3] - 2026-03-11
 ### Focus: Backend Scaffolding
-- Cloudflare Worker + D1 backend foundations added.
-- First admin moderation interface shipped.
-- Initial validation rules for incoming session payloads.
+- Backend foundation: Added Cloudflare Worker and D1 service scaffolding.
+- Admin panel: Shipped first moderation interface.
+- Payload validation: Added initial rules for submitted session data.
 
 ---
 
 ## [0.2] - 2026-03-10
 ### Focus: Market-Linked Prototype
-- Live price ingestion pipeline established.
-- Regex token integration added for auto filter generation.
-- First league/sort/filter/group interaction model completed.
+- Price ingestion: Established live market data pipeline.
+- Regex tokens: Integrated token mapping for auto filter generation.
+- Core interactions: Completed first league, sort, filter, and grouping model.
 
 ---
 
 ## [0.1] - 2026-03-09
 ### Focus: Alpha Baseline
-- Manual scarab pricing workflow.
-- Harmonic EV model baseline.
-- First auto-regex generation workflow.
+- Manual pricing: Shipped first scarab price input workflow.
+- EV baseline: Implemented harmonic EV foundation.
+- Regex baseline: Added first auto-regex generation workflow.
 

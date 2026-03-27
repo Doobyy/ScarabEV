@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ï»¿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13,7 +13,7 @@
   --accent-dim: #d9eaed;
   --chaos: #a844d1;
   --green: #1d834e;
-  --amber: #bb6f12;
+  --amber: #7e5863;
   --bg-outer-light: #71829d;
   --bg: #e5edf7;
   --bg-card: rgba(255,255,255,0.88);
@@ -29,7 +29,8 @@
   --green-bg: #e8f8ef;
   --green-border: #8ed9b0;
   --red: #d63a2c;
-  --amber-bg: #fef3e4;
+  --amber-bg: #e3e7ec;
+  --amber-border-soft: color-mix(in srgb, var(--amber) 30%, var(--border) 70%);
   --chaos-bg: #f3e8fd;
   --chaos-border: #cc98ee;
   --header-bg: #141620;
@@ -238,28 +239,112 @@ body {
 .changelog-close:hover { color: var(--red); border-color: var(--red); }
 .changelog-content {
   flex: 1; overflow-y: auto; padding: 18px; font-size: 12px;
-  line-height: 1.7; color: var(--text-2);
+  line-height: 1.72; color: var(--text-2);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  scrollbar-width: thin;
+  scrollbar-color: #6f92bb #cdd9e7;
 }
+.changelog-content::-webkit-scrollbar { width: 10px; }
+.changelog-content::-webkit-scrollbar-track { background: #cdd9e7; }
+.changelog-content::-webkit-scrollbar-thumb {
+  background: #6f92bb;
+  border-radius: 999px;
+  border: 2px solid #cdd9e7;
+}
+.changelog-content::-webkit-scrollbar-thumb:hover { background: #597eae; }
+:root:not([data-theme="dark"]) .changelog-drawer { background: #d8e2ee; }
+:root:not([data-theme="dark"]) .changelog-header { background: #c8d5e5; }
+:root:not([data-theme="dark"]) .changelog-content { background: #d8e2ee; }
+:root:not([data-theme="dark"]) .changelog-content { -webkit-font-smoothing: subpixel-antialiased; }
+:root:not([data-theme="dark"]) .changelog-content li,
+:root:not([data-theme="dark"]) .changelog-content p { font-weight: 500; }
+:root:not([data-theme="dark"]) .changelog-content li .cl-key,
+:root:not([data-theme="dark"]) .changelog-content h3 { font-weight: 900; }
 .changelog-content h2 {
-  font-size: 13px; font-weight: 700; color: var(--chaos);
+  font-size: 13px; font-weight: 700; color: #6c7f9c;
   margin: 20px 0 4px; padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
 }
+.changelog-content h2 .cl-ver { color: #1f66c7; }
+.changelog-content h2 .cl-sep { color: #8ea3be; }
+.changelog-content h2 .cl-date { color: #4f6687; }
 .changelog-content h2:first-child { margin-top: 0; }
 .changelog-content h3 {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.07em; color: var(--text-3); margin: 10px 0 4px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.055em; color: #2c4468; margin: 10px 0 4px;
 }
 .changelog-content h3.cl-added   { color: var(--green); }
 .changelog-content h3.cl-fixed   { color: var(--accent); }
 .changelog-content h3.cl-changed { color: var(--amber); }
 .changelog-content h3.cl-removed { color: var(--red); }
+.changelog-content h3.cl-focus   { color: #6f1a56; }
 .changelog-content ul { padding-left: 14px; margin: 0 0 6px; }
-.changelog-content li { margin-bottom: 3px; color: var(--text-2); }
+.changelog-content li { margin-bottom: 4px; color: #253f61; }
+.changelog-content li::marker { color: #2f6f8a; }
+.changelog-content li .cl-key { font-weight: 700; color: #245996; }
+.changelog-content li .cl-msg { color: #253f61; }
+.changelog-content li.cl-focus .cl-key { color: #146f67; }
+.changelog-content li.cl-changed .cl-key { color: #7d4f2d; }
+.changelog-content li.cl-fixed .cl-key { color: #186fb6; }
+.changelog-content li.cl-added .cl-key { color: #1f7747; }
+.changelog-content li.cl-removed .cl-key { color: #972b23; }
 .changelog-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .changelog-content p { color: var(--text-3); font-size: 11px; margin-bottom: 12px; }
 .changelog-loading { color: var(--text-3); font-size: 12px; padding: 24px; text-align: center; }
+[data-theme="dark"] .changelog-header {
+  background: color-mix(in srgb, var(--bg-table-head) 82%, #253956 18%);
+  border-bottom-color: color-mix(in srgb, var(--border) 85%, #40658f 15%);
+}
+[data-theme="dark"] .changelog-content h2 {
+  color: #8fc2ff;
+  border-bottom-color: color-mix(in srgb, var(--border) 84%, #40658f 16%);
+}
+[data-theme="dark"] .changelog-content {
+  scrollbar-color: #406189 #111d31;
+}
+[data-theme="dark"] .changelog-content::-webkit-scrollbar-track {
+  background: #111d31;
+}
+[data-theme="dark"] .changelog-content::-webkit-scrollbar-thumb {
+  background: #406189;
+  border-color: #111d31;
+}
+[data-theme="dark"] .changelog-content::-webkit-scrollbar-thumb:hover {
+  background: #5a80af;
+}
+[data-theme="dark"] .changelog-content h2 .cl-ver {
+  color: #74bcff;
+}
+[data-theme="dark"] .changelog-content h2 .cl-sep {
+  color: color-mix(in srgb, #8fc2ff 52%, #6f82a4 48%);
+}
+[data-theme="dark"] .changelog-content h2 .cl-date {
+  color: color-mix(in srgb, var(--text-2) 90%, #9fb1cd 10%);
+}
+[data-theme="dark"] .changelog-content h3 {
+  color: #9fb1cd;
+}
+[data-theme="dark"] .changelog-content h3.cl-focus {
+  color: color-mix(in srgb, var(--chaos) 98%, #ffffff 2%);
+}
+[data-theme="dark"] .changelog-content li {
+  color: #c4d1e6;
+}
+[data-theme="dark"] .changelog-content li::marker {
+  color: color-mix(in srgb, var(--accent) 65%, #9cc8ff 35%);
+}
+[data-theme="dark"] .changelog-content li .cl-key { color: #9ec8ff; }
+[data-theme="dark"] .changelog-content li .cl-msg { color: #c4d1e6; }
+[data-theme="dark"] .changelog-content li.cl-focus .cl-key { color: #7fe3d4; }
+[data-theme="dark"] .changelog-content li.cl-changed .cl-key { color: #ffd08a; }
+[data-theme="dark"] .changelog-content li.cl-fixed .cl-key { color: #8ec2ff; }
+[data-theme="dark"] .changelog-content li.cl-added .cl-key { color: #8ee7b5; }
+[data-theme="dark"] .changelog-content li.cl-removed .cl-key { color: #ff8d86; }
+[data-theme="dark"] .changelog-content p {
+  color: #9eb1cc;
+}
 
 /* -- LAYOUT -- */
 .page {
@@ -325,7 +410,7 @@ body {
 
 .ev-override-bar {
   display: flex; align-items: center; gap: 10px; padding: 8px 14px;
-  background: var(--amber-bg); border: 1px solid #f5d78e; border-radius: 6px;
+  background: var(--amber-bg); border: 1px solid var(--amber-border-soft); border-radius: 6px;
   margin-bottom: 14px; font-size: 12px; flex-wrap: wrap;
   transition: background 0.2s, border-color 0.2s;
 }
@@ -335,7 +420,7 @@ body {
 [data-theme="dark"] .bulk-unmatched { background: #0d1e2e; border-color: #2a5a8a; }
 .ev-override-bar label { font-weight: 600; color: var(--amber); white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; }
 .ev-override-input {
-  width: 80px; padding: 4px 8px; border: 1px solid #f5d78e; border-radius: 4px;
+  width: 80px; padding: 4px 8px; border: 1px solid var(--amber-border-soft); border-radius: 4px;
   background: var(--bg-card); font-family: inherit; font-size: 13px; font-weight: 600;
   color: var(--amber); text-align: center; outline: none;
   -moz-appearance: textfield;
@@ -347,11 +432,11 @@ body {
 .ev-override-active { color: var(--amber); font-size: 11px; font-weight: 600; }
 .ev-clear-btn {
   font-family: inherit; font-size: 11px; padding: 3px 10px; border-radius: 4px;
-  border: 1px solid #f5d78e; background: transparent; color: var(--amber);
+  border: 1px solid var(--amber-border-soft); background: transparent; color: var(--amber);
   cursor: pointer; transition: all 0.15s; margin-left: auto;
 }
 .ev-clear-btn:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
-/* EV mode toggle — desktop shows two buttons, mobile shows pill */
+/* EV mode toggle â€” desktop shows two buttons, mobile shows pill */
 #evModePill { display: none; }
 .ev-mode-desktop { display: flex; }
 
@@ -751,7 +836,7 @@ body.graph-palette-ruby {
 .th.right { text-align: right; }
 .th.center { text-align: center; }
 
-/* Ninja tab — 7 columns with consistent sizing */
+/* Ninja tab â€” 7 columns with consistent sizing */
 .table-head.ninja-head { grid-template-columns: 44px 1fr 90px 100px 52px 88px 90px 76px; }
 .scarab-row.ninja-row  { grid-template-columns: 44px 1fr 90px 100px 52px 88px 90px 76px; }
 
@@ -795,7 +880,7 @@ body.graph-palette-ruby {
 .td.center { text-align: center; }
 .td.icon-cell { padding: 4px 6px 4px 10px; display: flex; align-items: center; justify-content: center; }
 
-/* Scarab icon — render at 2× then scale down so the browser
+/* Scarab icon â€” render at 2Ã— then scale down so the browser
    downsamples from a higher resolution, giving crisp results
    at small display size without any pixelation. */
 .icon-wrap {
@@ -897,7 +982,7 @@ body.graph-palette-ruby {
 .toast {
   position: fixed; bottom: 20px; left: 50%;
   transform: translateX(-50%) translateY(8px);
-  /* Light mode — dark pill so it pops off the light page */
+  /* Light mode â€” dark pill so it pops off the light page */
   background: #1e2235; color: #e8ecf8;
   border: 1px solid #2e3450;
   font-family: inherit; font-size: 12px; font-weight: 500;
@@ -921,13 +1006,13 @@ body.graph-palette-ruby {
   width: 268px;
   font-family: inherit; font-size: 12px;
   border-radius: 10px;
-  /* Light mode — dark floating card */
+  /* Light mode â€” dark floating card */
   background: #1e2030;
   border: 1px solid rgba(255,255,255,0.10);
   box-shadow: 0 4px 6px rgba(0,0,0,0.12), 0 12px 28px rgba(0,0,0,0.45);
   color: #e8ecf8;
   pointer-events: none;
-  /* Hidden state — collapsed height + faded + shifted */
+  /* Hidden state â€” collapsed height + faded + shifted */
   opacity: 0;
   transform: translateY(-6px);
   max-height: 0;
@@ -949,7 +1034,7 @@ body.graph-palette-ruby {
   max-height: 640px;
   overflow: hidden;
 }
-/* Colored top strip — accent set via --vt-accent on the element */
+/* Colored top strip â€” accent set via --vt-accent on the element */
 .version-toast::before {
   content: '';
   position: absolute;
@@ -1008,7 +1093,7 @@ body.graph-palette-ruby {
 /* "what's new" label next to title */
 .version-toast-sub { font-size: 10px; color: rgba(255,255,255,0.64); }
 [data-theme="dark"] .version-toast-sub { color: rgba(255,255,255,0.64); }
-/* hint line below header — "prices may have shifted since your last save" */
+/* hint line below header â€” "prices may have shifted since your last save" */
 .version-toast-hint {
   padding: 4px 13px 0;
   font-size: 10px;
@@ -1027,7 +1112,7 @@ body.graph-palette-ruby {
   list-style: none; padding-left: 10px; position: relative;
 }
 [data-theme="dark"] .version-toast-body li { color: rgba(255,255,255,0.8); }
-.version-toast-body li::before { content: '·'; position: absolute; left: 0; color: #d080f8; }
+.version-toast-body li::before { content: 'â€¢'; position: absolute; left: 0; color: #d080f8; }
 [data-theme="dark"] .version-toast-body li::before { color: var(--vt-accent, #a03ec8); }
 .version-toast-body li.vt-item { display: block; }
 .version-toast-body li .vt-key { font-weight: 700; color: #f0b6ff; }
@@ -1061,14 +1146,42 @@ body.graph-palette-ruby {
   background: color-mix(in srgb, var(--bg-card) 82%, #263756 18%);
   border-color: color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,0.14) 66%);
 }
-.version-toast::before,
-[data-theme="dark"] .version-toast::before {
-  background: var(--accent);
+.version-toast::before {
+  background: #78f3e3;
+  box-shadow: 0 0 10px rgba(120, 243, 227, 0.32);
 }
-.version-toast-title { color: var(--accent); }
-[data-theme="dark"] .version-toast-title { color: #8fc2ff; }
+[data-theme="dark"] .version-toast::before {
+  background: #78f3e3;
+  box-shadow: 0 0 10px rgba(120, 243, 227, 0.32);
+}
+.version-toast-title { color: #78f3e3; }
+[data-theme="dark"] .version-toast-title {
+  color: #78f3e3;
+  text-shadow: 0 0 6px rgba(120, 243, 227, 0.22);
+}
 .version-toast-hint { color: #85bfff; }
 [data-theme="dark"] .version-toast-hint { color: #82b9ff; }
+
+.version-toast-alert {
+  padding: 3px 13px 1px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--chaos);
+}
+[data-theme="dark"] .version-toast-alert { color: var(--chaos); }
+
+#toastAtlas .version-toast-alert,
+[data-theme="dark"] #toastAtlas .version-toast-alert {
+  color: #e8a7ff;
+  text-shadow: 0 0 5px rgba(232, 167, 255, 0.16);
+}
+#toastAtlas .version-toast-alert {
+  color: #f2a7ff;
+}
 .version-toast-body li::before,
 [data-theme="dark"] .version-toast-body li::before {
   color: var(--accent);
@@ -1092,6 +1205,30 @@ body.graph-palette-ruby {
 .version-toast-body li.vt-changed .vt-key,
 [data-theme="dark"] .version-toast-body li.vt-changed .vt-key {
   color: #ffd08a;
+}
+.version-toast-body li.vt-focus .vt-key {
+  color: #f2a7ff;
+  font-size: inherit;
+  line-height: inherit;
+}
+.version-toast-body li.vt-focus .vt-msg {
+  color: #f2a7ff;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 600;
+}
+[data-theme="dark"] .version-toast-body li.vt-focus .vt-key {
+  color: #e8a7ff;
+  font-size: inherit;
+  line-height: inherit;
+  text-shadow: 0 0 5px rgba(232, 167, 255, 0.14);
+}
+[data-theme="dark"] .version-toast-body li.vt-focus .vt-msg {
+  color: #e8a7ff;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 600;
+  text-shadow: 0 0 5px rgba(232, 167, 255, 0.12);
 }
 
 /* -- LEAGUE SELECTOR -- */
@@ -1416,7 +1553,7 @@ body.graph-palette-ruby {
   color: var(--amber);
   background: var(--amber-bg);
   border-radius: 6px;
-  border: 1px solid #f5d78e;
+  border: 1px solid var(--amber-border-soft);
   padding: 7px 10px;
 }
 .bulk-unmatched strong { color: var(--amber); }
@@ -1424,13 +1561,13 @@ body.graph-palette-ruby {
 .bulk-warn-banner {
   display: flex; flex-direction: column; gap: 8px;
   padding: 11px 14px; background: var(--amber-bg);
-  border: 1px solid #f5d78e; border-radius: 7px;
+  border: 1px solid var(--amber-border-soft); border-radius: 7px;
   margin-bottom: 10px; font-size: 12px; color: var(--text-2); line-height: 1.7;
 }
 [data-theme="dark"] .bulk-warn-banner { border-color: #2a5a8a; }
 .bulk-warn-banner-divider {
   display: flex; align-items: flex-start; gap: 10px;
-  padding-top: 8px; border-top: 1px solid #f5d78e;
+  padding-top: 8px; border-top: 1px solid var(--amber-border-soft);
 }
 [data-theme="dark"] .bulk-warn-banner-divider { border-top-color: #2a5a8a; }
 
@@ -1442,7 +1579,7 @@ body.graph-palette-ruby {
   border-top: 1px solid transparent; border-right: 1px solid transparent; border-bottom: 1px solid transparent;
 }
 .notice-warn {
-  background: var(--amber-bg); border-color: rgba(212,112,14,0.2); border-left-color: var(--amber);
+  background: var(--amber-bg); border-color: color-mix(in srgb, var(--amber) 24%, var(--border) 76%); border-left-color: var(--amber);
 }
 .notice-warn strong { color: var(--amber); }
 .notice-tip {
@@ -1462,7 +1599,7 @@ body.graph-palette-ruby {
 }
 .notice-amber strong { color: var(--amber); }
 .notice-bulk-warn {
-  background: var(--amber-bg); border-color: rgba(212,112,14,0.2); border-left-color: var(--amber);
+  background: var(--amber-bg); border-color: color-mix(in srgb, var(--amber) 24%, var(--border) 76%); border-left-color: var(--amber);
 }
 .notice-bulk-warn strong { color: var(--amber); }
 #tab-bulk .notice-bulk-warn {
@@ -1623,7 +1760,7 @@ body.graph-palette-ruby {
 .help-box a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .help-box a:hover { text-decoration: underline; }
 
-/* -- Dark mode font smoothing — prevents fuzzy rendering on muted text -- */
+/* -- Dark mode font smoothing â€” prevents fuzzy rendering on muted text -- */
 [data-theme="dark"] { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 /* FAQ + how-to visual system */
 #tab-faq .faq-question {
@@ -1740,10 +1877,10 @@ body.graph-palette-ruby {
 /* Section descriptions under chart/table headings */
 [data-theme="dark"] .analysis-section-desc { color: var(--text-3); }
 
-/* Submit status feedback — needs to be readable */
+/* Submit status feedback â€” needs to be readable */
 [data-theme="dark"] .logger-submit-status { color: var(--text-3); }
 
-/* Ninja status — loaded/loading states */
+/* Ninja status â€” loaded/loading states */
 [data-theme="dark"] .ninja-status.loaded,
 [data-theme="dark"] .ninja-status.loading { color: var(--text-3); }
 
@@ -1800,7 +1937,7 @@ body.graph-palette-ruby {
 }
 .atlas-col { display: flex; flex-direction: column; }
 
-/* Connected table wrapper — title bar + col headers + card rows all share one border */
+/* Connected table wrapper â€” title bar + col headers + card rows all share one border */
 .atlas-col-wrap {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 7px; overflow: hidden; box-shadow: var(--shadow-sm);
@@ -1829,7 +1966,7 @@ body.graph-palette-ruby {
 .atlas-col-subhead span:first-child,
 .atlas-col-subhead span:nth-child(2) { text-align: left; }
 
-/* Group cards inside the wrapper — no individual borders, just bottom dividers */
+/* Group cards inside the wrapper â€” no individual borders, just bottom dividers */
 .atlas-col-wrap .atlas-group-card {
   border: none; border-radius: 0; box-shadow: none;
   border-bottom: 1px solid var(--border);
@@ -1842,7 +1979,7 @@ body.graph-palette-ruby {
   transition: border-color 0.15s, opacity 0.15s;
 }
 /* Mute children individually so ev-loss badge can stay vivid.
-   CSS opacity is multiplicative through the stacking context — there's no way
+   CSS opacity is multiplicative through the stacking context â€” there's no way
    to "un-mute" a child once a parent has opacity < 1. Solution: don't put
    opacity on the card itself, mute the parts we want dimmed instead. */
 .atlas-col-wrap .atlas-group-card.is-blocked { border: none; border-left: 3px solid var(--red); }
@@ -2168,7 +2305,7 @@ body.graph-palette-ruby {
     grid-template-columns: 34px 1fr 56px 66px 32px;
   }
   .atlas-col-subhead span { white-space: nowrap; }
-  /* Hide share and contribution columns on mobile — keep group EV and delta */
+  /* Hide share and contribution columns on mobile â€” keep group EV and delta */
   .atlas-group-row > span:nth-child(4),
   .atlas-group-row > span:nth-child(5),
   .atlas-col-subhead > span:nth-child(4),
@@ -2387,10 +2524,10 @@ body.graph-palette-ruby {
   <div class="tab-pane active" id="tab-ninja">
 
     <div class="ninja-banner">
-      <span class="ninja-status" id="ninjaStatus">Loading prices…</span>
+      <span class="ninja-status" id="ninjaStatus">Loading pricesâ€¦</span>
       <span style="flex:1"></span>
       <select class="league-select" id="leagueSelect" onchange="fetchMarketScarabPrices(); fetchPriceHistory()">
-        <option value="" data-current="1">Detecting league…</option>
+        <option value="" data-current="1">Detecting leagueâ€¦</option>
         <option value="Standard">Standard</option>
       </select>
       <button class="refresh-btn" id="refreshBtn" onclick="fetchMarketScarabPrices()" style="display:none">? Refresh</button>
@@ -2402,7 +2539,7 @@ body.graph-palette-ruby {
         <div class="threshold-left">
           <span class="threshold-label threshold-label-desktop">Vendor Threshold</span>
           <span class="threshold-label threshold-label-mobile">Threshold</span>
-          <span class="threshold-value" id="sliderValueDisplay">—</span>
+          <span class="threshold-value" id="sliderValueDisplay">â€”</span>
           <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
           <div class="threshold-ev-pill-wrap" style="margin-left:6px;display:flex;align-items:center;gap:6px;flex-shrink:0">
             <button id="evModePill" onclick="toggleEVMode()" title="Switch between Harmonic and Weighted EV"
@@ -2440,7 +2577,7 @@ body.graph-palette-ruby {
         <div class="slider-roi-segment" style="background:var(--red)" id="roiSegRed"></div>
       </div>
       <div id="weightedEvWarning" style="display:none;margin-top:10px;padding:7px 12px;background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;font-size:11px;color:var(--amber);line-height:1.6">
-        ? <strong style="color:var(--amber)">Weighted EV carries more variance.</strong> Based on <span id="weightedSessionCount">—</span> community sessions — rare expensive drops in limited data can skew the threshold higher than the true long-run rate. <span style="color:var(--text-2)">Harmonic EV is the safer default — weighted is for high-volume runs where you're comfortable riding out the variance chasing jackpot drops.</span>
+        ? <strong style="color:var(--amber)">Weighted EV carries more variance.</strong> Based on <span id="weightedSessionCount">â€”</span> community sessions â€” rare expensive drops in limited data can skew the threshold higher than the true long-run rate. <span style="color:var(--text-2)">Harmonic EV is the safer default â€” weighted is for high-volume runs where you're comfortable riding out the variance chasing jackpot drops.</span>
       </div>
     </div>
 
@@ -2455,7 +2592,7 @@ body.graph-palette-ruby {
         <div style="position:relative;width:100%;height:140px">
           <canvas id="evHistoryChart"></canvas>
         </div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Daily EV snapshot at 7PM UTC · 90 day window</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Daily EV snapshot at 7PM UTC Â· 90 day window</div>
       </div>
     </div>
 
@@ -2471,7 +2608,7 @@ body.graph-palette-ruby {
       <div class="regex-warn" id="n-regexWarn">? Regex exceeds 250 characters.</div>
     </div>
 
-    <!-- PROFIT ESTIMATOR — sits where stat cards were -->
+    <!-- PROFIT ESTIMATOR â€” sits where stat cards were -->
     <div class="estimator-panel" id="estimatorPanel">
       <div class="estimator-header" onclick="toggleEstimator()">
         <span class="estimator-title">Vendor Profit Estimator</span>
@@ -2489,22 +2626,22 @@ body.graph-palette-ruby {
         <div class="estimator-results">
           <div class="estimator-card">
             <div class="estimator-card-label">Scarabs to Vendor</div>
-            <div class="estimator-card-value val-roi" id="est-input">—</div>
+            <div class="estimator-card-value val-roi" id="est-input">â€”</div>
             <div class="estimator-card-sub" id="est-input-sub">import CSV to estimate</div>
           </div>
           <div class="estimator-card">
             <div class="estimator-card-label">Input Value</div>
-            <div class="estimator-card-value val-return" id="est-input-value">—</div>
+            <div class="estimator-card-value val-return" id="est-input-value">â€”</div>
             <div class="estimator-card-sub">current market value of vendor targets</div>
           </div>
           <div class="estimator-card">
             <div class="estimator-card-label">Est. Return</div>
-            <div class="estimator-card-value val-profit" id="est-return">—</div>
+            <div class="estimator-card-value val-profit" id="est-return">â€”</div>
             <div class="estimator-card-sub">expected keeper value from vendor</div>
           </div>
           <div class="estimator-card">
             <div class="estimator-card-label">Est. Profit</div>
-            <div class="estimator-card-value val-profit" id="est-profit">—</div>
+            <div class="estimator-card-value val-profit" id="est-profit">â€”</div>
             <div class="estimator-card-sub">return minus input value</div>
           </div>
         </div>
@@ -2519,7 +2656,7 @@ body.graph-palette-ruby {
         <div class="estimator-note">
           <div>Import your Wealthy Exile CSV to calculate estimates based on your actual inventory. Results update live as you adjust the threshold slider.</div>
           <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <span style="color:var(--text-3);font-size:11px">Estimates derived from observed vendor session data. Variance is expected — treat these as directional, not exact.</span>
+            <span style="color:var(--text-3);font-size:11px">Estimates derived from observed vendor session data. Variance is expected â€” treat these as directional, not exact.</span>
             <span style="color:var(--text-3);font-size:11px;white-space:nowrap;margin-left:12px" id="est-divine-rate-wrap"></span>
           </div>
           <div id="est-debug" style="display:none"></div>
@@ -2560,15 +2697,15 @@ body.graph-palette-ruby {
 
     <div class="logger-intro">
       <div class="logger-intro-title">Session Logger</div>
-      <div class="logger-intro-sub">Upload two Wealthy Exile CSV snapshots — before and after a vendor session — plus the regex you used. The tool will parse the deltas and track your input/output profit margins over time.</div>
+      <div class="logger-intro-sub">Upload two Wealthy Exile CSV snapshots â€” before and after a vendor session â€” plus the regex you used. The tool will parse the deltas and track your input/output profit margins over time.</div>
     </div>
 
-    <!-- Community data how-to — collapsed by default -->
+    <!-- Community data how-to â€” collapsed by default -->
     <div style="margin-bottom:16px">
       <div onclick="toggleLoggerHowTo()" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-card)'" id="loggerHowToToggle">
         <span style="font-size:10px;color:var(--accent);transition:transform 0.15s" id="loggerHowToChevron">?</span>
         <span style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em">How to contribute clean data to the community database</span>
-        <span style="font-size:11px;color:var(--text-3);margin-left:4px">— optional, for data contributors only</span>
+        <span style="font-size:11px;color:var(--text-3);margin-left:4px">â€” optional, for data contributors only</span>
       </div>
 
       <div id="loggerHowToBody" style="display:none;margin-top:0;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:16px;font-size:12px;line-height:1.8;color:var(--text-3)">
@@ -2578,26 +2715,26 @@ body.graph-palette-ruby {
         </div>
 
         <div style="font-weight:600;color:var(--text-2);margin-bottom:8px">Why single-pass sessions matter for community data</div>
-        <p>The community database builds a <strong>weight distribution</strong> — how often each scarab type appears as a vendor output. This drives the Weighted EV threshold for everyone. To get accurate weights, we need to know what the vendor actually returned on each pass, not the net result after recycling.</p>
-        <p>If you vendor your cheap scarabs, get outputs, then immediately vendor <em>those</em> outputs too — the final snapshot only shows the survivors of multiple passes. The cheap commons that came out and went back in are invisible. This inflates the apparent frequency of expensive scarabs and skews the weights toward keepers, making everyone's threshold too high.</p>
+        <p>The community database builds a <strong>weight distribution</strong> â€” how often each scarab type appears as a vendor output. This drives the Weighted EV threshold for everyone. To get accurate weights, we need to know what the vendor actually returned on each pass, not the net result after recycling.</p>
+        <p>If you vendor your cheap scarabs, get outputs, then immediately vendor <em>those</em> outputs too â€” the final snapshot only shows the survivors of multiple passes. The cheap commons that came out and went back in are invisible. This inflates the apparent frequency of expensive scarabs and skews the weights toward keepers, making everyone's threshold too high.</p>
 
         <div style="font-weight:600;color:var(--text-2);margin:12px 0 8px">The clean data workflow</div>
 
         <div style="display:grid;grid-template-columns:24px 1fr;gap:6px 12px;align-items:start;margin-bottom:14px">
           <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div>
-          <div><strong>Set up a dedicated stash tab for returned scarabs.</strong> When the vendor gives you a scarab back, it goes into this tab — not back into your vendor stack. This physically separates single-pass outputs from your input pool.</div>
+          <div><strong>Set up a dedicated stash tab for returned scarabs.</strong> When the vendor gives you a scarab back, it goes into this tab â€” not back into your vendor stack. This physically separates single-pass outputs from your input pool.</div>
 
           <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div>
-          <div><strong>Export Wealthy Exile before you start</strong> — this is your Snapshot 1 (Before).</div>
+          <div><strong>Export Wealthy Exile before you start</strong> â€” this is your Snapshot 1 (Before).</div>
 
           <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div>
-          <div><strong>Run one vendor pass</strong> — vendor all your marked scarabs, place everything you receive into the returns tab. Do not re-vendor anything yet.</div>
+          <div><strong>Run one vendor pass</strong> â€” vendor all your marked scarabs, place everything you receive into the returns tab. Do not re-vendor anything yet.</div>
 
           <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</div>
-          <div><strong>Export Wealthy Exile again</strong> — this is Snapshot 2 (After first pass). Upload both to the Session Logger and submit.</div>
+          <div><strong>Export Wealthy Exile again</strong> â€” this is Snapshot 2 (After first pass). Upload both to the Session Logger and submit.</div>
 
           <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#132a31;font-size:10px;font-weight:800;letter-spacing:0.01em;text-shadow:0 1px 0 rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">5</div>
-          <div><strong>If you want to continue vendoring</strong> — move the returned vendor-target scarabs back into your main stack, export again (this becomes the new Snapshot 1), run another pass, export after (Snapshot 2), and log that as a second session. Each pass is its own session submission.</div>
+          <div><strong>If you want to continue vendoring</strong> â€” move the returned vendor-target scarabs back into your main stack, export again (this becomes the new Snapshot 1), run another pass, export after (Snapshot 2), and log that as a second session. Each pass is its own session submission.</div>
         </div>
 
         <div style="background:var(--bg-group);border:1px solid var(--border);border-radius:5px;padding:12px 14px;font-size:12px;color:var(--text-3)">
@@ -2614,37 +2751,37 @@ body.graph-palette-ruby {
             <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">C</span></span>
             <span style="font-size:11px;color:var(--text-3)">? vendor ?</span>
             <span style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap">Export <span style="color:var(--text)">D</span></span>
-            <span style="font-size:11px;color:var(--text-3)">? …</span>
+            <span style="font-size:11px;color:var(--text-3)">? â€¦</span>
           </div>
           <div style="margin-top:10px">
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-bottom:6px">Sessions to submit</div>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">A + B ? session 1</span>
-              <span style="color:var(--text-3)">·</span>
+              <span style="color:var(--text-3)">Â·</span>
               <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">B + C ? session 2</span>
-              <span style="color:var(--text-3)">·</span>
+              <span style="color:var(--text-3)">Â·</span>
               <span style="background:var(--amber-bg);border:1px solid var(--ninja-border);border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--amber);white-space:nowrap">C + D ? session 3</span>
             </div>
           </div>
           <div style="height:1px;background:var(--border);margin:10px 0"></div>
-          <span style="font-size:11px;color:var(--text-3)">Each export does double duty — it closes the previous session and opens the next one.</span>
+          <span style="font-size:11px;color:var(--text-3)">Each export does double duty â€” it closes the previous session and opens the next one.</span>
         </div>
 
-        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only — they won't be included in the community database. You'll see a message explaining this when you submit.</div>
+        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only â€” they won't be included in the community database. You'll see a message explaining this when you submit.</div>
       </div>
     </div>
 
     <div class="logger-form">
       <div class="logger-row">
         <div class="logger-field">
-          <div class="logger-label">Snapshot 1 — <span class="logger-purple-bold">Before trade</span></div>
+          <div class="logger-label">Snapshot 1 â€” <span class="logger-purple-bold">Before trade</span></div>
           <label class="logger-upload" id="snap1Label">
             <span id="snap1Text">Choose CSV file</span>
             <input type="file" accept=".csv" id="snap1Input" onchange="handleSnap(1, event)" style="display:none">
           </label>
         </div>
         <div class="logger-field">
-          <div class="logger-label">Snapshot 2 — <span class="logger-purple-bold">After trade</span></div>
+          <div class="logger-label">Snapshot 2 â€” <span class="logger-purple-bold">After trade</span></div>
           <label class="logger-upload" id="snap2Label">
             <span id="snap2Text">Choose CSV file</span>
             <input type="file" accept=".csv" id="snap2Input" onchange="handleSnap(2, event)" style="display:none">
@@ -2656,7 +2793,7 @@ body.graph-palette-ruby {
         <div class="logger-label" style="display:flex;align-items:center;gap:8px">
           Regex used during this session
           <span id="loggerRegexBadge" style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:3px;background:var(--ninja-bg);color:var(--ninja-accent);border:1px solid var(--ninja-border);letter-spacing:0.03em">auto</span>
-          <span id="loggerRegexNote" style="font-size:11px;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">Auto-filled from Scarab Vendor tab — click to replace</span>
+          <span id="loggerRegexNote" style="font-size:11px;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">Auto-filled from Scarab Vendor tab â€” click to replace</span>
         </div>
         <input class="logger-regex-input" type="text" id="loggerRegex" placeholder='e.g. "lk|dg|rus|arr|nsc"'>
         <div style="margin-top:4px;min-height:16px">
@@ -2670,14 +2807,14 @@ body.graph-palette-ruby {
       </div>
     </div>
 
-    <!-- Preview panel — shows after both CSVs + regex loaded -->
+    <!-- Preview panel â€” shows after both CSVs + regex loaded -->
     <div class="logger-preview" id="loggerPreview" style="display:none">
       <div class="logger-preview-header">Session Preview</div>
 
       <div class="logger-stats-row" id="loggerStats"></div>
 
       <div style="margin-top:14px">
-        <div class="logger-section-label">Vendor targets — consumed &amp; recovered</div>
+        <div class="logger-section-label">Vendor targets â€” consumed &amp; recovered</div>
         <div class="table-card" style="margin-top:6px">
           <div class="table-head logger-vendor-head" style="grid-template-columns:minmax(0,1fr) 72px 72px 64px 72px 74px">
             <div class="th">Scarab</div>
@@ -2692,7 +2829,7 @@ body.graph-palette-ruby {
       </div>
 
       <div style="margin-top:14px">
-        <div class="logger-section-label">Keeper outputs — net gains</div>
+        <div class="logger-section-label">Keeper outputs â€” net gains</div>
         <div class="table-card" style="margin-top:6px">
           <div class="table-head logger-keeper-head" style="grid-template-columns:minmax(0,1fr) 72px 72px 74px">
             <div class="th">Scarab</div>
@@ -2780,7 +2917,7 @@ body.graph-palette-ruby {
           <div id="bulkDropZone" class="logger-upload">
             <div id="bulkDropZoneSpinner" class="bulk-drop-spinner" style="display:none">
               <div class="bulk-spinner-wheel"></div>
-              <div class="bulk-spinner-label">Parsing…</div>
+              <div class="bulk-spinner-label">Parsingâ€¦</div>
             </div>
             <input id="bulkImageInput" type="file" accept="image/*" style="display:none" onchange="handleBulkImage(event)">
             <div id="bulkDropText">Drop a TFT listing screenshot here, paste with Ctrl+V, or click to browse.</div>
@@ -2810,7 +2947,7 @@ body.graph-palette-ruby {
       </div>
     </div>
 
-    <div class="notice notice-bulk-warn"><strong>AI image parsing via the API is not always accurate.</strong> Gemini may misread quantities, names, or skip rows — especially on cluttered or low-resolution screenshots. Always cross-reference the parsed CSV against the original listing before committing to a purchase.</div>
+    <div class="notice notice-bulk-warn"><strong>AI image parsing via the API is not always accurate.</strong> Gemini may misread quantities, names, or skip rows â€” especially on cluttered or low-resolution screenshots. Always cross-reference the parsed CSV against the original listing before committing to a purchase.</div>
     <div class="notice notice-chaos"><strong>Best method for accuracy:</strong> paste your screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and doesn't need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div>
 
     <div id="bulkResultWarning" class="bulk-unmatched" style="display:none"></div>
@@ -2819,27 +2956,27 @@ body.graph-palette-ruby {
       <div class="bulk-summary-grid">
         <div>
           <div class="bulk-summary-item-label">Types</div>
-          <div id="bulkTypes" class="bulk-summary-item-value">—</div>
+          <div id="bulkTypes" class="bulk-summary-item-value">â€”</div>
           <div id="bulkTypesSub" class="bulk-summary-item-sub"></div>
         </div>
         <div>
           <div class="bulk-summary-item-label">Cost</div>
-          <div id="bulkCost" class="bulk-summary-item-value">—</div>
+          <div id="bulkCost" class="bulk-summary-item-value">â€”</div>
           <div id="bulkCostSub" class="bulk-summary-item-sub"></div>
         </div>
         <div>
           <div class="bulk-summary-item-label">Expected return</div>
-          <div id="bulkReturn" class="bulk-summary-item-value">—</div>
+          <div id="bulkReturn" class="bulk-summary-item-value">â€”</div>
           <div id="bulkReturnSub" class="bulk-summary-item-sub"></div>
         </div>
         <div>
           <div class="bulk-summary-item-label">Net</div>
-          <div id="bulkNet" class="bulk-summary-item-value">—</div>
+          <div id="bulkNet" class="bulk-summary-item-value">â€”</div>
           <div id="bulkNetSub" class="bulk-summary-item-sub"></div>
         </div>
         <div>
           <div class="bulk-summary-item-label">Margin</div>
-          <div id="bulkMargin" class="bulk-summary-item-value">—</div>
+          <div id="bulkMargin" class="bulk-summary-item-value">â€”</div>
           <div id="bulkMarginSub" class="bulk-summary-item-sub"></div>
         </div>
       </div>
@@ -2932,34 +3069,34 @@ body.graph-palette-ruby {
     <div class="atlas-intro">
       <div class="atlas-title" style="margin-bottom:6px">Atlas Optimizer</div>
       <div class="atlas-sub">Toggle block nodes to remove low-value mechanics from the drop pool, and boost nodes to double the weight of high-value groups. Map drop EV updates live as you experiment.</div>
-      <div class="notice notice-tip" style="margin-top:10px;margin-bottom:0"><strong>Your config is saved manually.</strong> Set up your blocks and boosts, then hit <strong>Save config</strong> to lock it in. On your next visit we'll compare your saved toggles against current prices — if anything has flipped to an <span style="color:var(--chaos);font-weight:600">EV loss</span>, we'll flag it. Those pills also show in real time on any toggle that's currently costing you map value.</div>
+      <div class="notice notice-tip" style="margin-top:10px;margin-bottom:0"><strong>Your config is saved manually.</strong> Set up your blocks and boosts, then hit <strong>Save config</strong> to lock it in. On your next visit we'll compare your saved toggles against current prices â€” if anything has flipped to an <span style="color:var(--chaos);font-weight:600">EV loss</span>, we'll flag it. Those pills also show in real time on any toggle that's currently costing you map value.</div>
     </div>
 
     <div class="atlas-hero">
       <div class="atlas-hero-card">
         <div class="atlas-hero-label">Map Drop EV</div>
-        <div class="atlas-hero-val chaos" id="atlas-ev-current">—</div>
+        <div class="atlas-hero-val chaos" id="atlas-ev-current">â€”</div>
         <div class="atlas-hero-sub">expected value per scarab drop</div>
       </div>
       <div class="atlas-hero-card">
         <div class="atlas-hero-label">Baseline EV</div>
-        <div class="atlas-hero-val muted" id="atlas-ev-baseline">—</div>
+        <div class="atlas-hero-val muted" id="atlas-ev-baseline">â€”</div>
         <div class="atlas-hero-sub">no blocks, no boosts</div>
       </div>
       <div class="atlas-hero-card">
         <div class="atlas-hero-label">EV Gain / Loss</div>
-        <div class="atlas-hero-val" id="atlas-ev-delta">—</div>
+        <div class="atlas-hero-val" id="atlas-ev-delta">â€”</div>
         <div class="atlas-hero-sub" id="atlas-ev-delta-sub">combined effect of all toggles</div>
       </div>
       <div class="atlas-hero-card">
         <div class="atlas-hero-label">% Change</div>
-        <div class="atlas-hero-val" id="atlas-ev-pct">—</div>
+        <div class="atlas-hero-val" id="atlas-ev-pct">â€”</div>
         <div class="atlas-hero-sub">from baseline</div>
       </div>
     </div>
 
     <div class="atlas-note" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <span><strong>Drop weights</strong> are based on observed vendor session data. <strong>Boost nodes</strong> apply ×2 pool weight <em>(100% increased chance to drop)</em>. Prices use live market data.</span>
+      <span><strong>Drop weights</strong> are based on observed vendor session data. <strong>Boost nodes</strong> apply Ã—2 pool weight <em>(100% increased chance to drop)</em>. Prices use live market data.</span>
       <button id="atlasSaveBtn" class="atlas-save-btn" onclick="atlasSave()">Save config</button>
     </div>
 
@@ -2991,7 +3128,7 @@ body.graph-palette-ruby {
 <div id="changelogDrawer" class="changelog-drawer">
   <div class="changelog-header">
     <span class="changelog-title">Changelog</span>
-    <button class="changelog-close" onclick="toggleChangelog()">×</button>
+    <button class="changelog-close" onclick="toggleChangelog()">Ã—</button>
   </div>
   <div class="changelog-content" id="changelogContent">
     <div class="changelog-loading">Loading...</div>
@@ -3051,6 +3188,7 @@ body.graph-palette-ruby {
 
 </body>
 </html>
+
 
 
 

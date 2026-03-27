@@ -3266,7 +3266,7 @@ function showAtlasWarningToast() {
       <span class="version-toast-title" style="text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap">Atlas config needs review</span>
       <button class="version-toast-dismiss" onclick="event.stopPropagation(); dismissAtlasToast()" title="Dismiss">✕</button>
     </div>
-    <div class="version-toast-hint">prices may have shifted since your last save</div>
+    <div class="version-toast-alert">Prices may have shifted since your last save.</div>
     <div class="version-toast-body">
       <ul><li>One or more of your saved toggles is now hurting your map EV.</li>
       <li>Check the Atlas Optimizer — EV loss pills show which ones.</li></ul>
@@ -3775,15 +3775,29 @@ function parseLatestReleaseInfo(changelogText) {
   const block = versionMatch[0];
 
   const highlights = [];
-  for (const section of ['Added', 'Changed', 'Fixed']) {
-    const sectionMatch = block.match(new RegExp(`### ${section}([\\s\\S]*?)(?=###|$)`));
+  for (const section of ['Added', 'Changed', 'Fixed', 'Focus']) {
+    const sectionMatch = block.match(new RegExp(`### ${section}(?::\\s*([^\\n]+))?([\\s\\S]*?)(?=\\n###|$)`));
     if (!sectionMatch) continue;
-    const bullets = sectionMatch[1]
+    const sectionTitle = (sectionMatch[1] || '').trim();
+    const sectionBody = sectionMatch[2] || '';
+
+    if (section === 'Focus' && sectionTitle) {
+      highlights.push({
+        section: 'Focus',
+        key: 'Focus',
+        detail: sectionTitle,
+        text: `Focus: ${sectionTitle}`
+      });
+    }
+
+    const bullets = sectionBody
       .split('\n')
-      .map(l => l.replace(/^- /, '').trim())
+      .filter(l => l.trim().startsWith('- '))
+      .map(l => l.replace(/^\s*-\s+/, '').trim())
       .filter(Boolean);
     for (const b of bullets) {
-      const parsed = parseHighlightBullet(b, section);
+      const normalizedSection = section === 'Focus' ? 'Changed' : section;
+      const parsed = parseHighlightBullet(b, normalizedSection);
       if (parsed) highlights.push(parsed);
     }
   }
@@ -3938,24 +3952,40 @@ async function loadChangelog() {
 function parseChangelog(md) {
   const lines = md.split('\n');
   let html = '';
+  let currentSection = '';
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (line.startsWith('> Maintainer note:')) {
       continue;
     }
     if (line.startsWith('## ')) {
-      html += '<h2>' + line.slice(3) + '</h2>';
+      const heading = line.slice(3).trim();
+      const m = heading.match(/^\[([^\]]+)\]\s*-\s*(.+)$/);
+      if (m) {
+        html += `<h2><span class="cl-ver">[${escapeHtml(m[1])}]</span><span class="cl-sep"> - </span><span class="cl-date">${escapeHtml(m[2])}</span></h2>`;
+      } else {
+        html += '<h2>' + escapeHtml(heading) + '</h2>';
+      }
     } else if (line.startsWith('### ')) {
       const label = line.slice(4).trim();
-      html += '<h3 class="cl-' + label.toLowerCase() + '">' + label + '</h3>';
+      const cls = label.split(':')[0].trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      currentSection = cls;
+      html += '<h3 class="cl-' + cls + '">' + escapeHtml(label) + '</h3>';
     } else if (line.startsWith('- ')) {
-      html += '<ul><li>' + line.slice(2) + '</li></ul>';
+      const bullet = line.slice(2).trim();
+      const parsed = parseHighlightBullet(bullet, currentSection || 'changed');
+      const liClass = currentSection ? ` class="cl-${currentSection}"` : '';
+      if (parsed?.key && parsed?.detail) {
+        html += `<ul><li${liClass}><span class="cl-key">${escapeHtml(parsed.key)}</span><span class="cl-msg">: ${escapeHtml(parsed.detail)}</span></li></ul>`;
+      } else {
+        html += `<ul><li${liClass}>${escapeHtml(bullet)}</li></ul>`;
+      }
     } else if (line.startsWith('---')) {
       html += '<hr>';
     } else if (line.startsWith('# ')) {
       // skip top-level title
     } else if (line.trim()) {
-      html += '<p>' + line + '</p>';
+      html += '<p>' + escapeHtml(line) + '</p>';
     }
   }
   html = html.replace(/<\/ul><ul>/g, '');
