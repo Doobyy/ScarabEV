@@ -5,10 +5,10 @@
 // Does not define backend API or Cloudflare worker behavior.
 
 import { state } from './state.js';
-import { configureScarabEngine, calcEV, calcAutoEV, computeWeightBasedRate, getNinjaEntries, getManualEntries } from './scarabEngine.js';
+import { configureScarabEngine, calcEV, calcAutoEV, computeWeightBasedRate, getNinjaEntries } from './scarabEngine.js';
 import { configureRegexEngine, buildRegex, buildReverseTokenMap, parseRegexToScarabs } from './regexEngine.js';
 import { parseWorkerResponse, parseOldNinjaResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, parseSnapCSV } from './market.js';
-import { CDN, SCARAB_LIST, ALPHA_ORDER, INGAME_ORDER, GROUP_ORDER, POOL_API_URL, FAQ_SECTIONS, CHAR_LIMIT, POE_RE_TOKENS, WORKER_URL, ATLAS_BLOCKABLE, ATLAS_BOOSTABLE, ATLAS_SAVE_KEY } from './config.js';
+import { CDN, SCARAB_LIST, ALPHA_ORDER, INGAME_ORDER, POOL_API_URL, FAQ_SECTIONS, CHAR_LIMIT, POE_RE_TOKENS, WORKER_URL, ATLAS_BLOCKABLE, ATLAS_BOOSTABLE, ATLAS_SAVE_KEY } from './config.js';
 
 
 
@@ -34,9 +34,6 @@ function mobileScarabName(fullName) {
   if (meaningful.length >= 2) return meaningful.slice(-2).join(' ');
   return meaningful[meaningful.length - 1] || words[words.length - 1];
 }
-
-
-try { const o = localStorage.getItem('poepool28v2-evoverride'); if (o) state.evOverride = parseFloat(o); } catch(e) {}
 
 
 // Instead of tracking historical ROI (which goes stale as prices shift), we use
@@ -104,8 +101,8 @@ async function fetchObservedWeights() {
       if (state._evMode === 'weighted') {
         state.ninjaEvOverride = null;
         try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
-        recalcNinja();
-        renderNinja();
+        recalculateVendorTargets();
+        renderVendorTable();
       }
       // If atlas tab is open, render it now that weights are available
       if (state.currentTab === 'atlas') renderAtlas();
@@ -159,7 +156,7 @@ async function fetchPriceHistory() {
     const data = await res.json();
     if (data.prices && Object.keys(data.prices).length > 0) {
       state._priceHistory = data.prices;
-      if (state.ninjaLoaded) renderNinja();
+      if (state.ninjaLoaded) renderVendorTable();
     }
   } catch(e) { /* silent */ }
 }
@@ -285,14 +282,6 @@ function hideSparkTooltip() {
   if (tip) tip.classList.remove('show');
 }
 
-try { const s = localStorage.getItem('poepool28v2'); if (s) state.prices = JSON.parse(s); } catch(e) {}
-function savePrices() {
-  try { localStorage.setItem('poepool28v2', JSON.stringify(state.prices)); } catch(e) {}
-  // If ninja tab is loaded, refresh it so manual overrides reflect immediately
-  if (state.ninjaLoaded) { recalcNinja(); if (state.currentTab === 'ninja') renderNinja(); }
-}
-function getP(name) { return state.prices[name] || { qty:0, cost:0 }; }
-
 // Theme
 const savedTheme = localStorage.getItem('poepool-theme') || 'dark';
 if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme','dark');
@@ -319,8 +308,8 @@ function switchTab(tab, skipHash) {
     const newHash = '#' + (tab === 'ninja' ? 'scarabEV' : tab);
     if (window.location.hash !== newHash) history.replaceState(null, '', newHash);
   }
-  if (tab === 'ninja') { if (!state.ninjaLoaded) fetchNinja(); else renderNinja(); }
-  if (tab === 'analysis') { if (!state.ninjaLoaded) fetchNinja(); else if (!state.ninjaDivineRate) fetchNinja(); renderAnalysis(); }
+  if (tab === 'ninja') { if (!state.ninjaLoaded) fetchMarketScarabPrices(); else renderVendorTable(); }
+  if (tab === 'analysis') { if (!state.ninjaLoaded) fetchMarketScarabPrices(); else if (!state.ninjaDivineRate) fetchMarketScarabPrices(); renderAnalysis(); }
   if (tab === 'atlas') { if (!state._observedWeights) fetchObservedWeights(); renderAtlas(); }
   if (tab === 'faq') initFaq();
   if (tab === 'logger') renderSessionHistory();
@@ -382,17 +371,6 @@ function toggleFaqItem(bodyId, chevronId, questionId) {
   body.style.display = open ? 'none' : '';
   if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
   if (question) question.classList.toggle('open', !open);
-}
-
-function toggleFaq(qEl) {
-  const item = qEl.closest('.faq-item');
-  if (!item) return;
-  item.classList.toggle('open');
-}
-
-function faqScrollTo(id) {
-  const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // EV CALCULATION (harmonic mean, floored)
@@ -468,11 +446,11 @@ if (result.regex) {
     
     if (result.collateral && result.collateral.length > 0) {
       const names = result.collateral.map(n => n.split(' ').slice(-2).join(' '));
-      msgs.push(`⚠ <strong>Collateral:</strong> regex also matches ${[...new Set(names)].join(', ')} — skip those when vendoring.`);
+      msgs.push(`? <strong>Collateral:</strong> regex also matches ${[...new Set(names)].join(', ')} — skip those when vendoring.`);
     }
     
     if (result.uncovered && result.uncovered.length > 0) {
-      msgs.push(`⚠ <strong>Uncovered:</strong> ${result.uncovered.map(n => n.split(' ').pop()).join(', ')} could not be included without matching 2+ keepers.`);
+      msgs.push(`? <strong>Uncovered:</strong> ${result.uncovered.map(n => n.split(' ').pop()).join(', ')} could not be included without matching 2+ keepers.`);
     }
     
     if (msgs.length) {
@@ -497,297 +475,15 @@ if (result.regex) {
 }
 
 
-function recalcManual() {
-  const entries = getManualEntries();
-  const priced = entries.filter(e => e.chaosEa > 0);
-  const calcedEV = calcEV(priced);
-  // Use override if set, otherwise use calculated EV
-  const ev = state.evOverride !== null ? state.evOverride : calcedEV;
-  const threshold = ev !== null ? ev : null;
-  const belowEv = ev !== null ? priced.filter(e => e.chaosEa <= ev) : [];
-
-  const evLabel = state.evOverride !== null
-    ? ev.toFixed(2)+'c ⚡'
-    : (calcedEV !== null ? calcedEV.toFixed(2)+'c' : '—');
-  document.getElementById('m-statEV').textContent = evLabel;
-  document.getElementById('m-statPool').textContent = priced.length || '—';
-  document.getElementById('m-statTargets').textContent = ev !== null ? belowEv.length : '—';
-  document.getElementById('m-statThresh').textContent = threshold !== null ? threshold.toFixed(2)+'c' : '—';
-
-  // Profit estimate: EV output - cost of 3 below-EV scarabs.
-  // Avg input cost here is the arithmetic mean of below-EV prices.
-  if (ev !== null && belowEv.length >= 3) {
-    const avgInput = belowEv.reduce((sum, e) => sum + e.chaosEa, 0) / belowEv.length;
-    const inputCost = avgInput * 3;
-    const profit = ev - inputCost;
-    const profitEl = document.getElementById('m-statProfit');
-    const profitSub = document.getElementById('m-statProfitSub');
-    profitEl.textContent = (profit >= 0 ? '+' : '') + profit.toFixed(2) + 'c';
-    profitEl.style.color = profit >= 0 ? 'var(--green)' : 'var(--red)';
-    profitSub.textContent = `avg input: ${avgInput.toFixed(2)}c × 3 = ${inputCost.toFixed(2)}c cost`;
-  } else {
-    document.getElementById('m-statProfit').textContent = '—';
-    document.getElementById('m-statProfit').style.color = '';
-    document.getElementById('m-statProfitSub').textContent = 'per vendor trade';
-  }
-
-  const note = document.getElementById('m-evNote');
-  if (ev !== null && belowEv.length) {
-    const keepNames = priced.filter(e => e.chaosEa > ev).map(e => e.name).join(', ') || 'none';
-    note.className = 'ev-note show';
-    note.innerHTML = `<strong>Method:</strong> Harmonic mean — cheap scarabs pull EV down, expensive ones barely move it. Floored for safety. <strong>Vendor ≤ ${threshold}c/ea.</strong> Keep: ${keepNames}.`;
-  } else { note.className = 'ev-note'; }
-
-  const aboveEv = priced.filter(e => e.chaosEa > ev);
-  updateRegexUI('m', belowEv.map(e => e.name), aboveEv.map(e => e.name));
-
-  return { ev, belowEv };
-}
-
-function renderManual() {
-  const { ev, belowEv } = recalcManual();
-  const belowSet = new Set(belowEv.map(e => e.name));
-  const filter = document.getElementById('m-filter').value.toLowerCase();
-
-  const groups = {};
-  for (const s of SCARAB_LIST) {
-    const p = getP(s.name);
-    const cea = p.cost > 0 ? p.cost / p.qty : null;
-    const isV = cea !== null && ev !== null && cea <= ev;
-    if (state.manualView === 'vendor' && !isV) continue;
-    if (state.manualView === 'keep' && isV) continue;
-    if (filter && !s.name.toLowerCase().includes(filter)) continue;
-    if (!groups[s.group]) groups[s.group] = [];
-    groups[s.group].push({ ...s, cea, isV, p });
-  }
-
-  const tbody = document.getElementById('m-tableBody');
-  tbody.innerHTML = '';
-  const activeOrder = (typeof state.sortMode !== 'undefined' && state.sortMode === 'alpha') ? ALPHA_ORDER : INGAME_ORDER;
-  const gnames = Object.keys(groups).sort((a,b) => { const ia = activeOrder.indexOf(a); const ib = activeOrder.indexOf(b); return (ia===-1?999:ia) - (ib===-1?999:ib); });
-  if (!gnames.length) { tbody.innerHTML='<div class="empty-row">No scarabs match the filter.</div>'; return; }
-
-  for (const gname of gnames) {
-    const items = groups[gname];
-    const collapsed = state.collapsedM.has(gname);
-    const gh = document.createElement('div');
-    gh.className = 'group-header'+(collapsed?' collapsed':'');
-    const vendorCount = items.filter(i=>i.isV).length;
-    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${items.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">▼</span>`;
-    gh.onclick = () => { state.collapsedM.has(gname)?state.collapsedM.delete(gname):state.collapsedM.add(gname); renderManual(); };
-    tbody.appendChild(gh);
-    if (collapsed) continue;
-
-    for (const s of items) {
-      const row = document.createElement('div');
-      row.className = 'scarab-row'+(s.isV?' vendor-target':'');
-      let diffHtml = '<span style="color:var(--text-3)">—</span>';
-      if (s.cea !== null && ev !== null) {
-        const d = s.cea - ev;
-        diffHtml = d <= 0
-          ? `<span class="ev-diff below">▼ ${Math.abs(d).toFixed(2)}c</span>`
-          : `<span class="ev-diff above">▲ ${d.toFixed(2)}c</span>`;
-      }
-      row.innerHTML = `
-        <div class="td icon-cell">
-          <div class="icon-wrap"><img class="scarab-icon" src="${CDN}${s.icon}" alt="" loading="lazy" onerror="this.style.opacity='0.15'"></div>
-        </div>
-        <div class="td"><div class="scarab-name-cell">
-          <span class="vendor-dot"></span>
-          <span class="scarab-name">${s.name}</span><span class="scarab-name-mobile">${mobileScarabName(s.name)}</span>
-          ${s.isNew?'<span class="new-badge">NEW</span>':''}
-        </div></div>
-        <div class="td" style="color:var(--text-3);font-size:11px">${s.group}</div>
-        <div class="td right"><div class="ratio-wrap">
-          <input class="ratio-input" type="number" step="0.01"
-            value="${s.p.qty > 0 ? s.p.qty : ''}"
-            data-name="${s.name}" data-field="qty"
-            oninput="handleManualInput(this)" onchange="handleManualInput(this)"
-            onfocus="autoFillOther(this)" placeholder="">
-          <span class="ratio-sep">:</span>
-          <input class="ratio-input" type="number" step="0.01"
-            value="${s.p.cost > 0 ? s.p.cost : ''}"
-            data-name="${s.name}" data-field="cost"
-            oninput="handleManualInput(this)" onchange="handleManualInput(this)"
-            onfocus="autoFillOther(this)" placeholder="">
-        </div></div>
-        <div class="td right"><span class="chaos-ea">${s.cea!==null?s.cea.toFixed(2)+'c':'—'}</span></div>
-        <div class="td center ev-diff-cell">${diffHtml}</div>
-        <div class="td center"><span class="vendor-badge">VENDOR</span></div>
-      `;
-      tbody.appendChild(row);
-    }
-  }
-}
-
-function autoFillOther(el) {
-  const name = el.dataset.name;
-  const field = el.dataset.field;
-  const p = state.prices[name] || { qty: 0, cost: 0 };
-  // When user focuses a field that's empty, auto-fill the OTHER field with 1
-  // but only if the other field is also currently empty
-  const otherField = field === 'qty' ? 'cost' : 'qty';
-  const otherVal = field === 'qty' ? p.cost : p.qty;
-  if (otherVal === 0) {
-    if (!state.prices[name]) state.prices[name] = { qty: 0, cost: 0 };
-    state.prices[name][otherField] = 1;
-    savePrices();
-    // Update the sibling input visually
-    const row = el.closest('.scarab-row');
-    if (row) {
-      const sibling = row.querySelector(`[data-field="${otherField}"]`);
-      if (sibling && !sibling.value) sibling.value = 1;
-    }
-  }
-}
-
-function setEVOverride(val) {
-  const v = parseFloat(val);
-  if (!isNaN(v) && v > 0) {
-    state.evOverride = v;
-    try { localStorage.setItem('poepool28v2-evoverride', v); } catch(e) {}
-    document.getElementById('evOverrideActive').textContent = `Active: ${v.toFixed(2)}c threshold`;
-    document.getElementById('evOverrideActive').style.display = '';
-    document.getElementById('evClearBtn').style.display = '';
-  } else {
-    state.evOverride = null;
-    try { localStorage.removeItem('poepool28v2-evoverride'); } catch(e) {}
-    document.getElementById('evOverrideActive').style.display = 'none';
-    document.getElementById('evClearBtn').style.display = 'none';
-  }
-  recalcManual();
-  // Soft-update row highlights without full re-render
-  const { ev, belowEv } = { ev: state.evOverride !== null ? state.evOverride : calcEV(getManualEntries().filter(e=>e.chaosEa>0)), belowEv: [] };
-  softUpdateRows(ev);
-}
-
-function softUpdateRows(ev) {
-  document.querySelectorAll('#m-tableBody .scarab-row').forEach(row => {
-    const n = row.querySelector('.scarab-name')?.textContent;
-    if (!n) return;
-    const p = state.prices[n] || { qty:0, cost:0 };
-    const cea = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : null;
-    const isV = cea !== null && ev !== null && cea <= ev;
-    row.classList.toggle('vendor-target', isV);
-    const ceEl = row.querySelector('.chaos-ea');
-    if (ceEl) ceEl.textContent = cea !== null ? cea.toFixed(2)+'c' : '—';
-    const dc = row.querySelector('.ev-diff-cell');
-    if (dc && ev !== null && cea !== null) {
-      const d = cea - ev;
-      dc.innerHTML = d<=0 ? `<span class="ev-diff below">▼ ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">▲ ${d.toFixed(2)}c</span>`;
-    } else if (dc) { dc.innerHTML = `<span style="color:var(--text-3)">—</span>`; }
-  });
-}
-
-function clearEVOverride() {
-  state.evOverride = null;
-  try { localStorage.removeItem('poepool28v2-evoverride'); } catch(e) {}
-  document.getElementById('evOverrideInput').value = '';
-  document.getElementById('evOverrideActive').style.display = 'none';
-  document.getElementById('evClearBtn').style.display = 'none';
-  recalcManual();
-  const ev = calcEV(getManualEntries().filter(e=>e.chaosEa>0));
-  softUpdateRows(ev);
-}
-
-function exportPrices() {
-  const data = JSON.stringify({ prices: state.prices, evOverride: state.evOverride }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'scarab-prices.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function importPrices(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (data.prices) {
-        state.prices = data.prices;
-        savePrices();
-      }
-      if (data.evOverride !== undefined && data.evOverride !== null) {
-        state.evOverride = data.evOverride;
-        try { localStorage.setItem('poepool28v2-evoverride', state.evOverride); } catch(ex) {}
-        document.getElementById('evOverrideInput').value = state.evOverride;
-        document.getElementById('evOverrideActive').textContent = `Active: ${state.evOverride.toFixed(2)}c threshold`;
-        document.getElementById('evOverrideActive').style.display = '';
-        document.getElementById('evClearBtn').style.display = '';
-      }
-      renderManual();
-    } catch(ex) {
-      alert('Failed to parse file: ' + ex.message);
-    }
-  };
-  reader.readAsText(file);
-  // Reset so same file can be re-imported
-  event.target.value = '';
-}
-
-function handleManualInput(el) {
-  const name = el.dataset.name;
-  const field = el.dataset.field;
-  if (!state.prices[name]) state.prices[name] = { qty:1, cost:0 };
-  if (field==='qty') state.prices[name].qty = Math.max(1, parseInt(el.value)||0);
-  else state.prices[name].cost = Math.max(0, parseFloat(el.value)||0);
-  savePrices();
-
-  const { ev } = recalcManual();
-  softUpdateRows(ev);
-}
-
-function setSortMode(mode) {
-  state.sortMode = mode;
-  document.getElementById('sortIngame').classList.toggle('active', mode === 'ingame');
-  document.getElementById('sortAlpha').classList.toggle('active', mode === 'alpha');
-  renderManual();
-}
-
-function setManualView(v) {
-  state.manualView = v;
-  ['all','vendor','keep'].forEach(m => {
-    document.getElementById(`m-view${m.charAt(0).toUpperCase()+m.slice(1)}`).classList.toggle('active', m===v);
-  });
-  renderManual();
-}
-
-function resetPrices() {
-  state.prices = {}; savePrices(); renderManual();
-}
-
 // NINJA TAB
 
 
 
 try { const o = localStorage.getItem('poepool28v2-ninja-evoverride'); if (o) state.ninjaEvOverride = parseFloat(o); } catch(e) {}
 
-function setNinjaEVOverride(val) {
-  const v = parseFloat(val);
-  if (!isNaN(v) && v > 0) {
-    state.ninjaEvOverride = v;
-    try { localStorage.setItem('poepool28v2-ninja-evoverride', v); } catch(e) {}
-  } else {
-    state.ninjaEvOverride = null;
-    try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
-  }
-  recalcNinja();
-}
-
-function clearNinjaEVOverride() {
-  state.ninjaEvOverride = null;
-  try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
-  recalcNinja();
-}
-
 // items[i].id  ? name + image URL
 configureScarabEngine({
   SCARAB_LIST,
-  getP,
   buildNinjaLookup,
   getNinjaPrice
 });
@@ -818,7 +514,7 @@ async function fetchCurrentLeague() {
   } catch(e) { /* breaks cleanly — no fallback */ }
 }
 
-async function fetchNinja() {
+async function fetchMarketScarabPrices() {
   const league = document.getElementById('leagueSelect').value;
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
@@ -874,8 +570,7 @@ async function fetchNinja() {
       else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja · 1 min ago`;
       else statusEl.textContent = `Prices loaded from poe.ninja · ${mins} mins ago`;
     }, 30000);
-    populateDebugPanel();
-    renderNinja();
+    renderVendorTable();
     btn.disabled = false;
     if (WORKER_URL) {
       fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Currency`, { cache: 'no-store' })
@@ -941,37 +636,37 @@ async function fetchNinja() {
 
   status.textContent = 'Failed to load prices from poe.ninja'; status.className = 'ninja-status error';
   const logHtml = log.map(l => `<div style="margin:3px 0;font-size:10px;color:var(--text-3);font-family:monospace;word-break:break-all">${l}</div>`).join('');
-  document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">⚠ Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
+  document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">&#9888; Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
   btn.disabled = false;
 }
 
 function resetNinjaSort() {
-  state.ninjaSort = null;
+  state.vendorSortMode = null;
   document.getElementById('n-resetSort').style.display = 'none';
   updateSortArrows();
-  renderNinja();
+  renderVendorTable();
 }
 
 function setNinjaSort(col) {
-  if (state.ninjaSort === null || !state.ninjaSort.startsWith(col)) {
-    state.ninjaSort = col + '-asc';
-  } else if (state.ninjaSort === col + '-asc') {
-    state.ninjaSort = col + '-desc';
+  if (state.vendorSortMode === null || !state.vendorSortMode.startsWith(col)) {
+    state.vendorSortMode = col + '-asc';
+  } else if (state.vendorSortMode === col + '-asc') {
+    state.vendorSortMode = col + '-desc';
   } else {
-    state.ninjaSort = null;
+    state.vendorSortMode = null;
   }
   const resetBtn = document.getElementById('n-resetSort');
-  if (resetBtn) resetBtn.style.display = state.ninjaSort ? '' : 'none';
+  if (resetBtn) resetBtn.style.display = state.vendorSortMode ? '' : 'none';
   updateSortArrows();
-  renderNinja();
+  renderVendorTable();
 }
 
 function updateSortArrows() {
   // Instead of arrows, highlight the active column header
-  ['name','group','trend','delta','cea','diff','action'].forEach(col => {
+  ['name','group','trend','delta','chaosPerUnit','diff','action'].forEach(col => {
     const el = document.getElementById(`n-th-${col}`);
     if (!el) return;
-    if (state.ninjaSort && state.ninjaSort.startsWith(col)) {
+    if (state.vendorSortMode && state.vendorSortMode.startsWith(col)) {
       el.style.color = 'var(--accent)';
     } else {
       el.style.color = '';
@@ -979,7 +674,7 @@ function updateSortArrows() {
   });
 }
 
-function recalcNinja() {
+function recalculateVendorTargets() {
   const entries = getNinjaEntries();
   const priced = entries.filter(e => e.chaosEa > 0);
   const calcedEV = calcAutoEV(); // respects _evMode — harmonic or weighted
@@ -989,7 +684,7 @@ function recalcNinja() {
 
   const modeTag = state._evMode === 'weighted' ? 'weighted EV' : 'harmonic EV';
   const evLabel = state.ninjaEvOverride !== null
-    ? ev.toFixed(2) + 'c ⚡'
+    ? ev.toFixed(2) + 'c (manual)'
     : (calcedEV !== null ? calcedEV.toFixed(2) + 'c' : '—');
   const threshModeEl = document.getElementById('thresholdModeLabel');
   if (threshModeEl && state.ninjaEvOverride === null) threshModeEl.textContent = modeTag;
@@ -1009,38 +704,8 @@ function recalcNinja() {
   return { ev, belowEv, priced };
 }
 
-function toggleDebug() {
-  const panel = document.getElementById('debugPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-}
-
-function populateDebugPanel() {
-  const names = Object.keys(state.ninjaPrices).sort((a,b) => state.ninjaPrices[b] - state.ninjaPrices[a]);
-  const ourNamesLower = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
-  const lower = buildNinjaLookup();
-
-  document.getElementById('debugContent').innerHTML = names
-    .map(n => `<div style="${ourNamesLower.has(n.toLowerCase())?'color:var(--green)':'color:var(--amber)'}">${n}: ${state.ninjaPrices[n].toFixed(1)}c</div>`)
-    .join('');
-
-  const unmatched = SCARAB_LIST.filter(s => !state.ninjaPrices[s.name] && !lower[s.name.toLowerCase()]);
-  document.getElementById('debugUnmatched').innerHTML = unmatched.length > 0
-    ? unmatched.map(s => `<div>${s.name}</div>`).join('')
-    : '<div style="color:var(--green)">All matched!</div>';
-
-  const notInOurList = names.filter(n => !ourNamesLower.has(n.toLowerCase()));
-  if (notInOurList.length > 0) {
-    document.getElementById('debugUnmatched').innerHTML +=
-      `<div style="margin-top:8px;color:var(--ninja-accent)"><strong>In API but not our list (new scarabs?):</strong><br>${notInOurList.map(n=>`${n}: ${state.ninjaPrices[n].toFixed(1)}c`).join('<br>')}</div>`;
-  }
-
-  const debugBtn = document.getElementById('debugBtn');
-  if (debugBtn) debugBtn.style.display = '';
-}
-
-
-function renderNinja() {
-  const { ev, belowEv } = recalcNinja();
+function renderVendorTable() {
+  const { ev, belowEv } = recalculateVendorTargets();
   const filter = document.getElementById('n-filter').value.toLowerCase();
 
   if (!state.ninjaLoaded) {
@@ -1055,23 +720,20 @@ function renderNinja() {
   // Build flat item list
   let items = [];
   for (const s of SCARAB_LIST) {
-    const p = getP(s.name);
-    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
     const ninjaPrice = getNinjaPrice(s.name, lower) || null;
-    const cea = manualPrice > 0 ? manualPrice : ninjaPrice;
-    const isV = cea !== null && ev !== null && cea <= ev;
-    const isManual = manualPrice > 0;
-    if (state.ninjaView === 'vendor' && !isV) continue;
-    if (state.ninjaView === 'keep' && isV) continue;
+    const chaosPerUnit = ninjaPrice;
+    const isV = chaosPerUnit !== null && ev !== null && chaosPerUnit <= ev;
+    if (state.vendorViewMode === 'vendor' && !isV) continue;
+    if (state.vendorViewMode === 'keep' && isV) continue;
     if (filter && !s.name.toLowerCase().includes(filter)) continue;
-    items.push({ ...s, cea, isV, isManual, ninjaPrice });
+    items.push({ ...s, chaosPerUnit, isV, ninjaPrice });
   }
 
   if (!items.length) { tbody.innerHTML='<div class="empty-row">No scarabs match the filter.</div>'; return; }
 
   // SORTED flat view
-  if (state.ninjaSort !== null) {
-    const [col, dir] = state.ninjaSort.split('-');
+  if (state.vendorSortMode !== null) {
+    const [col, dir] = state.vendorSortMode.split('-');
     const asc = dir === 'asc';
     const trendCache = {};
     const getTrendForSort = (name) => {
@@ -1083,11 +745,11 @@ function renderNinja() {
       if (col === 'name') {
         va = a.name; vb = b.name;
         return asc ? va.localeCompare(vb) : vb.localeCompare(va);
-      } else if (col === 'cea') {
-        va = a.cea ?? Infinity; vb = b.cea ?? Infinity;
+      } else if (col === 'chaosPerUnit') {
+        va = a.chaosPerUnit ?? Infinity; vb = b.chaosPerUnit ?? Infinity;
       } else if (col === 'diff') {
-        va = (a.cea !== null && ev !== null) ? a.cea - ev : Infinity;
-        vb = (b.cea !== null && ev !== null) ? b.cea - ev : Infinity;
+        va = (a.chaosPerUnit !== null && ev !== null) ? a.chaosPerUnit - ev : Infinity;
+        vb = (b.chaosPerUnit !== null && ev !== null) ? b.chaosPerUnit - ev : Infinity;
       } else if (col === 'trend') {
         va = getTrendForSort(a.name) ?? (asc ? Infinity : -Infinity);
         vb = getTrendForSort(b.name) ?? (asc ? Infinity : -Infinity);
@@ -1105,13 +767,13 @@ function renderNinja() {
     });
 
     for (const s of items) {
-      tbody.appendChild(makeNinjaRow(s, ev));
+      tbody.appendChild(buildVendorTableRow(s, ev));
     }
     return;
   }
 
   // GROUPED view (default)
-  const activeOrder = state.sortMode === 'alpha' ? ALPHA_ORDER : INGAME_ORDER;
+  const activeOrder = state.groupOrderMode === 'alpha' ? ALPHA_ORDER : INGAME_ORDER;
   const groups = {};
   for (const s of items) {
     if (!groups[s.group]) groups[s.group] = [];
@@ -1124,145 +786,39 @@ function renderNinja() {
 
   for (const gname of gnames) {
     const gitems = groups[gname];
-    const collapsed = state.collapsedN.has(gname);
+    const collapsed = state.collapsedVendorGroups.has(gname);
     const gh = document.createElement('div');
     gh.className = 'group-header'+(collapsed?' collapsed':'');
     const vendorCount = gitems.filter(i=>i.isV).length;
-    const manualCount = gitems.filter(i=>i.isManual).length;
-    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${gitems.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">▼</span>`;
-    gh.onclick = () => { state.collapsedN.has(gname)?state.collapsedN.delete(gname):state.collapsedN.add(gname); renderNinja(); };
+    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${gitems.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">▸</span>`;
+    gh.onclick = () => { state.collapsedVendorGroups.has(gname)?state.collapsedVendorGroups.delete(gname):state.collapsedVendorGroups.add(gname); renderVendorTable(); };
     tbody.appendChild(gh);
     if (collapsed) continue;
     for (const s of gitems) {
-      tbody.appendChild(makeNinjaRow(s, ev));
+      tbody.appendChild(buildVendorTableRow(s, ev));
     }
   }
 }
 
-// Global tracker for whichever price cell is currently open
-
-
-function closeActiveOverride() {
-  if (state._activeOverrideCell) {
-    state._activeOverrideCell();
-    state._activeOverrideCell = null;
-  }
-}
-
-function makeNinjaRow(s, ev) {
+function buildVendorTableRow(s, ev) {
   const row = document.createElement('div');
   row.className = 'scarab-row ninja-row'+(s.isV?' vendor-target':'');
 
   let diffHtml = '<span style="color:var(--text-3)">—</span>';
-  if (s.cea !== null && ev !== null) {
-    const d = s.cea - ev;
-    diffHtml = d<=0 ? `<span class="ev-diff below">▼ ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">▲ ${d.toFixed(2)}c</span>`;
+  if (s.chaosPerUnit !== null && ev !== null) {
+    const d = s.chaosPerUnit - ev;
+    diffHtml = d<=0 ? `<span class="ev-diff below">↓ ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">↑ ${d.toFixed(2)}c</span>`;
   }
 
   const imgSrc = getNinjaImage(s.name) || `${CDN}${s.icon}`;
-  const p = getP(s.name);
-  const hasOverride = p.cost > 0 && p.qty > 0;
-  const priceDisplay = s.cea !== null ? s.cea.toFixed(2)+'c' : '—';
+  const priceDisplay = s.chaosPerUnit !== null ? s.chaosPerUnit.toFixed(2)+'c' : '—';
 
   const priceCell = document.createElement('div');
-  priceCell.className = 'td right';
-
-  function showStatic() {
-    priceCell.innerHTML = `
+  priceCell.className = 'td right td-price';
+  priceCell.innerHTML = `
       <div class="price-cell">
-        <span class="price-val${hasOverride ? ' overridden' : ''}">${priceDisplay}</span>
-        ${hasOverride ? `<button class="price-trash" title="Clear override">&#128465;</button>` : ''}
+        <span class="price-val">${priceDisplay}</span>
       </div>`;
-
-    priceCell.querySelector('.price-cell').addEventListener('click', (e) => {
-      if (e.target.classList.contains('price-trash')) return;
-      closeActiveOverride(); // close any other open cell first
-      showEditing();
-    });
-
-    const trash = priceCell.querySelector('.price-trash');
-    if (trash) {
-      trash.addEventListener('click', (e) => {
-        e.stopPropagation();
-        delete state.prices[s.name];
-        savePrices();
-        recalcNinja();
-        renderNinja();
-      });
-    }
-  }
-
-  function showEditing() {
-    const existingQty = hasOverride ? p.qty : '';
-    const existingCost = hasOverride ? p.cost : '';
-
-    priceCell.innerHTML = `
-      <div class="override-inputs">
-        <input class="override-qty" type="number" step="1" min="1" placeholder="qty" value="${existingQty}">
-        <span class="override-sep">:</span>
-        <input class="override-cost" type="number" step="0.01" min="0" placeholder="chaos" value="${existingCost}">
-        <button class="override-confirm">✓</button>
-        ${hasOverride ? `<button class="override-clear" title="Clear override">ðŸ—‘</button>` : ''}
-      </div>`;
-
-    const qtyEl = priceCell.querySelector('.override-qty');
-    const costEl = priceCell.querySelector('.override-cost');
-    const confirmBtn = priceCell.querySelector('.override-confirm');
-    const clearBtn = priceCell.querySelector('.override-clear');
-
-    // When qty is focused, auto-fill chaos with 1 if empty
-    qtyEl.addEventListener('focus', () => {
-      if (!costEl.value) costEl.value = '1';
-    });
-    // When chaos is focused, auto-fill qty with 1 if empty
-    costEl.addEventListener('focus', () => {
-      if (!qtyEl.value) qtyEl.value = '1';
-    });
-
-    function commit() {
-      state._activeOverrideCell = null;
-      const qty = Math.max(1, parseInt(qtyEl.value)||1);
-      const cost = Math.max(0, parseFloat(costEl.value)||0);
-      if (cost > 0) {
-        if (!state.prices[s.name]) state.prices[s.name] = { qty:1, cost:0 };
-        state.prices[s.name].qty = qty;
-        state.prices[s.name].cost = cost;
-        savePrices();
-      }
-      recalcNinja();
-      renderNinja();
-    }
-
-    function cancel() {
-      state._activeOverrideCell = null;
-      recalcNinja();
-      renderNinja();
-    }
-
-    state._activeOverrideCell = cancel;
-
-    confirmBtn.addEventListener('click', (e) => { e.stopPropagation(); commit(); });
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state._activeOverrideCell = null;
-        delete state.prices[s.name];
-        savePrices();
-        recalcNinja();
-        renderNinja();
-      });
-    }
-
-    priceCell.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); commit(); }
-      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-    });
-
-    priceCell.addEventListener('click', (e) => e.stopPropagation());
-  }
-
-  showStatic();
 
   row.innerHTML = `
     <div class="td icon-cell">
@@ -1273,15 +829,15 @@ function makeNinjaRow(s, ev) {
       <span class="scarab-name">${s.name}</span><span class="scarab-name-mobile">${mobileScarabName(s.name)}</span>
       ${s.isNew?'<span class="new-badge">NEW</span>':''}
     </div></div>
-    <div class="td" style="color:var(--text-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.group}</div>
+    <div class="td td-group" style="color:var(--text-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.group}</div>
   `;
   const trendCell = document.createElement('div');
-  trendCell.className = 'td center';
+  trendCell.className = 'td center td-trend';
   trendCell.innerHTML = buildSparkline(s.name);
   row.appendChild(trendCell);
 
   const deltaCell = document.createElement('div');
-  deltaCell.className = 'td right';
+  deltaCell.className = 'td right td-delta';
   const tc = getPriceTrend(s.name);
   if (tc != null) {
     const isUp = tc > 1; const isDn = tc < -1;
@@ -1294,18 +850,18 @@ function makeNinjaRow(s, ev) {
   row.appendChild(deltaCell);
   row.appendChild(priceCell);
   row.insertAdjacentHTML('beforeend', `
-    <div class="td center">${diffHtml}</div>
-    <div class="td center"><span class="vendor-badge">VENDOR</span></div>
+    <div class="td center td-diff">${diffHtml}</div>
+    <div class="td center td-action"><span class="vendor-badge">VENDOR</span></div>
   `);
   return row;
 }
 
 function setNinjaView(v) {
-  state.ninjaView = v;
+  state.vendorViewMode = v;
   ['all','vendor','keep'].forEach(m => {
     document.getElementById(`n-view${m.charAt(0).toUpperCase()+m.slice(1)}`).classList.toggle('active', m===v);
   });
-  renderNinja();
+  renderVendorTable();
 }
 
 
@@ -1438,8 +994,8 @@ function applySliderChange(val) {
     document.getElementById('thresholdModeLabel').textContent = 'auto EV';
     const resetBtn = document.getElementById('sliderResetBtn');
     if (resetBtn) resetBtn.style.display = 'none';
-    recalcNinja();
-    renderNinja();
+    recalculateVendorTargets();
+    renderVendorTable();
     // Recalculate CSV-based vendor totals and profit using the current (auto) EV
     calcEstimator();
     return;
@@ -1450,8 +1006,8 @@ function applySliderChange(val) {
   document.getElementById('thresholdModeLabel').textContent = 'manual';
   const resetBtn = document.getElementById('sliderResetBtn');
   if (resetBtn) resetBtn.style.display = 'none';
-  recalcNinja();
-  renderNinja();
+  recalculateVendorTargets();
+  renderVendorTable();
   // Recalculate CSV-based vendor totals and profit using the manual threshold
   calcEstimator();
 }
@@ -1483,8 +1039,8 @@ function resetSlider() {
     document.getElementById('sliderValueDisplay').textContent = autoEV.toFixed(2) + 'c';
     updateSliderROI(autoEV);
   }
-  recalcNinja();
-  renderNinja();
+  recalculateVendorTargets();
+  renderVendorTable();
   calcEstimator();
 }
 
@@ -1526,8 +1082,8 @@ function setEVMode(mode) {
   try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
   const resetBtn = document.getElementById('sliderResetBtn');
   if (resetBtn) resetBtn.style.display = 'none';
-  recalcNinja();
-  renderNinja();
+  recalculateVendorTargets();
+  renderVendorTable();
   calcEstimator();
 }
 
@@ -1677,13 +1233,13 @@ function parseWealthyCSV(text) {
 
   if (items.length === 0) {
     const st = document.getElementById('n-infoText');
-    if (st) st.innerHTML = '⚠ No scarabs found in CSV — check the export format.';
+    if (st) st.innerHTML = 'No scarabs found in CSV — check the export format.';
     return;
   }
 
   // Store full CSV contents for this session; slider & EV decide which are vendor targets
-  state._csvRawItems = items;
-  state.csvVendorQty = totalQty;
+  state._csvImportedItems = items;
+  state.csvVendorQuantity = totalQty;
   window._csvFoundItems = null;
 
   const st = document.getElementById('csvStatus');
@@ -1707,7 +1263,7 @@ function toggleCSVBreakdown() {
 
 function renderCSVBreakdown(foundItems) {
   // We never recompute the threshold here to avoid divergence.
-  const raw = state._csvRawItems;
+  const raw = state._csvImportedItems;
   if (!raw) return;
 
   const found = foundItems || window._csvFoundItems || [];
@@ -1724,7 +1280,7 @@ function renderCSVBreakdown(foundItems) {
   const st = document.getElementById('csvStatus');
   if (st) {
     const chevron = document.getElementById('csvBreakdownChevron');
-    st.innerHTML = `<span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s${document.getElementById('csvBreakdownTable')?.style.display !== 'none' ? ';transform:rotate(90deg)' : ''}">${chevron?.innerHTML || '▶'}</span> ${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
+    st.innerHTML = `<span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s${document.getElementById('csvBreakdownTable')?.style.display !== 'none' ? ';transform:rotate(90deg)' : ''}">${chevron?.innerHTML || '&#9656;'}</span> ${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
   }
   document.getElementById('csvBreakdownTable').innerHTML = found.map(f => {
     const livePrice = getNinjaPrice(f.name, lower);
@@ -1737,8 +1293,8 @@ function renderCSVBreakdown(foundItems) {
 }
 
 function clearCSV() {
-  state.csvVendorQty = null;
-  state._csvRawItems = null;
+  state.csvVendorQuantity = null;
+  state._csvImportedItems = null;
   window._csvFoundItems = null;
   const st = document.getElementById('csvStatus');
   if (st) st.textContent = '';
@@ -1754,9 +1310,9 @@ function calcEstimator() {
   let vendorQty = 0;
   let inputValue = 0; // current market value of scarabs being vendored (qty × ninja price)
 
-  if (state._csvRawItems) {
+  if (state._csvImportedItems) {
     const found = [];
-    for (const item of state._csvRawItems) {
+    for (const item of state._csvImportedItems) {
       const ninjaPrice = getNinjaPrice(item.name, lower);
       if (ninjaPrice > 0 && threshold !== null && ninjaPrice <= threshold) {
         vendorQty += item.qty;
@@ -1795,7 +1351,7 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
   const statProfEl = document.getElementById('n-statEstProfit');
   const statProfSub = document.getElementById('n-statEstProfitSub');
   const divRateEl  = document.getElementById('est-divine-rate-wrap');
-  const noCSV      = state.csvVendorQty === null;
+  const noCSV      = state.csvVendorQuantity === null;
 
   // Footer: always show rate info once calibration is ready
   if (divRateEl) {
@@ -1855,16 +1411,6 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
 
 
 // INIT
-// Restore manual EV override
-if (state.evOverride !== null) {
-  const inp = document.getElementById('evOverrideInput');
-  if (inp) {
-    inp.value = state.evOverride;
-    document.getElementById('evOverrideActive').textContent = `Active: ${state.evOverride.toFixed(2)}c threshold`;
-    document.getElementById('evOverrideActive').style.display = '';
-    document.getElementById('evClearBtn').style.display = '';
-  }
-}
 // Restore ninja EV override to slider position if saved
 if (state.ninjaEvOverride !== null) {
   refreshSliderScale(calcAutoEV() || 0.38);
@@ -1937,7 +1483,7 @@ function renderEVChart(history) {
   const values = history.map(h => h.ev);
   const latest = values[values.length - 1];
   const earliest = values[0];
-  const trend = latest > earliest ? '↑' : latest < earliest ? '↓' : '→';
+  const trend = latest > earliest ? '&uarr;' : latest < earliest ? '&darr;' : '&rarr;';
   const trendColor = latest > earliest ? '#E24B4A' : latest < earliest ? '#1D9E75' : '#888';
 
   const isDemo = history.some(h => h.demo);
@@ -2009,11 +1555,11 @@ function handleSnap(num, event) {
     const data = parseSnapCSV(e.target.result);
     const count = Object.values(data).reduce((s, q) => s + q, 0);
     if (num === 1) {
-      state._snap1 = data;
+      state._loggerSnapshotBefore = data;
       document.getElementById('snap1Text').textContent = `✓ ${file.name} — ${Object.keys(data).length} types`;
       document.getElementById('snap1Label').classList.add('loaded');
     } else {
-      state._snap2 = data;
+      state._loggerSnapshotAfter = data;
       document.getElementById('snap2Text').textContent = `✓ ${file.name} — ${Object.keys(data).length} types`;
       document.getElementById('snap2Label').classList.add('loaded');
     }
@@ -2071,7 +1617,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
 	function tryPreview() {
 	  const regexVal = document.getElementById('loggerRegex').value.trim();
 	  const btn = document.getElementById('loggerSubmitBtn');
-	  if (!state._snap1 || !state._snap2 || !regexVal) {
+	  if (!state._loggerSnapshotBefore || !state._loggerSnapshotAfter || !regexVal) {
 		document.getElementById('loggerPreview').style.display = 'none';
 		btn.disabled = true;
 		return;
@@ -2086,7 +1632,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
 
 	  // Get all scarab names across both snapshots
 	  const scarabNameSet = new Set(SCARAB_LIST.map(s => s.name));
-	  const allNames = new Set([...Object.keys(state._snap1), ...Object.keys(state._snap2)]);
+	  const allNames = new Set([...Object.keys(state._loggerSnapshotBefore), ...Object.keys(state._loggerSnapshotAfter)]);
 
 	  const vendorRows = [];
 	  const keeperRows = [];
@@ -2096,8 +1642,8 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
 		// Only process scarabs
 		if (!scarabNameSet.has(name)) continue;
 
-		const before = state._snap1[name] || 0;
-		const after  = state._snap2[name] || 0;
+		const before = state._loggerSnapshotBefore[name] || 0;
+		const after  = state._loggerSnapshotAfter[name] || 0;
 		const price  = getNinjaPrice(name, lower) || 0;
 
 		// Handle inverted regex logic
@@ -2200,14 +1746,14 @@ async function submitSession() {
   const totalReceived  = vendorReceived + keeperReceived;
 
   if (session.totalConsumed === 0 && totalReceived === 0) {
-    status.textContent = '✕ No scarab movement detected between snapshots — session not saved';
+    status.textContent = 'No scarab movement detected between snapshots — session not saved';
     status.style.color = 'var(--red)';
     btn.disabled = false;
     return;
   }
 
   if (session.totalInputValue > 0 && Math.abs(session.totalOutputValue - session.totalInputValue) < 1 && session.totalConsumed === 0) {
-    status.textContent = '✕ No changes detected between snapshots — session not saved';
+    status.textContent = 'No changes detected between snapshots — session not saved';
     status.style.color = 'var(--red)';
     btn.disabled = false;
     return;
@@ -2258,13 +1804,13 @@ async function submitSession() {
     if (flags.length) {
       const isRecycled = flags.some(f => f.startsWith('recycled'));
       if (isRecycled) {
-        status.textContent = `⚠ Saved locally — session appears recycled and won't contribute to community data. For clean data, vendor each batch once without re-feeding outputs.`;
+        status.textContent = `Saved locally — session appears recycled and won't contribute to community data. For clean data, vendor each batch once without re-feeding outputs.`;
       } else {
-        status.textContent = `⚠ Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} — excluded from community calibration`;
+        status.textContent = `Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} — excluded from community calibration`;
       }
       status.style.color = 'var(--amber)';
     } else {
-      status.textContent = `✓ Session saved (${existing.length} total)`;
+      status.textContent = `Session saved (${existing.length} total)`;
       status.style.color = 'var(--green)';
       if (POOL_API_URL) {
         const payload = {
@@ -2289,7 +1835,7 @@ async function submitSession() {
     }
     renderSessionHistory();
     // Reset form
-    state._snap1 = state._snap2 = null;
+    state._loggerSnapshotBefore = state._loggerSnapshotAfter = null;
     window._parsedSession = null;
     document.getElementById('snap1Text').textContent = 'Choose CSV file';
     document.getElementById('snap2Text').textContent = 'Choose CSV file';
@@ -2434,7 +1980,7 @@ function renderAnalysis() {
       .then(res => res.ok ? res.json() : null)
       .then(agg => {
         if (agg && (agg.sessionCount > 0 || Object.keys(agg.receivedByScarab || {}).length > 0)) {
-          renderAnalysisWithData({
+          renderAnalysisFromAggregate({
             totalConsumed: agg.totalConsumed || 0,
             totalTrades: agg.totalTrades || 0,
             totalInput: agg.totalInput || 0,
@@ -2445,15 +1991,15 @@ function renderAnalysis() {
           }, fmt, emptyEl, contentEl);
           return;
         }
-        renderAnalysisWithLocal(fmt, emptyEl, contentEl);
+        renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl);
       })
-      .catch(() => renderAnalysisWithLocal(fmt, emptyEl, contentEl));
+      .catch(() => renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl));
   } else {
-    renderAnalysisWithLocal(fmt, emptyEl, contentEl);
+    renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl);
   }
 }
 
-function renderAnalysisWithLocal(fmt, emptyEl, contentEl) {
+function renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl) {
   const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
   let totalConsumed = 0, totalTrades = 0, totalInput = 0, totalOutput = 0;
   const receivedByScarab = {};
@@ -2470,7 +2016,7 @@ function renderAnalysisWithLocal(fmt, emptyEl, contentEl) {
       }
     }
   }
-  renderAnalysisWithData({
+  renderAnalysisFromAggregate({
     totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab,
     sessionCount: sessions.length,
     validCount: sessions.filter(s => !s.flagged).length,
@@ -2478,7 +2024,7 @@ function renderAnalysisWithLocal(fmt, emptyEl, contentEl) {
   }, fmt, emptyEl, contentEl);
 }
 
-function renderAnalysisWithData(data, fmt, emptyEl, contentEl) {
+function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
   const { totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab, dataSourceLabel } = data;
   const sessionCount = data.sessionCount != null ? data.sessionCount : 0;
   const validSub = data.validCount != null ? data.validCount + ' unflagged' : '';
@@ -2531,7 +2077,7 @@ function renderAnalysisWithData(data, fmt, emptyEl, contentEl) {
   document.getElementById('analysisStatsBar').innerHTML = `
     <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '—'}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3→1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3:1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Overall ROI</div><div class="analysis-stat-value ${overallRoi >= 0 ? 'green' : ''}">${(overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1)}%</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Real avg/trade</div><div class="analysis-stat-value chaos">${realAvgPerTrade.toFixed(2)}c</div><div style="font-size:10px;color:var(--text-3)">from sessions</div></div>
@@ -2610,11 +2156,11 @@ function getAnalysisSortLabel() {
   const s = window._analysisWeightSort || { key: 'ninja', dir: -1 };
   const key = s.key;
   const dir = s.dir;
-  if (key === 'name') return 'Sorted by: Scarab name (' + (dir === 1 ? 'A→Z' : 'Z→A') + ')';
-  if (key === 'received') return 'Sorted by: Count received (' + (dir === -1 ? 'high → low' : 'low → high') + ')';
-  if (key === 'pct') return 'Sorted by: Weight % (' + (dir === -1 ? 'high → low' : 'low → high') + ')';
+  if (key === 'name') return 'Sorted by: Scarab name (' + (dir === 1 ? 'A-Z' : 'Z-A') + ')';
+  if (key === 'received') return 'Sorted by: Count received (' + (dir === -1 ? 'high to low' : 'low to high') + ')';
+  if (key === 'pct') return 'Sorted by: Weight % (' + (dir === -1 ? 'high to low' : 'low to high') + ')';
   if (key === 'ninja') return 'Sorted by COST/EA (' + (dir === -1 ? 'high-LOW' : 'low-HIGH') + ')';
-  if (key === 'contrib') return 'Sorted by: EV contribution (' + (dir === -1 ? 'high → low' : 'low → high') + ')';
+  if (key === 'contrib') return 'Sorted by: EV contribution (' + (dir === -1 ? 'high to low' : 'low to high') + ')';
   return 'Bar height = count received';
 }
 
@@ -2710,7 +2256,7 @@ const DEFAULT_GEMINI_API_KEY = '';
 const BULK_MISMATCH_LOG_KEY = 'poepool-bulk-mismatch-log';
 const BULK_NAME_MAP_STORAGE_KEY = 'poepool-bulk-name-map';
 
-const BULK_DEFAULT_NAME_MAP_URL = './bulk-name-map.json';
+const BULK_DEFAULT_NAME_MAP_URL = './js/data/bulk-name-map.json';
 
  // shared defaults loaded from JSON file
     // user overrides stored in localStorage
@@ -3070,7 +2616,7 @@ function buildBulkScarabIndex() {
   });
 }
 
-function _lev(a, b) {
+function levenshteinDistance(a, b) {
   if (a === b) return 0;
   if (!a) return b.length;
   if (!b) return a.length;
@@ -3089,7 +2635,7 @@ function _lev(a, b) {
 
 // Tokens stripped of structural filler words common to all scarab names
 const _BULK_STOP = new Set(['scarab','of','the','a','an']);
-function _bulkTokens(str) {
+function tokenizeBulkName(str) {
   return str.toLowerCase().split(/\s+/).filter(t => t && !_BULK_STOP.has(t));
 }
 
@@ -3122,14 +2668,14 @@ function matchBulkName(rawName, index) {
   // 5) First + last token exact match
   // Strip stop words, compare first meaningful token (group signal) and
   // last meaningful token (variant signal). Proven conflict-free across the full list.
-  const qToks  = _bulkTokens(q);
+  const qToks  = tokenizeBulkName(q);
   const qFirst = qToks[0] || '';
   const qLast  = qToks[qToks.length - 1] || '';
 
   if (qFirst && qLast && qFirst !== qLast) {
     // after stripping they may have no first token, so allow last-only match for those
     hits = index.filter(e => {
-      const et = _bulkTokens(e.nameLower);
+      const et = tokenizeBulkName(e.nameLower);
       const ef = et[0] || '';
       const el = et[et.length - 1] || '';
       return ef === qFirst && el === qLast;
@@ -3140,13 +2686,13 @@ function matchBulkName(rawName, index) {
   // This allows 1 typo on short words, up to ~3 on longer ones
   if (qFirst && qLast) {
     const scored = index.map(e => {
-      const et    = _bulkTokens(e.nameLower);
+      const et    = tokenizeBulkName(e.nameLower);
       const ef    = et[0] || '';
       const el    = et[et.length - 1] || '';
       const fedMax = Math.max(1, Math.floor(Math.max(qFirst.length, ef.length) * 0.35));
       const ledMax = Math.max(1, Math.floor(Math.max(qLast.length, el.length) * 0.35));
-      const fed   = _lev(qFirst, ef);
-      const led   = _lev(qLast, el);
+      const fed   = levenshteinDistance(qFirst, ef);
+      const led   = levenshteinDistance(qLast, el);
       if (fed <= fedMax && led <= ledMax) {
         // Score: lower = better. Weight last token more (it's the variant signal)
         return { e, score: fed * 0.4 + led * 0.6 };
@@ -3183,7 +2729,7 @@ function parseBulkCsv(text) {
   return rows;
 }
 
-function fmtBulkChaos(chaos, divRate) {
+function formatBulkChaosValue(chaos, divRate) {
   if (!divRate) return Math.round(chaos) + 'c';
   const d = chaos / divRate;
   return d >= 1 ? d.toFixed(1) + 'd' : Math.round(chaos) + 'c';
@@ -3202,7 +2748,7 @@ function detectBulkPartialParse(rawText) {
   return { partial: malformed.length > 0, malformedCount: malformed.length };
 }
 
-async function runBulkFromImage() {
+async function analyzeBulkFromImage() {
   const errEl = document.getElementById('bulkError');
   errEl.style.display = 'none';
 
@@ -3321,7 +2867,7 @@ async function runBulkFromImage() {
         }
         document.getElementById('bulkCsv').value = text;
         state._bulkSource = 'image';
-        await runBulkFromCsv('image');
+        await analyzeBulkFromCsv('image');
         const zone = document.getElementById('bulkDropZone');
         const textEl = document.getElementById('bulkDropText');
         const hintEl = document.getElementById('bulkDropHint');
@@ -3382,7 +2928,7 @@ function resetBulkOutputUI() {
   return hadVisibleResults;
 }
 
-async function runBulkFromCsv(sourceOverride = 'csv') {
+async function analyzeBulkFromCsv(sourceOverride = 'csv') {
   const source = sourceOverride || 'csv';
   state._bulkSource = source;
 
@@ -3435,12 +2981,10 @@ async function runBulkFromCsv(sourceOverride = 'csv') {
   const vendorSet = new Set();
   const priceMap = {};
   for (const s of SCARAB_LIST) {
-    const p = getP(s.name);
-    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
-    const cea = manualPrice > 0 ? manualPrice : getNinjaPrice(s.name, lower);
-    if (cea > 0) {
-      priceMap[s.name] = cea;
-      if (cea <= threshold) vendorSet.add(s.name);
+    const chaosPerUnit = getNinjaPrice(s.name, lower);
+    if (chaosPerUnit > 0) {
+      priceMap[s.name] = chaosPerUnit;
+      if (chaosPerUnit <= threshold) vendorSet.add(s.name);
     }
   }
 
@@ -3497,9 +3041,9 @@ async function runBulkFromCsv(sourceOverride = 'csv') {
   const marginPct = askingChaos > 0 ? (net / askingChaos) * 100 : 0;
 
   // Summary
-  const costLabel = fmtBulkChaos(askingChaos, divRate);
-  const retLabel = fmtBulkChaos(expectedReturn, divRate);
-  const netLabel = fmtBulkChaos(Math.abs(net), divRate);
+  const costLabel = formatBulkChaosValue(askingChaos, divRate);
+  const retLabel = formatBulkChaosValue(expectedReturn, divRate);
+  const netLabel = formatBulkChaosValue(Math.abs(net), divRate);
 
   document.getElementById('bulkCost').textContent = costLabel;
   document.getElementById('bulkCostSub').textContent =
@@ -3515,7 +3059,7 @@ async function runBulkFromCsv(sourceOverride = 'csv') {
     `After 3->1 vendor targets`;
 
   const netEl = document.getElementById('bulkNet');
-  netEl.textContent = (net >= 0 ? '+' : '−') + netLabel;
+  netEl.textContent = (net >= 0 ? '+' : '-') + netLabel;
   netEl.classList.toggle('bulk-summary-profit-pos', net >= 0);
   netEl.classList.toggle('bulk-summary-profit-neg', net < 0);
   document.getElementById('bulkNetSub').textContent =
@@ -3539,7 +3083,7 @@ async function runBulkFromCsv(sourceOverride = 'csv') {
     const diffCls = diff >= 0 ? 'bulk-diff-pos' : 'bulk-diff-neg';
     const badgeCls = r.isVendor ? 'bulk-pill bulk-pill-vendor' : 'bulk-pill bulk-pill-keep';
     const badgeLabel = r.isVendor ? 'Vendor' : 'Keep';
-    const valueLabel = fmtBulkChaos(r.valueChaos, divRate);
+    const valueLabel = formatBulkChaosValue(r.valueChaos, divRate);
     const ceaLabel = r.priceEa > 0 ? r.priceEa.toFixed(2) + 'c' : '—';
     const diffLabel = r.priceEa > 0 ? (diff >= 0 ? '+' : '') + diff.toFixed(2) + 'c' : '—';
     return `
@@ -3654,7 +3198,7 @@ function atlasSave() {
     saved.blocked.push(g);
     saved.deltas[`block:${g}`] = atlasGroupStats(g, true).toggleDelta;
   }
-  for (const g of state._atlasBosted) {
+  for (const g of state._atlasBoosted) {
     saved.boosted.push(g);
     saved.deltas[`boost:${g}`] = atlasGroupStats(g, false).toggleDelta;
   }
@@ -3680,7 +3224,7 @@ function atlasLoad() {
     if (!raw) return;
     const saved = JSON.parse(raw);
     if (saved.blocked) state._atlasBlocked = new Set(saved.blocked);
-    if (saved.boosted) state._atlasBosted  = new Set(saved.boosted);
+    if (saved.boosted) state._atlasBoosted  = new Set(saved.boosted);
   } catch(e) {}
 }
 
@@ -3784,30 +3328,30 @@ function atlasGroupStats(group, isBlockable) {
   const contribution = groupShare * groupEV;
 
   // Delta = what happens to current live EV if this group is toggled
-  const currentEV = atlasComputeEV(state._atlasBlocked, state._atlasBosted) || 0;
+  const currentEV = atlasComputeEV(state._atlasBlocked, state._atlasBoosted) || 0;
 
   let toggleDelta = 0;
   if (isBlockable) {
     if (state._atlasBlocked.has(group)) {
       const withoutBlock = new Set([...state._atlasBlocked].filter(g => g !== group));
-      toggleDelta = atlasComputeEV(withoutBlock, state._atlasBosted) - currentEV;
+      toggleDelta = atlasComputeEV(withoutBlock, state._atlasBoosted) - currentEV;
     } else {
       const withBlock = new Set([...state._atlasBlocked, group]);
-      toggleDelta = atlasComputeEV(withBlock, state._atlasBosted) - currentEV;
+      toggleDelta = atlasComputeEV(withBlock, state._atlasBoosted) - currentEV;
     }
   } else {
-    if (state._atlasBosted.has(group)) {
-      const withoutBoost = new Set([...state._atlasBosted].filter(g => g !== group));
+    if (state._atlasBoosted.has(group)) {
+      const withoutBoost = new Set([...state._atlasBoosted].filter(g => g !== group));
       toggleDelta = atlasComputeEV(state._atlasBlocked, withoutBoost) - currentEV;
     } else {
-      const withBoost = new Set([...state._atlasBosted, group]);
+      const withBoost = new Set([...state._atlasBoosted, group]);
       toggleDelta = atlasComputeEV(state._atlasBlocked, withBoost) - currentEV;
     }
   }
 
   // Per-scarab breakdown (sorted by EV contribution desc)
   const allWforDisplay = active => active.reduce((s, sc) => {
-    const mult = state._atlasBosted.has(sc.group) ? 2 : 1;
+    const mult = state._atlasBoosted.has(sc.group) ? 2 : 1;
     return s + (weights[sc.name] || 0) * mult;
   }, 0);
   const livePool  = SCARAB_LIST.filter(s => !state._atlasBlocked.has(s.group));
@@ -3819,7 +3363,7 @@ function atlasGroupStats(group, isBlockable) {
     const price      = getNinjaPrice(s.name, lower);
     const evContrib  = localShare * price;
     // Live pool contribution (accounts for boosts on other groups too)
-    const mult       = state._atlasBosted.has(s.group) ? 2 : 1;
+    const mult       = state._atlasBoosted.has(s.group) ? 2 : 1;
     const liveShare  = liveTotalW > 0 ? (w * mult) / liveTotalW : 0;
     const liveContrib = liveShare * price;
     return { name: s.name, localShare, price, evContrib, liveContrib };
@@ -3829,10 +3373,10 @@ function atlasGroupStats(group, isBlockable) {
 }
 
 function atlasUpdateHero() {
-  const currentEV  = atlasComputeEV(state._atlasBlocked, state._atlasBosted);
+  const currentEV  = atlasComputeEV(state._atlasBlocked, state._atlasBoosted);
   const baselineEV = atlasComputeEV(new Set(), new Set());
   const nb = state._atlasBlocked.size;
-  const ns = state._atlasBosted.size;
+  const ns = state._atlasBoosted.size;
 
   const curEl   = document.getElementById('atlas-ev-current');
   const baseEl  = document.getElementById('atlas-ev-baseline');
@@ -3870,7 +3414,7 @@ function atlasUpdateHero() {
 function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   const stats     = atlasGroupStats(group, isBlockable);
   const isBlocked = state._atlasBlocked.has(group);
-  const isBoosted = state._atlasBosted.has(group);
+  const isBoosted = state._atlasBoosted.has(group);
   const isExpanded = state._atlasExpanded.has(group);
 
   // Badge logic:
@@ -3896,7 +3440,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   let deltaHtml;
   const d = stats.toggleDelta;
   if (Math.abs(d) < 0.000005) {
-    deltaHtml = '<span class="atlas-group-stat neutral">≈0</span>';
+    deltaHtml = '<span class="atlas-group-stat neutral">˜0</span>';
   } else {
     const baselineEV = atlasComputeEV(new Set(), new Set());
     const pct = baselineEV > 0 ? d / baselineEV : 0;
@@ -3970,7 +3514,7 @@ function renderAtlas() {
       : '';
     const hasActive = isBlockable
       ? rows.some(r => state._atlasBlocked.has(r.g))
-      : rows.some(r => state._atlasBosted.has(r.g));
+      : rows.some(r => state._atlasBoosted.has(r.g));
     const resetBtn = hasActive
       ? `<button onclick="${isBlockable ? 'atlasResetBlocks()' : 'atlasResetBoosts()'}"
           style="font-family:inherit;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;margin-left:${warning ? '8px' : 'auto'};transition:all 0.15s"
@@ -4008,7 +3552,7 @@ function renderAtlas() {
     .filter(r => !state._atlasBlocked.has(r.g) && r.delta / _atlasBaselineEV >= 0.01)
     .map(r => ({ g: r.g, delta: r.delta, isBlockable: true }));
   const boostCandidates = boostRows
-    .filter(r => !state._atlasBosted.has(r.g) && r.delta / _atlasBaselineEV >= 0.01)
+    .filter(r => !state._atlasBoosted.has(r.g) && r.delta / _atlasBaselineEV >= 0.01)
     .map(r => ({ g: r.g, delta: r.delta, isBlockable: false }));
   const allCandidates = [...blockCandidates, ...boostCandidates].sort((a, b) => b.delta - a.delta);
   const recommendedGroup    = allCandidates[0]?.g || null;
@@ -4036,7 +3580,7 @@ function renderAtlas() {
     const lower    = buildNinjaLookup();
     const livePool = SCARAB_LIST.filter(s => !state._atlasBlocked.has(s.group));
     const liveTotalW = livePool.reduce((sum, s) => {
-      const mult = state._atlasBosted.has(s.group) ? 2 : 1;
+      const mult = state._atlasBoosted.has(s.group) ? 2 : 1;
       return sum + (weights[s.name] || 0) * mult;
     }, 0);
     const allW = SCARAB_LIST.reduce((sum, s) => sum + (weights[s.name] || 0), 0);
@@ -4119,8 +3663,8 @@ function atlasToggleBlock(group) {
 }
 
 function atlasToggleBoost(group) {
-  if (state._atlasBosted.has(group)) state._atlasBosted.delete(group);
-  else state._atlasBosted.add(group);
+  if (state._atlasBoosted.has(group)) state._atlasBoosted.delete(group);
+  else state._atlasBoosted.add(group);
   renderAtlas();
 }
 
@@ -4136,7 +3680,7 @@ function atlasResetBlocks() {
 }
 
 function atlasResetBoosts() {
-  state._atlasBosted.clear();
+  state._atlasBoosted.clear();
   renderAtlas();
 }
 
@@ -4418,10 +3962,9 @@ function parseChangelog(md) {
   return html;
 }
 
-renderManual(); // keep manual state fresh in background
 atlasLoad();    // restore saved atlas config before any rendering
 fetchCurrentLeague().then(() => {
-  fetchNinja();
+  fetchMarketScarabPrices();
   fetchPriceHistory();
   fetchAndRenderEVChart();
 });
@@ -4441,40 +3984,14 @@ checkVersionToast();
   window.addEventListener('hashchange', () => loadFromHash());
 })();
 
-// Close any open override input when clicking outside the table
-document.addEventListener('click', () => {
-  if (state._activeOverrideCell) closeActiveOverride();
-});
-
-// Chaos regex functions
-function updateChaosRegexUI(keepNames) {
-  const chaosPanel = document.getElementById('chaosRegexPanel');
-  const result = keepNames.length ? buildRegex(keepNames) : { regex: null };
-  
-  if (result.regex) {
-    const innerLen = result.tokens.join('|').length;
-    document.getElementById('c-regexBody').textContent = result.regex;
-    document.getElementById('c-charPill').textContent = `${innerLen} / ${CHAR_LIMIT}`;
-    document.getElementById('c-charPill').className = 'char-pill ' + 
-      (innerLen <= Math.floor(CHAR_LIMIT * 0.89) ? 'ok' : innerLen <= CHAR_LIMIT ? 'warn' : 'over');
-    
-    // Show panel only if main regex is over limit
-    const ninjaRegexBody = document.getElementById('n-regexBody');
-    const mainRegexOver = ninjaRegexBody.textContent.length > 250 && !ninjaRegexBody.querySelector('.regex-empty-msg');
-    chaosPanel.style.display = mainRegexOver ? 'block' : 'none';
-  } else {
-    chaosPanel.style.display = 'none';
-  }
-}
-
 function copyRegex(type) {
   let bodyId, btnId;
   if (type === 'chaos') {
     bodyId = 'c-regexBody';
     btnId = 'c-copyBtn';
   } else {
-    bodyId = type === 'manual' ? 'm-regexBody' : 'n-regexBody';
-    btnId = type === 'manual' ? 'm-copyBtn' : 'n-copyBtn';
+    bodyId = 'n-regexBody';
+    btnId = 'n-copyBtn';
   }
   
   const body = document.getElementById(bodyId);
@@ -4499,52 +4016,30 @@ Object.assign(window, {
   buildSparkline,
   showSparkTooltip,
   hideSparkTooltip,
-  savePrices,
-  getP,
   toggleTheme,
   switchTab,
   toggleHamburger,
   toggleLoggerHowTo,
   initFaq,
   toggleFaqItem,
-  toggleFaq,
-  faqScrollTo,
   calcEV,
   buildRegex,
   syncLoggerRegex,
   updateRegexUI,
-  getManualEntries,
-  recalcManual,
-  renderManual,
-  autoFillOther,
-  setEVOverride,
-  softUpdateRows,
-  clearEVOverride,
-  exportPrices,
-  importPrices,
-  handleManualInput,
-  setSortMode,
-  setManualView,
-  resetPrices,
-  setNinjaEVOverride,
-  clearNinjaEVOverride,
   parseWorkerResponse,
   parseOldNinjaResponse,
   buildNinjaLookup,
   getNinjaPrice,
   getNinjaImage,
   fetchCurrentLeague,
-  fetchNinja,
+  fetchMarketScarabPrices,
   getNinjaEntries,
   resetNinjaSort,
   setNinjaSort,
   updateSortArrows,
-  recalcNinja,
-  toggleDebug,
-  populateDebugPanel,
-  renderNinja,
-  closeActiveOverride,
-  makeNinjaRow,
+  recalculateVendorTargets,
+  renderVendorTable,
+  buildVendorTableRow,
   setNinjaView,
   initSlider,
   positionMarker,
@@ -4580,8 +4075,8 @@ Object.assign(window, {
   toggleSessionDetail,
   renderSessionDetail,
   renderAnalysis,
-  renderAnalysisWithLocal,
-  renderAnalysisWithData,
+  renderAnalysisFromLocalSessions,
+  renderAnalysisFromAggregate,
   getAnalysisSortLabel,
   updateAnalysisChartAxisLabel,
   showAnalysisBarTooltip,
@@ -4612,13 +4107,13 @@ Object.assign(window, {
   clearBulkImage,
   handleBulkImage,
   buildBulkScarabIndex,
-  _lev,
-  _bulkTokens,
+  levenshteinDistance,
+  tokenizeBulkName,
   matchBulkName,
   parseBulkCsv,
-  fmtBulkChaos,
-  runBulkFromImage,
-  runBulkFromCsv,
+  formatBulkChaosValue,
+  analyzeBulkFromImage,
+  analyzeBulkFromCsv,
   atlasSave,
   atlasLoad,
   atlasCheckRevisitWarning,
@@ -4644,7 +4139,6 @@ Object.assign(window, {
   toggleChangelog,
   loadChangelog,
   parseChangelog,
-  updateChaosRegexUI,
   copyRegex
 });
 
@@ -4653,4 +4147,6 @@ Object.defineProperty(window, '_bulkImageFile', {
   get() { return state._bulkImageFile; },
   set(v) { state._bulkImageFile = v; }
 });
+
+
 

@@ -161,9 +161,7 @@ export const INGAME_ORDER = [
   "Expedition","Harvest","Kalguuran","Legion","Ritual","Ultimatum",
   "Misc","Horned"
 ];
-export const GROUP_ORDER = INGAME_ORDER;
-
-export const POOL_API_URL = 'https://poepool-api.paperpandastacks.workers.dev';
+export const POOL_API_URL = 'https://scarabev-api.paperpandastacks.workers.dev';
 
 export const FAQ_SECTIONS = [
   {
@@ -405,7 +403,7 @@ export const POE_RE_TOKENS = {
   "Ultimatum Scarab of Inscription":        "nsc",
 };
 
-export const WORKER_URL = 'https://fragrant-base-ff8a.paperpandastacks.workers.dev';
+export const WORKER_URL = 'https://scarabev-market-worker.paperpandastacks.workers.dev';
 
 export const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum'];
 export const ATLAS_BOOSTABLE = ['Essence','Beyond','Torment','Titanic','Cartography','Divination','Ambush','Anarchy','Domination'];

@@ -1,5 +1,5 @@
 // Scarab EV calculation engine.
-// Owns calculation helpers for manual and ninja EV paths.
+// Owns calculation helpers for ninja EV paths.
 // Uses injected dependencies for scarab lists and price lookups.
 // Reads shared state where required, without DOM concerns.
 // Does not render UI or orchestrate fetch/network flows.
@@ -7,13 +7,11 @@
 import { state } from './state.js';
 
 let SCARAB_LIST;
-let getP;
 let buildNinjaLookup;
 let getNinjaPrice;
 
 export function configureScarabEngine(deps) {
   SCARAB_LIST = deps.SCARAB_LIST;
-  getP = deps.getP;
   buildNinjaLookup = deps.buildNinjaLookup;
   getNinjaPrice = deps.getNinjaPrice;
 }
@@ -53,22 +51,11 @@ export function calcEV(entries) {
   return Math.floor(ev * 100) / 100;
 }
 
-export function getManualEntries() {
-  return SCARAB_LIST.map(s => {
-    const p = getP(s.name);
-    return { name: s.name, group: s.group, chaosEa: p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0 };
-  });
-}
-
 export function getNinjaEntries() {
   const lower = buildNinjaLookup();
   return SCARAB_LIST.map(s => {
-    // Manual override takes priority over poe.ninja price
-    const p = getP(s.name);
-    const manualPrice = p.cost > 0 && p.qty > 0 ? p.cost / p.qty : 0;
     const ninjaPrice = getNinjaPrice(s.name, lower);
-    const chaosEa = manualPrice > 0 ? manualPrice : ninjaPrice;
-    return { ...s, chaosEa, isManualOverride: manualPrice > 0 };
+    return { ...s, chaosEa: ninjaPrice };
   });
 }
 

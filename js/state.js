@@ -6,8 +6,6 @@
 
 export const state = {
   // Price / threshold
-  prices: {},         // manual prices {name -> {qty, cost}}
-  evOverride: null,   // user-set EV override in chaos
   ninjaEvOverride: null,
 
   // Live market data
@@ -32,32 +30,27 @@ export const state = {
   _priceTotalChange: {},   // { scarabName -> totalChange % } - direct from API sparkline
 
   // UI view state
-  collapsedM: new Set(),
-  collapsedN: new Set(),
-  manualView: 'all',
-  sortMode: 'ingame',      // 'ingame' | 'alpha'
-  ninjaView: 'all',
+  collapsedVendorGroups: new Set(),
+  groupOrderMode: 'ingame',      // 'ingame' | 'alpha'
+  vendorViewMode: 'all',
   currentTab: 'ninja',
-  ninjaSort: null,         // null = grouped, 'cea-asc', 'cea-desc', etc.
-
-  // Inline price override cell
-  _activeOverrideCell: null,
+  vendorSortMode: null,         // null = grouped, 'chaosPerUnit-asc', 'chaosPerUnit-desc', etc.
 
   // EV history chart
   _evChartInstance: null,
 
   // Session logger
-  _snap1: null,            // parsed CSV map: { scarabName -> qty }
-  _snap2: null,
+  _loggerSnapshotBefore: null,            // parsed CSV map: { scarabName -> qty }
+  _loggerSnapshotAfter: null,
   _loggerRegexUserEdited: false,
 
   // Vendor profit estimator / CSV
-  csvVendorQty: null,
-  _csvRawItems: null,      // all scarabs from the last imported CSV (session-only)
+  csvVendorQuantity: null,
+  _csvImportedItems: null,      // all scarabs from the last imported CSV (session-only)
 
   // Atlas optimizer
   _atlasBlocked: new Set(),
-  _atlasBosted: new Set(),   // boosted groups (x2 weight multiplier)
+  _atlasBoosted: new Set(),   // boosted groups (x2 weight multiplier)
   _atlasExpanded: new Set(),
   _atlasLeftoverOpen: true,
 
@@ -68,3 +61,4 @@ export const state = {
   BULK_USER_NAME_MAP: {},    // user overrides stored in localStorage
   BULK_NAME_MAP: {},         // effective map = defaults merged with user overrides
 };
+
