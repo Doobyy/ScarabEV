@@ -107,7 +107,7 @@ async function fetchObservedWeights() {
       // If atlas tab is open, render it now that weights are available
       if (state.currentTab === 'atlas') renderAtlas();
     }
-  } catch(e) { /* silent — estimator shows nothing until data is available */ }
+  } catch(e) { /* silent \u2014 estimator shows nothing until data is available */ }
 }
 
 function computeLoopVendorRate(threshold) {
@@ -272,7 +272,7 @@ function buildSparkline(scarabName) {
 function showSparkTooltip(e, name, pct) {
   const tip = document.getElementById('analysisBarTooltip');
   if (!tip) return;
-  tip.textContent = `${name} · ${pct}`;
+  tip.textContent = `${name} \u00B7 ${pct}`;
   tip.classList.add('show');
   tip.style.left = (e.clientX + 12) + 'px';
   tip.style.top  = (e.clientY - 4) + 'px';
@@ -351,7 +351,7 @@ function initFaq() {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = `
       <div onclick="toggleFaqItem('${bodyId}','${chevronId}','${id}')" class="faq-question" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-table-head);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-table-head)'" id="${id}">
-        <span style="font-size:10px;color:var(--accent);transition:transform 0.15s;flex-shrink:0" id="${chevronId}">▶</span>
+      <span style="font-size:24px;font-weight:700;color:var(--accent);transition:transform 0.15s;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;overflow:visible;transform-origin:center center" id="${chevronId}">&#9656;</span>
         <span class="faq-question-title" style="font-size:12px;font-weight:600;color:var(--text-2)">${section.title}</span>
       </div>
       <div id="${bodyId}" class="faq-body" style="display:none;margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:14px 18px;font-size:12px;line-height:1.8">
@@ -400,7 +400,7 @@ function syncLoggerRegex() {
   if (regex) {
     const { matched, unmatched } = parseRegexToScarabs(regex);
     let hint = `${matched.length} scarab types identified`;
-    if (unmatched.length) hint += ` · ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
+    if (unmatched.length) hint += ` \u00B7 ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
     document.getElementById('loggerRegexHint').textContent = hint;
   } else {
     document.getElementById('loggerRegexHint').textContent = '';
@@ -446,11 +446,11 @@ if (result.regex) {
     
     if (result.collateral && result.collateral.length > 0) {
       const names = result.collateral.map(n => n.split(' ').slice(-2).join(' '));
-      msgs.push(`? <strong>Collateral:</strong> regex also matches ${[...new Set(names)].join(', ')} — skip those when vendoring.`);
+      msgs.push(`- <strong>Collateral:</strong> regex also matches ${[...new Set(names)].join(', ')} \u2014 skip those when vendoring.`);
     }
     
     if (result.uncovered && result.uncovered.length > 0) {
-      msgs.push(`? <strong>Uncovered:</strong> ${result.uncovered.map(n => n.split(' ').pop()).join(', ')} could not be included without matching 2+ keepers.`);
+      msgs.push(`- <strong>Uncovered:</strong> ${result.uncovered.map(n => n.split(' ').pop()).join(', ')} could not be included without matching 2+ keepers.`);
     }
     
     if (msgs.length) {
@@ -511,7 +511,7 @@ async function fetchCurrentLeague() {
       if (!o.dataset.current && o.value === data.league) o.remove();
     });
     select.value = data.league;
-  } catch(e) { /* breaks cleanly — no fallback */ }
+  } catch(e) { /* breaks cleanly \u2014 no fallback */ }
 }
 
 async function fetchMarketScarabPrices() {
@@ -519,9 +519,9 @@ async function fetchMarketScarabPrices() {
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
   const btn    = document.getElementById('refreshBtn');
-  status.textContent = 'Loading prices from poe.ninja…'; status.className = 'ninja-status loading';
+  status.textContent = 'Loading prices from poe.ninja...'; status.className = 'ninja-status loading';
   btn.disabled = true;
-  state.ninjaDivineRate = null; // reset stale rate — will be refreshed from worker below
+  state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
 
   const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
   const log = [];
@@ -532,7 +532,7 @@ async function fetchMarketScarabPrices() {
     const matchCount = Object.keys(rawPrices).filter(n => ourNames.has(n.toLowerCase())).length;
     if (matchCount < 10) { log.push(`[${label}] only ${matchCount} matched`); return false; }
     const top3 = Object.entries(rawPrices).filter(([n]) => ourNames.has(n.toLowerCase())).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    log.push(`[${label}] OK — ${matchCount} matched. Top: ${top3.map(([n,p])=>`${n.split(' ').pop()}=${p.toFixed(1)}c`).join(', ')}`);
+    log.push(`[${label}] OK \u2014 ${matchCount} matched. Top: ${top3.map(([n,p])=>`${n.split(' ').pop()}=${p.toFixed(1)}c`).join(', ')}`);
     state.ninjaPrices = rawPrices;
     state.ninjaImages = rawImages;
     state.ninjaLoaded = true;
@@ -556,7 +556,7 @@ async function fetchMarketScarabPrices() {
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    status.textContent = `Prices loaded from poe.ninja · ${timeStr}`;
+    status.textContent = `Prices loaded from poe.ninja \u00B7 ${timeStr}`;
     if (state.currentTab === 'atlas') renderAtlas();
     if (state.currentTab === 'analysis') renderAnalysis();
     status.className = 'ninja-status loaded';
@@ -566,9 +566,9 @@ async function fetchMarketScarabPrices() {
       const mins = Math.floor((Date.now() - window._ninjaPriceTime) / 60000);
       const statusEl = document.getElementById('ninjaStatus');
       if (!statusEl) return;
-      if (mins < 1) statusEl.textContent = `Prices loaded from poe.ninja · just now`;
-      else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja · 1 min ago`;
-      else statusEl.textContent = `Prices loaded from poe.ninja · ${mins} mins ago`;
+      if (mins < 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 just now`;
+      else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 1 min ago`;
+      else statusEl.textContent = `Prices loaded from poe.ninja \u00B7 ${mins} mins ago`;
     }, 30000);
     renderVendorTable();
     btn.disabled = false;
@@ -595,7 +595,7 @@ async function fetchMarketScarabPrices() {
   // 1. Cloudflare Worker (new format)
   if (WORKER_URL) {
     try {
-      status.textContent = 'Trying Cloudflare Worker…';
+      status.textContent = 'Trying Cloudflare Worker...';
       const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
@@ -623,7 +623,7 @@ async function fetchMarketScarabPrices() {
   ];
   for (const attempt of fallbacks) {
     try {
-      status.textContent = `Trying ${attempt.label}…`;
+      status.textContent = `Trying ${attempt.label}...`;
       const res = await fetch(attempt.url, { cache: 'no-store' });
       if (!res.ok) { log.push(`[${attempt.label}] HTTP ${res.status}`); continue; }
       const text = await res.text();
@@ -677,7 +677,7 @@ function updateSortArrows() {
 function recalculateVendorTargets() {
   const entries = getNinjaEntries();
   const priced = entries.filter(e => e.chaosEa > 0);
-  const calcedEV = calcAutoEV(); // respects _evMode — harmonic or weighted
+  const calcedEV = calcAutoEV(); // respects _evMode \u2014 harmonic or weighted
   const ev = state.ninjaEvOverride !== null ? state.ninjaEvOverride : calcedEV;
   const threshold = ev !== null ? ev : null;
   const belowEv = ev !== null ? priced.filter(e => e.chaosEa <= ev) : [];
@@ -685,16 +685,16 @@ function recalculateVendorTargets() {
   const modeTag = state._evMode === 'weighted' ? 'weighted EV' : 'harmonic EV';
   const evLabel = state.ninjaEvOverride !== null
     ? ev.toFixed(2) + 'c (manual)'
-    : (calcedEV !== null ? calcedEV.toFixed(2) + 'c' : '—');
+    : (calcedEV !== null ? calcedEV.toFixed(2) + 'c' : '\u2014');
   const threshModeEl = document.getElementById('thresholdModeLabel');
   if (threshModeEl && state.ninjaEvOverride === null) threshModeEl.textContent = modeTag;
   const statEV = document.getElementById('n-statEV'); if (statEV) statEV.textContent = evLabel;
-  const statTgt = document.getElementById('n-statTargets'); if (statTgt) statTgt.textContent = ev !== null ? belowEv.length : '—';
-  const threshEl = document.getElementById('n-statThresh'); if (threshEl) threshEl.textContent = threshold !== null ? threshold.toFixed(2)+'c' : '—';
+  const statTgt = document.getElementById('n-statTargets'); if (statTgt) statTgt.textContent = ev !== null ? belowEv.length : '\u2014';
+  const threshEl = document.getElementById('n-statThresh'); if (threshEl) threshEl.textContent = threshold !== null ? threshold.toFixed(2)+'c' : '\u2014';
   const visitsEl = document.getElementById('n-statVisits'); if (visitsEl) { const estQty = parseInt(document.getElementById('estimatorInput')?.value)||7500; visitsEl.textContent = '~'+Math.ceil(estQty/180).toLocaleString(); }
   const avgInEl = document.getElementById('n-statAvgInput');
-  if (avgInEl) { const vp = belowEv.map(e=>e.chaosEa).filter(p=>p>0); avgInEl.textContent = vp.length ? (vp.reduce((s,p)=>s+p,0)/vp.length).toFixed(3)+'c' : '—'; }
-  const statProfEl = document.getElementById('n-statEstProfit'); if (statProfEl) statProfEl.textContent = '—';
+  if (avgInEl) { const vp = belowEv.map(e=>e.chaosEa).filter(p=>p>0); avgInEl.textContent = vp.length ? (vp.reduce((s,p)=>s+p,0)/vp.length).toFixed(3)+'c' : '\u2014'; }
+  const statProfEl = document.getElementById('n-statEstProfit'); if (statProfEl) statProfEl.textContent = '\u2014';
   // Muted EV + vendor targets in table header
 
 
@@ -790,7 +790,7 @@ function renderVendorTable() {
     const gh = document.createElement('div');
     gh.className = 'group-header'+(collapsed?' collapsed':'');
     const vendorCount = gitems.filter(i=>i.isV).length;
-    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${gitems.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">▸</span>`;
+    gh.innerHTML = `<span class="group-name">${gname}</span><span class="group-count">${gitems.length}</span>${vendorCount>0?`<span class="group-ev-badge">${vendorCount} vendor</span>`:''}<span class="group-chevron">&#9656;</span>`;
     gh.onclick = () => { state.collapsedVendorGroups.has(gname)?state.collapsedVendorGroups.delete(gname):state.collapsedVendorGroups.add(gname); renderVendorTable(); };
     tbody.appendChild(gh);
     if (collapsed) continue;
@@ -804,14 +804,14 @@ function buildVendorTableRow(s, ev) {
   const row = document.createElement('div');
   row.className = 'scarab-row ninja-row'+(s.isV?' vendor-target':'');
 
-  let diffHtml = '<span style="color:var(--text-3)">—</span>';
+  let diffHtml = '<span style="color:var(--text-3)">\u2014</span>';
   if (s.chaosPerUnit !== null && ev !== null) {
     const d = s.chaosPerUnit - ev;
-    diffHtml = d<=0 ? `<span class="ev-diff below">↓ ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">↑ ${d.toFixed(2)}c</span>`;
+    diffHtml = d<=0 ? `<span class="ev-diff below">&darr; ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">&uarr; ${d.toFixed(2)}c</span>`;
   }
 
   const imgSrc = getNinjaImage(s.name) || `${CDN}${s.icon}`;
-  const priceDisplay = s.chaosPerUnit !== null ? s.chaosPerUnit.toFixed(2)+'c' : '—';
+  const priceDisplay = s.chaosPerUnit !== null ? s.chaosPerUnit.toFixed(2)+'c' : '\u2014';
 
   const priceCell = document.createElement('div');
   priceCell.className = 'td right td-price';
@@ -845,7 +845,7 @@ function buildVendorTableRow(s, ev) {
     const sign = tc > 0 ? '+' : '';
     deltaCell.innerHTML = `<span style="font-size:11px;font-variant-numeric:tabular-nums;color:${col}">${sign}${tc.toFixed(1)}%</span>`;
   } else {
-    deltaCell.innerHTML = '<span style="color:var(--text-3);font-size:11px">—</span>';
+    deltaCell.innerHTML = '<span style="color:var(--text-3);font-size:11px">\u2014</span>';
   }
   row.appendChild(deltaCell);
   row.appendChild(priceCell);
@@ -955,7 +955,8 @@ function positionMarker(ev) {
   btn.style.left = marker.style.left;
   const manual = state.ninjaEvOverride !== null;
   btn.className = 'slider-marker-btn ' + (manual ? 'is-reset' : 'is-auto');
-  btn.textContent = manual ? '↺ Reset to auto EV' : ('auto EV ' + ev.toFixed(2) + 'c');
+  const resetPrefix = String.fromCodePoint(0x21BA) + ' ';
+  btn.textContent = manual ? (resetPrefix + 'Reset to auto EV') : ('auto EV ' + ev.toFixed(2) + 'c');
   btn.type = 'button';
   if (manual) {
     btn.style.pointerEvents = _sliderDragActive ? 'none' : 'auto';
@@ -1069,11 +1070,11 @@ function setEVMode(mode) {
   const hint = document.getElementById('weightedEvWarning');
   const countEl = document.getElementById('weightedSessionCount');
   if (hint) hint.style.display = mode === 'weighted' ? '' : 'none';
-  if (countEl) countEl.textContent = state._weightSessionCount > 0 ? state._weightSessionCount.toLocaleString() : '—';
+  if (countEl) countEl.textContent = state._weightSessionCount > 0 ? state._weightSessionCount.toLocaleString() : '\u2014';
 
   // Only switch to weighted if data is ready
   if (mode === 'weighted' && state._calibratedMean === null) {
-    const reason = state._weightUnavailableReason || 'waiting for weight data…';
+    const reason = state._weightUnavailableReason || 'waiting for weight data...';
     document.getElementById('thresholdModeLabel').textContent = reason;
     return setEVMode('harmonic');
   }
@@ -1233,7 +1234,7 @@ function parseWealthyCSV(text) {
 
   if (items.length === 0) {
     const st = document.getElementById('n-infoText');
-    if (st) st.innerHTML = 'No scarabs found in CSV — check the export format.';
+    if (st) st.innerHTML = 'No scarabs found in CSV \u2014 check the export format.';
     return;
   }
 
@@ -1243,7 +1244,7 @@ function parseWealthyCSV(text) {
   window._csvFoundItems = null;
 
   const st = document.getElementById('csvStatus');
-  if (st) st.textContent = `${items.length} scarab types · ${totalQty.toLocaleString()} total scarabs`;
+  if (st) st.textContent = `${items.length} scarab types \u00B7 ${totalQty.toLocaleString()} total scarabs`;
   document.getElementById('csvClearBtn').style.display = '';
   // Show breakdown collapsed by default
   document.getElementById('csvBreakdown').style.display = '';
@@ -1280,14 +1281,14 @@ function renderCSVBreakdown(foundItems) {
   const st = document.getElementById('csvStatus');
   if (st) {
     const chevron = document.getElementById('csvBreakdownChevron');
-    st.innerHTML = `<span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s${document.getElementById('csvBreakdownTable')?.style.display !== 'none' ? ';transform:rotate(90deg)' : ''}">${chevron?.innerHTML || '&#9656;'}</span> ${found.length} scarab types · ${totalQty.toLocaleString()} vendor targets`;
+    st.innerHTML = `<span id="csvBreakdownChevron" style="font-size:9px;color:var(--text-3);transition:transform 0.15s${document.getElementById('csvBreakdownTable')?.style.display !== 'none' ? ';transform:rotate(90deg)' : ''}">${chevron?.innerHTML || '&#9656;'}</span> ${found.length} scarab types \u00B7 ${totalQty.toLocaleString()} vendor targets`;
   }
   document.getElementById('csvBreakdownTable').innerHTML = found.map(f => {
     const livePrice = getNinjaPrice(f.name, lower);
-    const priceStr = livePrice > 0 ? livePrice.toFixed(2) + 'c' : '—';
+    const priceStr = livePrice > 0 ? livePrice.toFixed(2) + 'c' : '\u2014';
     return `<div style="display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);padding:2px 0">
       <span>${f.name}</span>
-      <span style="color:var(--text-2);white-space:nowrap;font-weight:500">${f.qty.toLocaleString()} × ${priceStr}</span>
+      <span style="color:var(--text-2);white-space:nowrap;font-weight:500">${f.qty.toLocaleString()} \u00D7 ${priceStr}</span>
     </div>`;
   }).join('');
 }
@@ -1308,7 +1309,7 @@ function calcEstimator() {
   const threshold = state.ninjaEvOverride !== null ? state.ninjaEvOverride : calcAutoEV();
 
   let vendorQty = 0;
-  let inputValue = 0; // current market value of scarabs being vendored (qty × ninja price)
+  let inputValue = 0; // current market value of scarabs being vendored (qty \u00D7 ninja price)
 
   if (state._csvImportedItems) {
     const found = [];
@@ -1363,13 +1364,13 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
   }
 
   if (noCSV) {
-    if (inputEl)  { inputEl.textContent = '—'; }
+    if (inputEl)  { inputEl.textContent = '\u2014'; }
     if (inputSub) { inputSub.textContent = 'import your Wealthy Exile CSV to estimate'; inputSub.style.color = 'var(--amber)'; }
     const inputValueEl = document.getElementById('est-input-value');
-    if (inputValueEl) inputValueEl.textContent = '—';
-    if (retEl)    { retEl.textContent = '—'; }
-    if (profEl)   { profEl.textContent = '—'; profEl.className = 'estimator-card-value val-return'; }
-    if (statProfEl)  { statProfEl.textContent = '—'; statProfEl.className = 'stat-value'; }
+    if (inputValueEl) inputValueEl.textContent = '\u2014';
+    if (retEl)    { retEl.textContent = '\u2014'; }
+    if (profEl)   { profEl.textContent = '\u2014'; profEl.className = 'estimator-card-value val-return'; }
+    if (statProfEl)  { statProfEl.textContent = '\u2014'; statProfEl.className = 'stat-value'; }
     if (statProfSub) { statProfSub.textContent = ''; }
     return;
   }
@@ -1377,18 +1378,18 @@ function renderEstimator(vendorQty, inputValue, divRate, threshold) {
   // Calibration data not ready yet
   if (state._calibratedRate === null) {
     if (inputEl)  { inputEl.textContent = vendorQty.toLocaleString(); }
-    if (inputSub) { inputSub.textContent = 'loading calibration data…'; inputSub.style.color = 'var(--text-3)'; }
+    if (inputSub) { inputSub.textContent = 'loading calibration data...'; inputSub.style.color = 'var(--text-3)'; }
     const inputValueEl = document.getElementById('est-input-value');
-    if (inputValueEl) inputValueEl.textContent = '—';
-    if (retEl)    { retEl.textContent = '—'; }
-    if (profEl)   { profEl.textContent = '—'; profEl.className = 'estimator-card-value val-return'; }
+    if (inputValueEl) inputValueEl.textContent = '\u2014';
+    if (retEl)    { retEl.textContent = '\u2014'; }
+    if (profEl)   { profEl.textContent = '\u2014'; profEl.className = 'estimator-card-value val-return'; }
     return;
   }
 
   const loopRate = computeLoopVendorRate(threshold);
   const rateUsed = loopRate?.loopRate ?? state._calibratedRate;
   const retChaos  = vendorQty * rateUsed;  // expected keeper value from vendor outputs
-  const profChaos = retChaos - inputValue;          // net vs just selling at market (usually negative — vendoring costs value)
+  const profChaos = retChaos - inputValue;          // net vs just selling at market (usually negative \u2014 vendoring costs value)
 
   if (inputEl)       { inputEl.textContent = vendorQty.toLocaleString(); }
   if (inputSub)      { inputSub.textContent = 'from your Wealthy Exile CSV'; inputSub.style.color = 'var(--text-3)'; }
@@ -1488,8 +1489,8 @@ function renderEVChart(history) {
 
   const isDemo = history.some(h => h.demo);
   document.getElementById('evChartMeta').innerHTML = isDemo
-    ? `<span style="color:var(--amber)">demo data — real data starts tonight at 7PM UTC</span>`
-    : `${history.length} days · latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
+    ? `<span style="color:var(--amber)">demo data \u2014 real data starts tonight at 7PM UTC</span>`
+    : `${history.length} days \u00B7 latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
@@ -1556,11 +1557,13 @@ function handleSnap(num, event) {
     const count = Object.values(data).reduce((s, q) => s + q, 0);
     if (num === 1) {
       state._loggerSnapshotBefore = data;
-      document.getElementById('snap1Text').textContent = `✓ ${file.name} — ${Object.keys(data).length} types`;
+    const checkMark = String.fromCodePoint(0x2713);
+    document.getElementById('snap1Text').textContent = `${checkMark} ${file.name} \u2014 ${Object.keys(data).length} types`;
       document.getElementById('snap1Label').classList.add('loaded');
     } else {
       state._loggerSnapshotAfter = data;
-      document.getElementById('snap2Text').textContent = `✓ ${file.name} — ${Object.keys(data).length} types`;
+    const checkMark = String.fromCodePoint(0x2713);
+    document.getElementById('snap2Text').textContent = `${checkMark} ${file.name} \u2014 ${Object.keys(data).length} types`;
       document.getElementById('snap2Label').classList.add('loaded');
     }
     tryPreview();
@@ -1609,7 +1612,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
   }
   const { matched, unmatched } = parseRegexToScarabs(val);
   let hint = `${matched.length} scarab types identified`;
-  if (unmatched.length) hint += ` · ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
+  if (unmatched.length) hint += ` \u00B7 ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
   document.getElementById('loggerRegexHint').textContent = hint;
   tryPreview();
 });
@@ -1663,7 +1666,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
 		  const outputVal = received * price;
 		  totalConsumed    += consumed;
 		  totalInputValue  += inputVal;
-		  totalOutputValue += outputVal; // include vendor target returns — they're real value
+		  totalOutputValue += outputVal; // include vendor target returns \u2014 they're real value
 		  if (consumed > 0 || received > 0) {
 			vendorRows.push({ name, consumed, received, net: after - before, price, inputVal, outputVal });
 		  }
@@ -1700,7 +1703,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
         <span style="text-align:right;color:var(--red)">${r.consumed.toLocaleString()}</span>
         <span style="text-align:right;color:var(--green)">${r.received.toLocaleString()}</span>
         <span style="text-align:right;color:${r.net >= 0 ? 'var(--green)' : 'var(--red)'};">${r.net >= 0 ? '+' : ''}${r.net}</span>
-        <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '—'}</span>
+        <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '\u2014'}</span>
         <span style="text-align:right;color:var(--text-2)">${fmt(r.inputVal)}</span>
       </div>`).join('')
     : '<div class="empty-row">No vendor targets found</div>';
@@ -1712,7 +1715,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
       <div class="logger-keeper-row" style="border-bottom:1px solid var(--border);padding:5px 10px;font-size:12px">
         <span class="scarab-name">${r.name}</span><span class="scarab-name-mobile">${mobileScarabName(r.name)}</span>
         <span style="text-align:right;color:var(--green)">+${r.received.toLocaleString()}</span>
-        <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '—'}</span>
+        <span style="text-align:right;color:var(--chaos)">${r.price > 0 ? r.price.toFixed(2) + 'c' : '\u2014'}</span>
         <span style="text-align:right;color:var(--text-2)">${fmt(r.outputVal)}</span>
       </div>`).join('')
     : '<div class="empty-row">No keeper outputs found</div>';
@@ -1739,21 +1742,21 @@ async function submitSession() {
   const btn = document.getElementById('loggerSubmitBtn');
   const status = document.getElementById('loggerSubmitStatus');
   btn.disabled = true;
-  status.textContent = 'Saving…';
+  status.textContent = 'Saving...';
 
   const vendorReceived = (session.vendorRows || []).reduce((s, r) => s + r.received, 0);
   const keeperReceived = (session.keeperRows || []).reduce((s, r) => s + r.received, 0);
   const totalReceived  = vendorReceived + keeperReceived;
 
   if (session.totalConsumed === 0 && totalReceived === 0) {
-    status.textContent = 'No scarab movement detected between snapshots — session not saved';
+    status.textContent = 'No scarab movement detected between snapshots \u2014 session not saved';
     status.style.color = 'var(--red)';
     btn.disabled = false;
     return;
   }
 
   if (session.totalInputValue > 0 && Math.abs(session.totalOutputValue - session.totalInputValue) < 1 && session.totalConsumed === 0) {
-    status.textContent = 'No changes detected between snapshots — session not saved';
+    status.textContent = 'No changes detected between snapshots \u2014 session not saved';
     status.style.color = 'var(--red)';
     btn.disabled = false;
     return;
@@ -1777,7 +1780,7 @@ async function submitSession() {
   if (session.totalConsumed >= 500 && totalReceived >= 10) {
     const vendorReturnRatio = totalReceived > 0 ? vendorReceived / totalReceived : 0;
     if (vendorReturnRatio < 0.15) {
-      flags.push('recycled session — vendor outputs contain <15% vendor-target scarabs');
+      flags.push('recycled session \u2014 vendor outputs contain <15% vendor-target scarabs');
     }
   }
 
@@ -1804,9 +1807,9 @@ async function submitSession() {
     if (flags.length) {
       const isRecycled = flags.some(f => f.startsWith('recycled'));
       if (isRecycled) {
-        status.textContent = `Saved locally — session appears recycled and won't contribute to community data. For clean data, vendor each batch once without re-feeding outputs.`;
+        status.textContent = `Saved locally \u2014 session appears recycled and won't contribute to community data. For clean data, vendor each batch once without re-feeding outputs.`;
       } else {
-        status.textContent = `Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} — excluded from community calibration`;
+        status.textContent = `Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} \u2014 excluded from community calibration`;
       }
       status.style.color = 'var(--amber)';
     } else {
@@ -1875,7 +1878,7 @@ function renderSessionHistory() {
       const idx = sessions.length - 1 - i;
       const profit = (s.output_value || 0) - (s.input_value || 0);
       const flagHtml = s.flagged && s.flags?.length
-        ? `<span style="font-size:10px;color:var(--amber);opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.flags.join(' · ')}">* ${s.flags.join(' · ')}</span>`
+        ? `<span style="font-size:10px;color:var(--amber);opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.flags.join(' \u00B7 ')}">* ${s.flags.join(' \u00B7 ')}</span>`
         : '';
       return `<div>
         <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s${s.flagged ? ';opacity:0.6' : ''}" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
@@ -1927,14 +1930,14 @@ function renderSessionDetail(s, fmt) {
       <span style="text-align:right;color:var(--red)">${r.consumed}</span>
       <span style="text-align:right;color:var(--green)">${r.received}</span>
       <span style="text-align:right;color:${(r.received-r.consumed)>=0?'var(--green)':'var(--red)'}">${r.received-r.consumed>=0?'+':''}${r.received-r.consumed}</span>
-      <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'—'}</span>
+      <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'\u2014'}</span>
     </div>`).join('') : '<div style="font-size:11px;color:var(--text-3);padding:4px 0">None</div>';
 
   const keeperHTML = keepers.length ? keepers.map(r => `
     <div style="display:grid;grid-template-columns:1fr 60px 60px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
       <span class="scarab-name">${r.name}</span><span class="scarab-name-mobile">${mobileScarabName(r.name)}</span>
       <span style="text-align:right;color:var(--green)">+${r.received}</span>
-      <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'—'}</span>
+      <span style="text-align:right;color:var(--text-3)">${r.ninja_price>0?r.ninja_price.toFixed(2)+'c':'\u2014'}</span>
     </div>`).join('') : '<div style="font-size:11px;color:var(--text-3);padding:4px 0">None</div>';
 
   return `
@@ -1957,7 +1960,7 @@ function renderSessionDetail(s, fmt) {
         ${keeperHTML}
       </div>
     </div>
-    <div style="font-size:10px;color:var(--text-3);margin-top:10px">Regex: <span style="color:var(--text-3);font-family:monospace;opacity:0.7">${s.regex || '—'}</span></div>
+    <div style="font-size:10px;color:var(--text-3);margin-top:10px">Regex: <span style="color:var(--text-3);font-family:monospace;opacity:0.7">${s.regex || '\u2014'}</span></div>
   `;
 }
 
@@ -1974,7 +1977,7 @@ function renderAnalysis() {
   if (POOL_API_URL) {
     emptyEl.style.display = 'block';
     contentEl.style.display = 'none';
-    emptyEl.innerHTML = '<p>Loading community data…</p>';
+    emptyEl.innerHTML = '<p>Loading community data...</p>';
     const league = document.getElementById('leagueSelect')?.value || '';
     fetch(POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league))
       .then(res => res.ok ? res.json() : null)
@@ -2075,7 +2078,7 @@ function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
 
   // Summary stats bar
   document.getElementById('analysisStatsBar').innerHTML = `
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '—'}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '\u2014'}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3:1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
@@ -2125,18 +2128,18 @@ function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
       <div style="font-size:10px;color:var(--text-3);margin-top:2px">Total output ÷ total trades</div>
     </div>
     <div class="analysis-ev-card">
-      <div class="label">Observed EV (weight × market)</div>
-      <div class="value">${(state.ninjaPrices && Object.keys(state.ninjaPrices).length) ? (observedEv.toFixed(2) + 'c') : '—'}</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Observed weights × current market prices</div>
+      <div class="label">Observed EV (weight \u00D7 market)</div>
+      <div class="value">${(state.ninjaPrices && Object.keys(state.ninjaPrices).length) ? (observedEv.toFixed(2) + 'c') : '\u2014'}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Observed weights \u00D7 current market prices</div>
     </div>
     <div class="analysis-ev-card">
       <div class="label">Market EV (harmonic)</div>
-      <div class="value">${ninjaEv != null ? ninjaEv.toFixed(2) + 'c' : '—'}</div>
+      <div class="value">${ninjaEv != null ? ninjaEv.toFixed(2) + 'c' : '\u2014'}</div>
       <div style="font-size:10px;color:var(--text-3);margin-top:2px">Harmonic EV from market prices.</div>
     </div>
     <div class="analysis-ev-card">
       <div class="label">Real vs market EV</div>
-      <div class="value ${ninjaEv != null && realAvgPerTrade >= ninjaEv ? 'green' : ninjaEv != null ? 'amber' : ''}">${ninjaEv != null ? ((realAvgPerTrade - ninjaEv) >= 0 ? '+' : '') + (realAvgPerTrade - ninjaEv).toFixed(2) + 'c' : '—'}</div>
+      <div class="value ${ninjaEv != null && realAvgPerTrade >= ninjaEv ? 'green' : ninjaEv != null ? 'amber' : ''}">${ninjaEv != null ? ((realAvgPerTrade - ninjaEv) >= 0 ? '+' : '') + (realAvgPerTrade - ninjaEv).toFixed(2) + 'c' : '\u2014'}</div>
       <div style="font-size:10px;color:var(--text-3);margin-top:2px">Realized minus theoretical</div>
     </div>
   `;
@@ -2235,7 +2238,7 @@ function renderAnalysisWeightTable() {
       <div style="overflow:hidden;min-width:0"><span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mobileScarabName(d.name)}</span></div>
       <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
-      <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '—'}</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '\u2014'}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--chaos)">${d.evContrib.toFixed(2)}c</span>
     </div>`).join('');
   el.innerHTML = rows;
@@ -2777,7 +2780,7 @@ async function analyzeBulkFromImage() {
   const spinnerEl = document.getElementById('bulkDropZoneSpinner');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Analyzing image…';
+    btn.textContent = 'Analyzing image...';
   }
   if (spinnerEl) spinnerEl.style.display = 'flex';
 
@@ -2972,7 +2975,7 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
   const autoEV = calcEV(priced);
   const threshold = state.ninjaEvOverride !== null ? state.ninjaEvOverride : autoEV;
   if (threshold == null) {
-    errEl.textContent = 'Could not determine harmonic EV — ensure market prices are loaded.';
+    errEl.textContent = 'Could not determine harmonic EV \u2014 ensure market prices are loaded.';
     errEl.style.display = 'block';
     return;
   }
@@ -3015,7 +3018,7 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
     errEl.style.display = 'block';
     if (unmatched.length) {
       unmatchedEl.style.display = 'block';
-      unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' · ');
+      unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' \u00B7 ');
     }
     return;
   }
@@ -3047,7 +3050,7 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
 
   document.getElementById('bulkCost').textContent = costLabel;
   document.getElementById('bulkCostSub').textContent =
-    `Vendor: ${vendorQty.toLocaleString()} · Keep: ${keeperQty.toLocaleString()}`;
+    `Vendor: ${vendorQty.toLocaleString()} \u00B7 Keep: ${keeperQty.toLocaleString()}`;
 
   const typesEl = document.getElementById('bulkTypes');
   const typesSub = document.getElementById('bulkTypesSub');
@@ -3084,8 +3087,8 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
     const badgeCls = r.isVendor ? 'bulk-pill bulk-pill-vendor' : 'bulk-pill bulk-pill-keep';
     const badgeLabel = r.isVendor ? 'Vendor' : 'Keep';
     const valueLabel = formatBulkChaosValue(r.valueChaos, divRate);
-    const ceaLabel = r.priceEa > 0 ? r.priceEa.toFixed(2) + 'c' : '—';
-    const diffLabel = r.priceEa > 0 ? (diff >= 0 ? '+' : '') + diff.toFixed(2) + 'c' : '—';
+    const ceaLabel = r.priceEa > 0 ? r.priceEa.toFixed(2) + 'c' : '\u2014';
+    const diffLabel = r.priceEa > 0 ? (diff >= 0 ? '+' : '') + diff.toFixed(2) + 'c' : '\u2014';
     return `
       <div class="bulk-body-row${r.isVendor ? ' vendor-target' : ''}">
         <div>
@@ -3119,7 +3122,7 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
 
   if (unmatched.length) {
     unmatchedEl.style.display = 'block';
-    unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' · ');
+    unmatchedListEl.textContent = unmatched.map(u => `${u.rawName} (${u.qty})`).join(' \u00B7 ');
   }
 }
 
@@ -3209,7 +3212,7 @@ function atlasSave() {
   const btn = document.getElementById('atlasSaveBtn');
   if (btn) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    btn.textContent = '✓ Saved';
+  btn.innerHTML = '&#10003; Saved';
     btn.style.color = isDark ? '#5a2570' : '#6dbf84';
     setTimeout(() => {
       btn.textContent = 'Save config';
@@ -3240,7 +3243,7 @@ function atlasCheckRevisitWarning() {
     // Only warn if it was negative (good) when saved but is now positive (bad).
     let hasFlipped = false;
     for (const [key, savedDelta] of Object.entries(saved.deltas)) {
-      if (savedDelta >= 0) continue; // was already an EV loss when saved — skip
+      if (savedDelta >= 0) continue; // was already an EV loss when saved \u2014 skip
       const [type, group] = key.split(':');
       const currentDelta = atlasGroupStats(group, type === 'block').toggleDelta;
       if (currentDelta > 0) { hasFlipped = true; break; }
@@ -3264,12 +3267,12 @@ function showAtlasWarningToast() {
   el.innerHTML = `
     <div class="version-toast-header">
       <span class="version-toast-title" style="text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap">Atlas config needs review</span>
-      <button class="version-toast-dismiss" onclick="event.stopPropagation(); dismissAtlasToast()" title="Dismiss">✕</button>
+      <button class="version-toast-dismiss" onclick="event.stopPropagation(); dismissAtlasToast()" title="Dismiss">&times;</button>
     </div>
     <div class="version-toast-alert">Prices may have shifted since your last save.</div>
     <div class="version-toast-body">
       <ul><li>One or more of your saved toggles is now hurting your map EV.</li>
-      <li>Check the Atlas Optimizer — EV loss pills show which ones.</li></ul>
+      <li>Check the Atlas Optimizer &mdash; EV loss pills show which ones.</li></ul>
     </div>
     <div class="version-toast-footer">Click to open Atlas Optimizer</div>
   `;
@@ -3285,7 +3288,7 @@ function dismissAtlasToast() {
 // Returns base weights from community sessions, or equal fallback.
 function atlasGetWeights() {
   if (state._observedWeights && Object.keys(state._observedWeights).length > 0) return state._observedWeights;
-  return null; // no data yet — callers must handle null
+  return null; // no data yet \u2014 callers must handle null
 }
 
 // Compute map drop EV given current blocked + boosted state.
@@ -3385,11 +3388,11 @@ function atlasUpdateHero() {
   const pctEl   = document.getElementById('atlas-ev-pct');
 
   if (currentEV === null || baselineEV === null) {
-    if (curEl)   curEl.textContent  = '—';
-    if (baseEl)  baseEl.textContent = '—';
-    if (deltaEl) { deltaEl.textContent = '—'; deltaEl.className = 'atlas-hero-val muted'; }
-    if (pctEl)   { pctEl.textContent = '—';   pctEl.className   = 'atlas-hero-val muted'; }
-    if (subEl)   subEl.textContent = 'Waiting for weight data…';
+    if (curEl)   curEl.textContent  = '\u2014';
+    if (baseEl)  baseEl.textContent = '\u2014';
+    if (deltaEl) { deltaEl.textContent = '\u2014'; deltaEl.className = 'atlas-hero-val muted'; }
+    if (pctEl)   { pctEl.textContent = '\u2014';   pctEl.className   = 'atlas-hero-val muted'; }
+    if (subEl)   subEl.textContent = 'Waiting for weight data...';
     return;
   }
 
@@ -3408,7 +3411,7 @@ function atlasUpdateHero() {
   const parts = [];
   if (nb) parts.push(`${nb} blocked`);
   if (ns) parts.push(`${ns} boosted`);
-  if (subEl) subEl.textContent = parts.length ? parts.join(' · ') : 'no blocks or boosts active';
+  if (subEl) subEl.textContent = parts.length ? parts.join(' \u00B7 ') : 'no blocks or boosts active';
 }
 
 function atlasGroupCardHTML(group, isBlockable, isRecommended) {
@@ -3461,7 +3464,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
         <div class="atlas-scarab-row">
           <span class="atlas-scarab-name scarab-name">${sc.name}</span><span class="atlas-scarab-name scarab-name-mobile">${mobileScarabName(sc.name)}</span>
           <span class="atlas-scarab-stat muted">${(sc.localShare * 100).toFixed(1)}%</span>
-          <span class="atlas-scarab-stat chaos">${sc.price > 0 ? sc.price.toFixed(2) + 'c' : '—'}</span>
+          <span class="atlas-scarab-stat chaos">${sc.price > 0 ? sc.price.toFixed(2) + 'c' : '\u2014'}</span>
           <span class="atlas-scarab-stat accent">${sc.evContrib.toFixed(4)}c</span>
         </div>`).join('')}
     </div>` : '';
@@ -3478,7 +3481,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
         <span class="atlas-group-stat muted">${stats.contribution.toFixed(4)}c</span>
         ${deltaHtml}
         <div class="atlas-chevron-btn" onclick="event.stopPropagation(); atlasToggleExpand('${group}')" title="Show scarabs">
-          <span class="atlas-chevron${isExpanded ? ' open' : ''}">▶</span>
+          <span class="atlas-chevron${isExpanded ? ' open' : ''}">&#9656;</span>
         </div>
       </div>
       ${scarabBreakdown}
@@ -3492,8 +3495,8 @@ function renderAtlas() {
 
   if (!state.ninjaLoaded || !state._observedWeights) {
     const msg = !state.ninjaLoaded
-      ? 'Loading market prices…'
-      : 'Waiting for community weight data…';
+      ? 'Loading market prices...'
+      : 'Waiting for community weight data...';
     mainEl.innerHTML = `<div class="atlas-no-data">${msg}</div>`;
     if (leftoverEl) leftoverEl.innerHTML = '';
     return;
@@ -3519,7 +3522,7 @@ function renderAtlas() {
       ? `<button onclick="${isBlockable ? 'atlasResetBlocks()' : 'atlasResetBoosts()'}"
           style="font-family:inherit;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;margin-left:${warning ? '8px' : 'auto'};transition:all 0.15s"
           onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'"
-          onmouseout="this.style.color='var(--text-3)';this.style.borderColor='var(--border)'">↺ Reset</button>`
+          onmouseout="this.style.color='var(--text-3)';this.style.borderColor='var(--border)'">&#8634; Reset</button>`
       : '';
     return `
     <div class="atlas-col-header">
@@ -3567,7 +3570,7 @@ function renderAtlas() {
     </div>
     <div class="atlas-col">
       <div class="atlas-col-wrap">
-        ${colHeader('Boost nodes', 'boost-tag', '×2 drop weight', 'Delta', boostRows, false)}
+        ${colHeader('Boost nodes', 'boost-tag', '&times;2 drop weight', 'Delta', boostRows, false)}
         ${boostRows.map(r => atlasGroupCardHTML(r.g, false, recommendedGroup === r.g && recommendedBlockable === false)).join('')}
       </div>
     </div>
@@ -3604,8 +3607,8 @@ function renderAtlas() {
     leftoverEl.innerHTML = `
       <div class="atlas-leftovers-wrap">
         <div class="atlas-leftovers-header" onclick="atlasToggleLeftovers()">
-          <span class="atlas-chevron${isOpen ? ' open' : ''}">▶</span>
-          <span class="atlas-leftovers-title">Fixed pool — ${leftovers.length} remaining groups</span>
+          <span class="atlas-chevron${isOpen ? ' open' : ''}">&#9656;</span>
+          <span class="atlas-leftovers-title">Fixed pool &mdash; ${leftovers.length} remaining groups</span>
         </div>
         ${isOpen ? `
         <div class="atlas-leftovers-body">
@@ -3634,7 +3637,7 @@ function renderAtlas() {
                   return `<div class="atlas-scarab-row">
                     <span class="atlas-scarab-name scarab-name">${sc.name}</span><span class="atlas-scarab-name scarab-name-mobile">${mobileScarabName(sc.name)}</span>
                     <span class="atlas-scarab-stat muted">${(localShare * 100).toFixed(1)}%</span>
-                    <span class="atlas-scarab-stat chaos">${price > 0 ? price.toFixed(2) + 'c' : '—'}</span>
+                    <span class="atlas-scarab-stat chaos">${price > 0 ? price.toFixed(2) + 'c' : '\u2014'}</span>
                     <span class="atlas-scarab-stat accent">${evC.toFixed(4)}c</span>
                   </div>`;
                 }).join('')}
@@ -3646,7 +3649,7 @@ function renderAtlas() {
                   <span class="atlas-leftover-stat chaos">${r.groupEV.toFixed(3)}c</span>
                   <span class="atlas-leftover-stat muted">${(r.liveShare * 100).toFixed(1)}%</span>
                   <span class="atlas-leftover-stat muted">${r.contribution.toFixed(4)}c</span>
-                  <span class="atlas-chevron${isEx ? ' open' : ''}">▶</span>
+                  <span class="atlas-chevron${isEx ? ' open' : ''}">&#9656;</span>
                 </div>
                 ${scarabBreak}
               </div>`;
@@ -3746,8 +3749,8 @@ function parseHighlightBullet(raw, section) {
   }
 
   // Also support dash-style bullets:
-  // "Key phrase — detail..." or "Key phrase - detail..."
-  for (const sep of [' — ', ' – ', ' - ']) {
+  // "Key phrase \u2014 detail..." or "Key phrase - detail..."
+  for (const sep of [' \u2014 ', ' – ', ' - ']) {
     const idx = text.indexOf(sep);
     if (idx > 0 && idx < 90) {
       const key = text.slice(0, idx).trim();
@@ -3868,7 +3871,7 @@ async function showVersionToast(preloadedInfo) {
     <div class="version-toast-header">
       <span class="version-toast-title">ScarabEV ${liveVersion}</span>
       <span class="version-toast-sub">what's new</span>
-      <button class="version-toast-dismiss" onclick="event.stopPropagation(); dismissVersionToast()" title="Dismiss">✕</button>
+      <button class="version-toast-dismiss" onclick="event.stopPropagation(); dismissVersionToast()" title="Dismiss">&times;</button>
     </div>
     <div class="version-toast-body">
       <ul>${highlights.map(h => {
@@ -3878,7 +3881,7 @@ async function showVersionToast(preloadedInfo) {
         }
         return `<li class="vt-item vt-${sec}">${escapeHtml(h.detail || h.text || '')}</li>`;
       }).join('')}</ul>
-      <div class="vt-muted">and more…</div>
+      <div class="vt-muted">and more...</div>
     </div>
     <div class="version-toast-footer">Click to see full changelog</div>
   `;
@@ -4177,6 +4180,7 @@ Object.defineProperty(window, '_bulkImageFile', {
   get() { return state._bulkImageFile; },
   set(v) { state._bulkImageFile = v; }
 });
+
 
 
 
