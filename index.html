@@ -143,14 +143,20 @@ body {
 /* Tabs in nav */
 .nav-tabs { display: flex; gap: 2px; }
 .nav-tab {
-  font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 14px;
-  border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.76);
+  font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 14px;
+  border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.72);
   border-bottom: 2px solid transparent; transition: all 0.15s; letter-spacing: 0.01em;
   margin-bottom: -1px;
 }
-.nav-tab:hover { color: rgba(255,255,255,0.9); }
-.nav-tab.active { color: #fff; border-bottom-color: var(--accent); }
-.nav-tab.ninja-tab.active { border-bottom-color: var(--ninja-accent); color: var(--ninja-accent); }
+.nav-tab:hover { color: rgba(255,255,255,0.84); }
+.nav-tab.active { color: #7fe3d4; border-bottom-color: #7fe3d4; }
+.nav-tab.ninja-tab.active { border-bottom-color: #7fe3d4; color: #7fe3d4; }
+:root:not([data-theme="dark"]) .nav-tab.active { color: #5dc3b5; border-bottom-color: #5dc3b5; }
+:root:not([data-theme="dark"]) .nav-tab.ninja-tab.active { color: #5dc3b5; border-bottom-color: #5dc3b5; }
+[data-theme="dark"] .nav-tab { color: rgba(196,210,232,0.82); }
+[data-theme="dark"] .nav-tab:hover { color: rgba(222,236,252,0.9); }
+[data-theme="dark"] .nav-tab.active { color: #7fe3d4; }
+[data-theme="dark"] .nav-tab.ninja-tab.active { color: #7fe3d4; }
 
 /* Dark mode toggle */
 .theme-toggle {
