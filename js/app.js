@@ -1772,6 +1772,19 @@ async function submitSession() {
     flags.push('zero keeper outputs');
   if (totalReceived > session.totalConsumed)
     flags.push('outputs > inputs');
+  if (session.totalConsumed >= 500 && session.totalTrades > 0) {
+    // Strict single-pass integrity check:
+    // if Snapshot 1 vendor targets were actually vendored once, total outputs should
+    // be close to consumed/3 (full trades), with only small operational noise.
+    const fullTrades = session.totalTrades;
+    const observedOut = totalReceived;
+    const expectedOut = fullTrades;
+    const outDelta = observedOut - expectedOut;
+    const maxOutDelta = 40;
+    if (Math.abs(outDelta) > maxOutDelta) {
+      flags.push(`recycled session \u2014 output count outside single-pass tolerance (${observedOut}/${expectedOut})`);
+    }
+  }
 
   // outputs should themselves be vendor-target quality scarabs (the vendor hands back
   // cheap commons frequently). If almost nothing vendor-target came back, the person
@@ -1781,6 +1794,15 @@ async function submitSession() {
     const vendorReturnRatio = totalReceived > 0 ? vendorReceived / totalReceived : 0;
     if (vendorReturnRatio < 0.15) {
       flags.push('recycled session \u2014 vendor outputs contain <15% vendor-target scarabs');
+    }
+
+    // Partial recycle pattern: user keeps vendoring outputs, then stops once stacks are
+    // messy/small. The session can still show some vendor-target returns (>15%) while
+    // total returns are far below the estimated trade count.
+    const fullTrades = session.totalTrades || 0;
+    const outputCoverage = fullTrades > 0 ? totalReceived / fullTrades : 0;
+    if (fullTrades >= 150 && outputCoverage < 0.55) {
+      flags.push('recycled session \u2014 partial recycle detected (outputs/trades too low)');
     }
   }
 
@@ -1805,15 +1827,10 @@ async function submitSession() {
     existing.push(record);
     localStorage.setItem('poepool-sessions', JSON.stringify(existing));
     if (flags.length) {
-      const isRecycled = flags.some(f => f.startsWith('recycled'));
-      if (isRecycled) {
-        status.textContent = `Saved locally \u2014 session appears recycled and won't contribute to community data. For clean data, vendor each batch once without re-feeding outputs.`;
-      } else {
-        status.textContent = `Saved with ${flags.length} flag${flags.length > 1 ? 's' : ''} \u2014 excluded from community calibration`;
-      }
-      status.style.color = 'var(--amber)';
+      // Positive-only UX: no warning note for local-only sessions.
+      status.textContent = '';
     } else {
-      status.textContent = `Session saved (${existing.length} total)`;
+      status.textContent = 'Counted in community data';
       status.style.color = 'var(--green)';
       if (POOL_API_URL) {
         const payload = {
@@ -1877,11 +1894,8 @@ function renderSessionHistory() {
     ${sessions.slice().reverse().map((s, i) => {
       const idx = sessions.length - 1 - i;
       const profit = (s.output_value || 0) - (s.input_value || 0);
-      const flagHtml = s.flagged && s.flags?.length
-        ? `<span style="font-size:10px;color:var(--amber);opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.flags.join(' \u00B7 ')}">* ${s.flags.join(' \u00B7 ')}</span>`
-        : '';
       return `<div>
-        <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s${s.flagged ? ';opacity:0.6' : ''}" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
+        <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
           <span class="cell-left">${s.league}</span>
           <span class="cell-right">${s.total_consumed?.toLocaleString()}</span>
           <span class="cell-right">${s.total_trades?.toLocaleString()}</span>
@@ -1892,7 +1906,6 @@ function renderSessionHistory() {
           <span class="cell-right" style="color:${s.roi_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct?.toFixed(1)}%</span>
           <span class="cell-left" style="display:flex;align-items:center;gap:6px;min-width:0" onclick="event.stopPropagation()">
             <button onclick="deleteSession('${s.id}')" title="Delete session" style="font-family:inherit;font-size:14px;padding:2px 4px;border:none;background:transparent;color:var(--text-3);cursor:pointer;opacity:0.4;transition:all 0.15s;line-height:1;flex-shrink:0" onmouseover="this.style.opacity='1';this.style.color='var(--red)'" onmouseout="this.style.opacity='0.4';this.style.color='var(--text-3)'">&#128465;</button>
-            ${flagHtml}
           </span>
         </div>
         <div id="hist-detail-${idx}" style="display:none;padding:10px 14px 14px;border-bottom:1px solid var(--border);background:var(--bg)">
