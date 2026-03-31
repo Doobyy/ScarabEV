@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /map-cost-draft.html
+
+Sitemap: https://doobyy.github.io/ScarabEV/sitemap.xml
+

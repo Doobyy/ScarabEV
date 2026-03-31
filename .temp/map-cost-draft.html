@@ -1,0 +1,1541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ScarabEV Map Cost Draft</title>
+  <style>
+    :root {
+      --bg: #0d1626;
+      --card: #16243a;
+      --card-soft: #1c2d46;
+      --text: #eaf3ff;
+      --muted: #9db2cf;
+      --accent: #4dd9c6;
+      --border: #2a3e5d;
+      --warn: #ffbf69;
+      --ok: #8af3a3;
+      --danger: #ff8b8b;
+      --num: tabular-nums;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: radial-gradient(circle at 15% -10%, #1d3356 0%, var(--bg) 45%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 14px 32px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .card {
+      background: linear-gradient(180deg, var(--card) 0%, var(--card-soft) 100%);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+    }
+    .col-3 { grid-column: span 3; }
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+    label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 5px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 8px 9px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #101c2e;
+      color: var(--text);
+      font: inherit;
+    }
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      background: #162941;
+      transition: filter 0.15s ease;
+    }
+    button:hover { filter: brightness(1.13); }
+    .btn-accent {
+      background: linear-gradient(180deg, #2bc5b2 0%, #1ea997 100%);
+      border-color: #1ea997;
+      color: #062524;
+    }
+    .btn-ghost {
+      background: #122137;
+      color: var(--muted);
+    }
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .totals {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      background: rgba(8, 16, 30, 0.45);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px;
+    }
+    .metric .k {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .metric .v {
+      margin-top: 5px;
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: var(--num);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 6px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    td.num {
+      font-variant-numeric: var(--num);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .warn-note {
+      margin-top: 10px;
+      padding: 9px 10px;
+      border-radius: 7px;
+      border: 1px solid #4c4f2b;
+      background: rgba(255, 191, 105, 0.08);
+      color: #f6dda8;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 8px;
+      color: #d7e8ff;
+    }
+    .inline-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 21px;
+    }
+    .inline-check span {
+      font-size: 12px;
+      color: var(--text);
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-left: 5px;
+    }
+    .smart-picker {
+      position: relative;
+    }
+    .smart-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      max-height: 220px;
+      overflow: auto;
+      background: #0f1c2d;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+      z-index: 30;
+      display: none;
+    }
+    .smart-menu.open { display: block; }
+    .smart-item {
+      padding: 7px 9px;
+      font-size: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .smart-item:last-child { border-bottom: 0; }
+    .smart-item:hover { background: rgba(77, 217, 198, 0.12); }
+    .smart-empty {
+      padding: 8px 9px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .maptype-tabs {
+      display: inline-flex;
+      gap: 6px;
+    }
+    .maptype-tab {
+      width: auto;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: #122137;
+      color: var(--muted);
+    }
+    .maptype-tab.active {
+      background: linear-gradient(180deg, #2bc5b2 0%, #1ea997 100%);
+      border-color: #1ea997;
+      color: #062524;
+    }
+    .maptype-pane { display: none; }
+    .maptype-pane.active { display: block; }
+    @media (max-width: 920px) {
+      .col-3, .col-4, .col-6, .col-8 { grid-column: span 12; }
+      .totals { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <div class="title">Map Cost Draft <span class="pill">prototype</span></div>
+        <div class="subtitle">Standalone test page before integrating into ScarabEV tabs.</div>
+      </div>
+      <div class="controls">
+        <div style="min-width:190px">
+          <label for="leagueSelect">League</label>
+          <select id="leagueSelect">
+            <option value="Mirage">Mirage</option>
+            <option value="Standard">Standard</option>
+          </select>
+        </div>
+        <div style="min-width:150px; padding-top:19px">
+          <button id="refreshPricesBtn" class="btn-accent">Refresh Prices</button>
+        </div>
+        <div style="min-width:130px; padding-top:19px">
+          <button id="resetDraftBtn" class="btn-ghost">Reset Draft</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="section-title" style="margin:0">Map Type Setup</div>
+        <div class="maptype-tabs">
+          <button class="maptype-tab active" id="mapTypeTab1" type="button">Type 1</button>
+          <button class="maptype-tab" id="mapTypeTab2" type="button">Type 2</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card maptype-pane active" data-maptype="1">
+      <div class="section-title">Type 1 Setup</div>
+      <div class="grid">
+        <div class="col-4">
+          <label for="baseMapCost">Base map cost (chaos each)</label>
+          <input id="baseMapCost" type="number" min="0" step="0.01" value="0" />
+          <select id="baseMapCostUnit" style="margin-top:6px">
+            <option value="chaos">Chaos</option>
+            <option value="div">Divine</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="mapName">Run label / map name (optional)</label>
+          <input id="mapName" type="text" placeholder="Jungle Valley / Strand / etc." />
+        </div>
+        <div class="col-4">
+          <label for="chiselSelect">Chisel (3.28)</label>
+          <select id="chiselSelect">
+            <option value="">None</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="chiselPrice">Chisel price (chaos ea)</label>
+          <input id="chiselPrice" type="number" min="0" step="0.0001" value="0" />
+        </div>
+        <div class="col-4">
+          <label for="deliOrbSelect">Delirium orb</label>
+          <select id="deliOrbSelect">
+            <option value="">None</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="deliQty">Delirium orb used per map</label>
+          <input id="deliQty" type="number" min="0" step="0.01" value="0" />
+        </div>
+        <div class="col-4">
+          <label for="deliPrice">Delirium orb price (chaos ea)</label>
+          <input id="deliPrice" type="number" min="0" step="0.0001" value="0" />
+        </div>
+        <div class="col-4 inline-check">
+          <input id="useSplit" type="checkbox" />
+          <span>Used beast split?</span>
+        </div>
+        <div class="col-4">
+          <label>Split beast</label>
+          <input type="text" value="Fenumal Plagued Arachnid" disabled />
+        </div>
+        <div class="col-4">
+          <label for="splitBeastPrice">Split beast price (chaos ea)</label>
+          <input id="splitBeastPrice" type="number" min="0" step="0.0001" value="0" />
+        </div>
+      </div>
+      <div class="section-title" style="margin-top:8px">Type 1 Scarab Slots</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:50%">Scarab</th>
+            <th style="width:25%">Chaos ea</th>
+            <th style="width:25%; text-align:right">Line total</th>
+          </tr>
+        </thead>
+        <tbody id="scarabRows"></tbody>
+      </table>
+      <div class="totals" style="margin-top:10px">
+        <div class="metric">
+          <div class="k">Type 1 Map Prep</div>
+          <div class="v" id="type1PrepChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 1 Scarab</div>
+          <div class="v" id="type1ScarabChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 1 Per Run</div>
+          <div class="v" id="type1RunChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 1 Per Run (Div)</div>
+          <div class="v" id="type1RunDiv">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card maptype-pane" data-maptype="2">
+      <div class="section-title">Type 2 Setup (Optional)</div>
+      <div class="grid">
+        <div class="col-4">
+          <label for="baseMapCost2">Base map cost (chaos each)</label>
+          <input id="baseMapCost2" type="number" min="0" step="0.01" value="0" />
+          <select id="baseMapCostUnit2" style="margin-top:6px">
+            <option value="chaos">Chaos</option>
+            <option value="div">Divine</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="chiselSelect2">Chisel (3.28)</label>
+          <select id="chiselSelect2">
+            <option value="">None</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="chiselPrice2">Chisel price (chaos ea)</label>
+          <input id="chiselPrice2" type="number" min="0" step="0.0001" value="0" />
+        </div>
+        <div class="col-4">
+          <label for="deliOrbSelect2">Delirium orb</label>
+          <select id="deliOrbSelect2">
+            <option value="">None</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="deliQty2">Delirium orb used per map</label>
+          <input id="deliQty2" type="number" min="0" step="0.01" value="0" />
+        </div>
+        <div class="col-4">
+          <label for="deliPrice2">Delirium orb price (chaos ea)</label>
+          <input id="deliPrice2" type="number" min="0" step="0.0001" value="0" />
+        </div>
+        <div class="col-4 inline-check">
+          <input id="useSplit2" type="checkbox" />
+          <span>Used beast split?</span>
+        </div>
+        <div class="col-4">
+          <label>Split beast</label>
+          <input type="text" value="Fenumal Plagued Arachnid" disabled />
+        </div>
+        <div class="col-4">
+          <label for="splitBeastPrice2">Split beast price (chaos ea)</label>
+          <input id="splitBeastPrice2" type="number" min="0" step="0.0001" value="0" />
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:50%">Scarab</th>
+            <th style="width:25%">Chaos ea</th>
+            <th style="width:25%; text-align:right">Line total</th>
+          </tr>
+        </thead>
+        <tbody id="scarabRows2"></tbody>
+      </table>
+      <div class="totals" style="margin-top:10px">
+        <div class="metric">
+          <div class="k">Type 2 Map Prep</div>
+          <div class="v" id="type2PrepChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 2 Scarab</div>
+          <div class="v" id="type2ScarabChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 2 Per Run</div>
+          <div class="v" id="type2RunChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 2 Per Run (Div)</div>
+          <div class="v" id="type2RunDiv">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="section-title" style="margin:0">Additional Costs</div>
+        <button id="addExtraRowBtn" class="btn-ghost" style="max-width:190px">+ Add extra line</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:42%">Name</th>
+            <th style="width:16%">Used per map</th>
+            <th style="width:16%">Chaos ea</th>
+            <th style="width:16%; text-align:right">Line total</th>
+            <th style="width:10%; text-align:right">Action</th>
+          </tr>
+        </thead>
+        <tbody id="extraRows"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Totals</div>
+      <div class="row" style="justify-content:flex-end;margin-bottom:8px">
+        <div style="min-width:180px">
+          <label for="totalDisplayUnit">Totals Display Unit</label>
+          <select id="totalDisplayUnit">
+            <option value="div" selected>Divine</option>
+            <option value="chaos">Chaos</option>
+          </select>
+        </div>
+      </div>
+      <div class="totals">
+        <div class="metric">
+          <div class="k">Map Prep Cost</div>
+          <div class="v" id="mapPrepChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Scarab Cost</div>
+          <div class="v" id="scarabChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Per Run Cost</div>
+          <div class="v" id="runChaos">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Per Run (Div)</div>
+          <div class="v" id="runDiv">-</div>
+        </div>
+      </div>
+      <div class="status" id="statusLine">Waiting for first price refresh.</div>
+      <div class="warn-note">
+        Draft behavior: if a live item price is missing from fetched data, you can overwrite that field manually.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Div/Hour Quick Calc</div>
+      <div class="grid">
+        <div class="col-4">
+          <label for="revInput">Total Revenue (supports `16d 268c`)</label>
+          <input id="revInput" type="text" placeholder="16d 268c" value="0c" />
+        </div>
+        <div class="col-3">
+          <label for="mapsType1">Type 1 Maps Ran</label>
+          <input id="mapsType1" type="number" min="0" step="1" value="1" />
+        </div>
+        <div class="col-3">
+          <label for="mapsType2">Type 2 Maps Ran</label>
+          <input id="mapsType2" type="number" min="0" step="1" value="0" />
+        </div>
+        <div class="col-3">
+          <label for="runStart">Start Time</label>
+          <input id="runStart" type="text" placeholder="530pm" />
+        </div>
+        <div class="col-3">
+          <label for="runEnd">End Time</label>
+          <input id="runEnd" type="text" placeholder="645pm" />
+        </div>
+        <div class="col-3">
+          <label for="manualDivRate">Divine Rate (c/div)</label>
+          <input id="manualDivRate" type="number" min="1" step="0.01" value="0" />
+        </div>
+        <div class="col-12">
+          <div class="status" id="revParsed">Revenue parsed: 0.00c</div>
+        </div>
+      </div>
+      <div class="totals" style="margin-top:10px">
+        <div class="metric">
+          <div class="k">Elapsed</div>
+          <div class="v" id="elapsedLabel">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Gross Chaos/Hour</div>
+          <div class="v" id="grossChaosHr">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Total Cost (All Types)</div>
+          <div class="v" id="totalCostAll">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Type 2 Total Cost</div>
+          <div class="v" id="runChaos2">0.00c</div>
+        </div>
+        <div class="metric">
+          <div class="k">Net Chaos/Hour</div>
+          <div class="v" id="netChaosHr">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Net Div/Hour</div>
+          <div class="v" id="netDivHr">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Cost Breakdown</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Item</th>
+            <th class="num">Used/map</th>
+            <th class="num">Chaos ea</th>
+            <th class="num">Line total</th>
+          </tr>
+        </thead>
+        <tbody id="breakdownBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const WORKER_URL = 'https://scarabev-market-worker.paperpandastacks.workers.dev';
+    const STORAGE_PREFIX = 'scarabev-map-cost-draft-v1';
+    const LOOKUPS = {
+      chisel: ['cartographer\'s chisel', 'cartographers chisel'],
+      divine: ['divine orb'],
+      splitBeast: ['fenumal plagued arachnid']
+    };
+    const FALLBACK_DELI = [
+      'Skittering Delirium Orb',
+      'Diviner\'s Delirium Orb',
+      'Fine Delirium Orb',
+      'Cartographer\'s Delirium Orb',
+      'Abyssal Delirium Orb',
+      'Armoursmith\'s Delirium Orb',
+      'Blacksmith\'s Delirium Orb'
+    ];
+    const FALLBACK_328_CHISELS = [
+      'Maven\'s Chisel of Avarice',
+      'Maven\'s Chisel of Divination',
+      'Maven\'s Chisel of Procurement',
+      'Maven\'s Chisel of Proliferation',
+      'Maven\'s Chisel of Scarabs'
+    ];
+
+    const state = {
+      priceByName: {},
+      scarabNames: [],
+      deliNames: [],
+      chiselNames: [],
+      divineRate: null,
+      scarabSlotCount: 5
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function parseNum(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function getActiveDivRate() {
+      const manual = parseNum($('manualDivRate')?.value, 0);
+      return manual > 0 ? manual : (state.divineRate || 0);
+    }
+
+    function costToChaos(amount, unit) {
+      const v = parseNum(amount, 0);
+      if (v <= 0) return 0;
+      if (String(unit || 'chaos').toLowerCase() === 'div') {
+        const rate = getActiveDivRate();
+        if (!(rate > 0)) return 0;
+        return v * rate;
+      }
+      return v;
+    }
+
+    function fmtChaos(v) {
+      return parseNum(v).toFixed(2) + 'c';
+    }
+
+    function getTotalsDisplayUnit() {
+      return ($('totalDisplayUnit')?.value || 'div').toLowerCase();
+    }
+
+    function fmtTotalsAmount(chaosValue) {
+      const c = parseNum(chaosValue, 0);
+      const unit = getTotalsDisplayUnit();
+      if (unit === 'chaos') return `${c.toFixed(2)}c`;
+      const rate = getActiveDivRate();
+      if (!(rate > 0)) return '-';
+      return `${(c / rate).toFixed(3)} div`;
+    }
+
+    function findPriceByAliases(aliasList) {
+      for (const alias of aliasList) {
+        const price = state.priceByName[alias];
+        if (price && price > 0) return price;
+      }
+      return 0;
+    }
+
+    function parseLines(data) {
+      const out = {};
+      if (!data || !Array.isArray(data.lines)) return out;
+      const idToName = {};
+      if (Array.isArray(data.items)) {
+        for (const item of data.items) {
+          if (!item || !item.id) continue;
+          const n = (item.name || item.currencyTypeName || '').trim();
+          if (n) idToName[item.id] = n;
+        }
+      }
+      for (const line of data.lines) {
+        const rawName = (
+          line.currencyTypeName ||
+          line.name ||
+          (line.id ? idToName[line.id] : '') ||
+          ''
+        ).trim();
+        const price = Number(line.primaryValue ?? line.chaosValue ?? line.chaosEquivalent ?? 0);
+        if (!rawName || !Number.isFinite(price) || price <= 0) continue;
+        out[rawName.toLowerCase()] = price;
+      }
+      return out;
+    }
+
+    async function fetchType(type, league) {
+      const url = `${WORKER_URL}?league=${encodeURIComponent(league)}&type=${encodeURIComponent(type)}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${type} HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function setStatus(text, cls) {
+      const el = $('statusLine');
+      el.textContent = text;
+      el.className = 'status' + (cls ? ' ' + cls : '');
+    }
+
+    function switchMapTypeTab(type) {
+      const t = String(type) === '2' ? '2' : '1';
+      document.querySelectorAll('.maptype-pane').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-maptype') === t);
+      });
+      $('mapTypeTab1').classList.toggle('active', t === '1');
+      $('mapTypeTab2').classList.toggle('active', t === '2');
+    }
+
+    function setScarabRows(tableId = 'scarabRows') {
+      const tbody = $(tableId);
+      if (!tbody) return;
+      const existing = [];
+      tbody.querySelectorAll('tr').forEach(tr => {
+        existing.push({
+          name: tr.querySelector('.scarab-name')?.value || '',
+          price: tr.querySelector('.scarab-price')?.value || '0'
+        });
+      });
+      tbody.innerHTML = '';
+      const list = state.scarabNames.slice().sort((a, b) => a.localeCompare(b));
+      for (let i = 0; i < state.scarabSlotCount; i++) {
+        const prev = existing[i] || { name: '', price: '0' };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="smart-picker">
+              <input class="scarab-name" data-idx="${i}" type="text" value="${escapeAttr(prev.name)}" placeholder="Type to search scarab..." autocomplete="off" />
+              <div class="smart-menu" data-idx="${i}"></div>
+            </div>
+          </td>
+          <td><input class="scarab-price" data-idx="${i}" type="number" min="0" step="0.0001" value="${escapeAttr(prev.price)}"></td>
+          <td class="num scarab-total" data-idx="${i}">0.00c</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      tbody.querySelectorAll('.scarab-name').forEach(input => {
+        const idx = input.dataset.idx;
+        const menu = tbody.querySelector(`.smart-menu[data-idx="${idx}"]`);
+        let currentMatches = [];
+
+        const closeMenu = () => menu.classList.remove('open');
+        const openMenu = () => menu.classList.add('open');
+        const pick = (name) => {
+          input.value = name;
+          const price = name ? (state.priceByName[name.toLowerCase()] || 0) : 0;
+          const pInput = tbody.querySelector(`.scarab-price[data-idx="${idx}"]`);
+          pInput.value = price > 0 ? String(price) : '0';
+          closeMenu();
+          recalc();
+        };
+
+        const renderMatches = () => {
+          currentMatches = findScarabMatches(input.value);
+          if (!currentMatches.length) {
+            menu.innerHTML = '<div class="smart-empty">No matches.</div>';
+            openMenu();
+            return;
+          }
+          menu.innerHTML = currentMatches.map(n => `<div class="smart-item" data-name="${escapeAttr(n)}">${escapeHtml(n)}</div>`).join('');
+          menu.querySelectorAll('.smart-item').forEach(item => {
+            item.addEventListener('mousedown', (ev) => {
+              ev.preventDefault();
+              const pickName = item.getAttribute('data-name') || '';
+              pick(pickName);
+            });
+          });
+          openMenu();
+        };
+
+        input.addEventListener('focus', renderMatches);
+        input.addEventListener('input', renderMatches);
+        input.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
+          if (!currentMatches.length) currentMatches = findScarabMatches(input.value);
+          if (currentMatches.length) {
+            pick(currentMatches[0]);
+          } else {
+            const exact = findExactScarabName(input.value);
+            if (exact) pick(exact);
+          }
+        });
+        input.addEventListener('blur', () => {
+          setTimeout(() => {
+            const exact = findExactScarabName(input.value);
+            if (exact) {
+              input.value = exact;
+              const pInput = tbody.querySelector(`.scarab-price[data-idx="${idx}"]`);
+              const price = state.priceByName[exact.toLowerCase()] || 0;
+              if (price > 0) pInput.value = String(price);
+            }
+            closeMenu();
+            recalc();
+          }, 120);
+        });
+      });
+      tbody.querySelectorAll('input').forEach(input => input.addEventListener('input', recalc));
+    }
+
+    function findExactScarabName(raw) {
+      const q = String(raw || '').trim().toLowerCase();
+      if (!q) return '';
+      return state.scarabNames.find(n => n.toLowerCase() === q) || '';
+    }
+
+    function findScarabMatches(raw) {
+      const q = String(raw || '').trim().toLowerCase();
+      const names = state.scarabNames.slice();
+      if (!q) return names.slice(0, 30);
+      const tokens = q.split(/\s+/).filter(Boolean);
+      const scored = names.map(n => {
+        const low = n.toLowerCase();
+        const whole = low.includes(q);
+        const tokenHit = tokens.every(t => low.includes(t));
+        if (!whole && !tokenHit) return null;
+        const idx = whole ? low.indexOf(q) : 999;
+        const score = (whole ? 0 : 1000) + idx + n.length * 0.001;
+        return { n, score };
+      }).filter(Boolean);
+      scored.sort((a, b) => a.score - b.score);
+      return scored.slice(0, 40).map(x => x.n);
+    }
+
+    function isPreservationScarab(name) {
+      const low = String(name || '').trim().toLowerCase();
+      return low.includes('scarab of preservation');
+    }
+
+    function hasPreservationActive(tableId = 'scarabRows') {
+      return Array.from(document.querySelectorAll(`#${tableId} .scarab-name`))
+        .some(el => isPreservationScarab(el.value));
+    }
+
+    function setDeliOptions(selectId = 'deliOrbSelect') {
+      const sel = $(selectId);
+      if (!sel) return;
+      const keepVal = sel.value;
+      const base = state.deliNames.length ? state.deliNames.slice() : FALLBACK_DELI.slice();
+      const sorted = [...new Set(base)].sort((a, b) => a.localeCompare(b));
+      sel.innerHTML = '<option value="">None</option>' + sorted.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      if (sorted.includes(keepVal)) sel.value = keepVal;
+    }
+
+    function setChiselOptions(selectId = 'chiselSelect') {
+      const sel = $(selectId);
+      if (!sel) return;
+      const keepVal = sel.value;
+      const detected = state.chiselNames.filter(n => n.toLowerCase().startsWith("maven's chisel of "));
+      const base = detected.length ? detected : FALLBACK_328_CHISELS.slice();
+      const sorted = [...new Set(base)].sort((a, b) => a.localeCompare(b));
+      sel.innerHTML = '<option value="">None</option>' + sorted.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      if (sorted.includes(keepVal)) sel.value = keepVal;
+      else if (!sel.value && sorted.length) sel.value = sorted[0];
+    }
+
+    function autoFillCoreInputsFor(suffix = '') {
+      const chiselSelectId = `chiselSelect${suffix}`;
+      const chiselPriceId = `chiselPrice${suffix}`;
+      const splitPriceId = `splitBeastPrice${suffix}`;
+      const deliSelectId = `deliOrbSelect${suffix}`;
+      const deliPriceId = `deliPrice${suffix}`;
+
+      const chisel = findPriceByAliases(LOOKUPS.chisel);
+      const beast = findPriceByAliases(LOOKUPS.splitBeast);
+      const divine = findPriceByAliases(LOOKUPS.divine);
+
+      const selectedChisel = ($(chiselSelectId)?.value || '').trim().toLowerCase();
+      if (selectedChisel && state.priceByName[selectedChisel] > 0) {
+        $(chiselPriceId).value = String(state.priceByName[selectedChisel]);
+      } else if (chisel > 0) {
+        $(chiselPriceId).value = String(chisel);
+      }
+      if (beast > 0 && $(splitPriceId)) $(splitPriceId).value = String(beast);
+      if (divine > 0) state.divineRate = divine;
+
+      const selectedDeli = ($(deliSelectId)?.value || '').trim().toLowerCase();
+      if (selectedDeli) {
+        const deliPrice = state.priceByName[selectedDeli] || 0;
+        if (deliPrice > 0 && $(deliPriceId)) $(deliPriceId).value = String(deliPrice);
+      }
+    }
+
+    function syncAutoDivRateInput() {
+      const el = $('manualDivRate');
+      if (!el || !(state.divineRate > 0)) return;
+      const current = parseNum(el.value, 0);
+      const isAuto = el.dataset.auto === '1';
+      if (current <= 0 || isAuto) {
+        el.value = String(parseFloat(state.divineRate.toFixed(4)));
+        el.dataset.auto = '1';
+      }
+    }
+
+    async function refreshPrices() {
+      const league = $('leagueSelect').value;
+      setStatus('Loading prices from worker...', '');
+      $('refreshPricesBtn').disabled = true;
+
+      const types = ['Scarab', 'Currency', 'DeliriumOrb', 'Fragment', 'Essence', 'Fossil'];
+      const merged = {};
+
+      try {
+        const results = await Promise.allSettled(types.map(type => fetchType(type, league)));
+        let okCount = 0;
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          if (result.status === 'fulfilled') {
+            okCount += 1;
+            const parsed = parseLines(result.value);
+            Object.assign(merged, parsed);
+            if (types[i] === 'Scarab' && Object.keys(parsed).length) state.scarabNames = Object.keys(parsed).map(n => titleFromLower(n));
+            if (types[i] === 'DeliriumOrb' && Object.keys(parsed).length) state.deliNames = Object.keys(parsed).map(n => titleFromLower(n));
+            if (types[i] === 'Currency' && Object.keys(parsed).length) {
+              state.chiselNames = Object.keys(parsed)
+                .filter(n => n.includes('chisel'))
+                .map(n => titleFromLower(n));
+            }
+          }
+        }
+
+        state.priceByName = merged;
+        setScarabRows('scarabRows');
+        setScarabRows('scarabRows2');
+        setDeliOptions('deliOrbSelect');
+        setDeliOptions('deliOrbSelect2');
+        setChiselOptions('chiselSelect');
+        setChiselOptions('chiselSelect2');
+        autoFillCoreInputsFor('');
+        autoFillCoreInputsFor('2');
+        syncAutoDivRateInput();
+        recalc();
+
+        if (okCount === 0) {
+          setStatus('No price feeds responded. You can still do manual inputs.', 'warn');
+        } else if (okCount < types.length) {
+          setStatus(`Loaded ${okCount}/${types.length} feeds. Missing feeds can be entered manually.`, 'warn');
+        } else {
+          setStatus('Prices refreshed successfully.', 'ok');
+        }
+      } catch (err) {
+        setStatus(`Refresh failed: ${err.message}`, 'warn');
+      } finally {
+        $('refreshPricesBtn').disabled = false;
+      }
+    }
+
+    function titleFromLower(lower) {
+      return lower.split(' ').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
+    }
+
+    function addExtraRow(data = { name: '', qty: 1, price: 0 }) {
+      const tbody = $('extraRows');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input class="extra-name" type="text" value="${escapeAttr(data.name)}" placeholder="e.g. Vaal Orb / Sextant / Kirac Mod"></td>
+        <td><input class="extra-qty" type="number" min="0" step="0.01" value="${escapeAttr(String(data.qty))}"></td>
+        <td><input class="extra-price" type="number" min="0" step="0.0001" value="${escapeAttr(String(data.price))}"></td>
+        <td class="num extra-total">0.00c</td>
+        <td class="num"><button class="btn-ghost extra-del" style="max-width:80px">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+      tr.querySelectorAll('input').forEach(el => el.addEventListener('input', recalc));
+      tr.querySelector('.extra-del').addEventListener('click', () => {
+        tr.remove();
+        recalc();
+      });
+      recalc();
+    }
+
+    function collectLines(typeSuffix = '', includeExtras = false) {
+      const sid = (base) => `${base}${typeSuffix}`;
+      const scarabTableId = typeSuffix ? 'scarabRows2' : 'scarabRows';
+      const prep = [];
+      const scarabs = [];
+      const preserveActive = hasPreservationActive(scarabTableId);
+
+      const baseCost = costToChaos($(sid('baseMapCost')).value, $(sid('baseMapCostUnit')).value);
+      if (baseCost > 0) prep.push({ type: 'Map prep', name: 'Base map', qty: 1, price: baseCost });
+
+      const chiselPrice = parseNum($(sid('chiselPrice')).value, 0);
+      if (chiselPrice > 0) {
+        const chiselQty = $(sid('useSplit')).checked ? 0.5 : 1;
+        const chiselName = $(sid('chiselSelect')).value || 'Maven\'s Chisel';
+        prep.push({ type: 'Map prep', name: chiselName, qty: chiselQty, price: chiselPrice });
+      }
+
+      const deliName = $(sid('deliOrbSelect')).value.trim();
+      const deliQty = parseNum($(sid('deliQty')).value, 0);
+      const deliPrice = parseNum($(sid('deliPrice')).value, 0);
+      if (deliName && deliQty > 0 && deliPrice > 0) prep.push({ type: 'Map prep', name: deliName, qty: deliQty, price: deliPrice });
+
+      if ($(sid('useSplit')).checked) {
+        const splitPrice = parseNum($(sid('splitBeastPrice')).value, 0);
+        if (splitPrice > 0) prep.push({ type: 'Map prep', name: 'Fenumal Plagued Arachnid', qty: 0.5, price: splitPrice });
+      }
+
+      document.querySelectorAll(`#${scarabTableId} tr`).forEach(tr => {
+        const name = tr.querySelector('.scarab-name')?.value?.trim();
+        const price = parseNum(tr.querySelector('.scarab-price')?.value, 0);
+        if (!name) return;
+        const protectedByPreservation = preserveActive && !isPreservationScarab(name);
+        const effectivePrice = protectedByPreservation ? 0 : price;
+        if (effectivePrice > 0 || protectedByPreservation) {
+          scarabs.push({
+            type: 'Scarab',
+            name: protectedByPreservation ? `${name} (protected)` : name,
+            qty: 1,
+            price: effectivePrice
+          });
+        }
+      });
+
+      if (includeExtras) {
+        document.querySelectorAll('#extraRows tr').forEach(tr => {
+          const name = tr.querySelector('.extra-name')?.value?.trim() || 'Extra';
+          const qty = parseNum(tr.querySelector('.extra-qty')?.value, 0);
+          const price = parseNum(tr.querySelector('.extra-price')?.value, 0);
+          if (qty > 0 && price > 0) prep.push({ type: 'Map prep', name, qty, price });
+        });
+      }
+
+      return { prep, scarabs };
+    }
+
+    function recalc() {
+      const type1 = collectLines('', true);
+      const type2 = collectLines('2', false);
+      const allLines = [...type1.prep, ...type1.scarabs];
+      const prepCost = type1.prep.reduce((sum, line) => sum + (line.qty * line.price), 0);
+      const scarabCost = type1.scarabs.reduce((sum, line) => sum + (line.qty * line.price), 0);
+      const runCost = prepCost + scarabCost;
+      const prepCost2 = type2.prep.reduce((sum, line) => sum + (line.qty * line.price), 0);
+      const scarabCost2 = type2.scarabs.reduce((sum, line) => sum + (line.qty * line.price), 0);
+      const runCost2 = prepCost2 + scarabCost2;
+      const activeDivRate = getActiveDivRate();
+
+      $('mapPrepChaos').textContent = fmtTotalsAmount(prepCost);
+      $('scarabChaos').textContent = fmtTotalsAmount(scarabCost);
+      $('runChaos').textContent = fmtTotalsAmount(runCost);
+      const mapsType2Count = Math.max(0, parseInt($('mapsType2').value || '0', 10));
+      $('runChaos2').textContent = fmtTotalsAmount(runCost2 * mapsType2Count);
+      $('type1PrepChaos').textContent = fmtTotalsAmount(prepCost);
+      $('type1ScarabChaos').textContent = fmtTotalsAmount(scarabCost);
+      $('type1RunChaos').textContent = fmtTotalsAmount(runCost);
+      $('type1RunDiv').textContent = activeDivRate > 0 ? `${(runCost / activeDivRate).toFixed(3)} div` : '-';
+      $('type2PrepChaos').textContent = fmtTotalsAmount(prepCost2);
+      $('type2ScarabChaos').textContent = fmtTotalsAmount(scarabCost2);
+      $('type2RunChaos').textContent = fmtTotalsAmount(runCost2);
+      $('type2RunDiv').textContent = activeDivRate > 0 ? `${(runCost2 / activeDivRate).toFixed(3)} div` : '-';
+
+      if (activeDivRate > 0) {
+        $('runDiv').textContent = (runCost / activeDivRate).toFixed(3) + ' div';
+      } else {
+        $('runDiv').textContent = '-';
+      }
+
+      const preservationOn = hasPreservationActive('scarabRows');
+      document.querySelectorAll('#scarabRows tr').forEach(tr => {
+        const name = tr.querySelector('.scarab-name')?.value?.trim();
+        const price = parseNum(tr.querySelector('.scarab-price')?.value, 0);
+        const isProtected = preservationOn && name && !isPreservationScarab(name);
+        tr.querySelector('.scarab-total').textContent = fmtChaos(isProtected ? 0 : price);
+      });
+      const preservationOn2 = hasPreservationActive('scarabRows2');
+      document.querySelectorAll('#scarabRows2 tr').forEach(tr => {
+        const name = tr.querySelector('.scarab-name')?.value?.trim();
+        const price = parseNum(tr.querySelector('.scarab-price')?.value, 0);
+        const isProtected = preservationOn2 && name && !isPreservationScarab(name);
+        tr.querySelector('.scarab-total').textContent = fmtChaos(isProtected ? 0 : price);
+      });
+
+      document.querySelectorAll('#extraRows tr').forEach(tr => {
+        const qty = parseNum(tr.querySelector('.extra-qty')?.value, 0);
+        const price = parseNum(tr.querySelector('.extra-price')?.value, 0);
+        tr.querySelector('.extra-total').textContent = fmtChaos(qty * price);
+      });
+
+      const tbody = $('breakdownBody');
+      tbody.innerHTML = allLines.length
+        ? allLines.map(line => {
+          const lineTotal = line.qty * line.price;
+          return `
+            <tr>
+              <td>${escapeHtml(line.type)}</td>
+              <td>${escapeHtml(line.name)}</td>
+              <td class="num">${line.qty}</td>
+              <td class="num">${parseNum(line.price).toFixed(4)}c</td>
+              <td class="num">${lineTotal.toFixed(2)}c</td>
+            </tr>
+          `;
+        }).join('')
+        : '<tr><td colspan="5" style="color:var(--muted)">No cost lines added yet.</td></tr>';
+      recalcDivHr(runCost, runCost2);
+      saveStrategy();
+    }
+
+    function parseRevenueToChaos(raw, divRate) {
+      const input = String(raw || '').trim().toLowerCase();
+      if (!input) return { chaos: 0, ok: true, reason: '' };
+
+      // Plain numeric input defaults to chaos.
+      if (/^-?\d+(\.\d+)?$/.test(input)) {
+        return { chaos: parseFloat(input), ok: true, reason: '' };
+      }
+
+      let chaos = 0;
+      let matchedAny = false;
+      const norm = input.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // Global token parser supports:
+      // - "16d 268c"
+      // - "16d268c"
+      // - "rev 16div 268chaos"
+      const tokenRe = /(-?\d+(?:\.\d+)?)\s*(divines?|divine|div|d|chaos|c)/g;
+      let m;
+      while ((m = tokenRe.exec(norm)) !== null) {
+        matchedAny = true;
+        const val = parseFloat(m[1]);
+        const unit = m[2];
+        if (!Number.isFinite(val)) continue;
+        if (unit.startsWith('d')) {
+          if (!(divRate > 0)) return { chaos: 0, ok: false, reason: 'Need divine rate for `Xd` revenue format.' };
+          chaos += val * divRate;
+        } else {
+          chaos += val;
+        }
+      }
+
+      if (!matchedAny) return { chaos: 0, ok: false, reason: 'Revenue format not recognized.' };
+      return { chaos, ok: true, reason: '' };
+    }
+
+    function recalcDivHr(runCostType1, runCostType2) {
+      const mapsType1 = Math.max(0, parseInt($('mapsType1').value || '0', 10));
+      const mapsType2 = Math.max(0, parseInt($('mapsType2').value || '0', 10));
+      const startMin = parseClockTimeToMinutes($('runStart').value);
+      const endMin = parseClockTimeToMinutes($('runEnd').value);
+
+      let elapsedMin = 0;
+      if (startMin !== null && endMin !== null) {
+        elapsedMin = endMin - startMin;
+        if (elapsedMin < 0) elapsedMin += 1440; // allow crossing midnight
+      }
+      const hours = elapsedMin > 0 ? elapsedMin / 60 : 0;
+
+      const activeDivRate = getActiveDivRate();
+      const revParsed = parseRevenueToChaos($('revInput').value, activeDivRate || 0);
+      const revenue = revParsed.ok ? revParsed.chaos : 0;
+
+      const totalCost = (runCostType1 * mapsType1) + (runCostType2 * mapsType2);
+      const netRevenue = revenue - totalCost;
+
+      const revStatus = $('revParsed');
+      if (revParsed.ok) {
+        revStatus.textContent = `Revenue parsed: ${revenue.toFixed(2)}c`;
+        revStatus.className = 'status ok';
+      } else {
+        revStatus.textContent = `Revenue parse note: ${revParsed.reason}`;
+        revStatus.className = 'status warn';
+      }
+
+      $('elapsedLabel').textContent = hours > 0 ? `${elapsedMin}m (${hours.toFixed(2)}h)` : '-';
+      $('grossChaosHr').textContent = hours > 0 ? `${(revenue / hours).toFixed(2)}c/h` : '-';
+      $('totalCostAll').textContent = fmtTotalsAmount(totalCost);
+      $('netChaosHr').textContent = hours > 0 ? `${(netRevenue / hours).toFixed(2)}c/h` : '-';
+      $('netDivHr').textContent = (hours > 0 && activeDivRate > 0)
+        ? `${((netRevenue / hours) / activeDivRate).toFixed(3)} div/h`
+        : '-';
+    }
+
+    function parseClockTimeToMinutes(raw) {
+      const input = String(raw || '').trim().toLowerCase();
+      if (!input) return null;
+
+      let s = input.replace(/\s+/g, '').replace(/\./g, '');
+      let suffix = '';
+      if (/(am|pm|a|p)$/.test(s)) {
+        const m = s.match(/(am|pm|a|p)$/);
+        suffix = m ? m[1] : '';
+        s = s.slice(0, -suffix.length);
+      }
+
+      let hour = null;
+      let minute = 0;
+
+      if (s.includes(':')) {
+        const parts = s.split(':');
+        if (parts.length !== 2) return null;
+        hour = parseInt(parts[0], 10);
+        minute = parseInt(parts[1], 10);
+      } else if (/^\d+$/.test(s)) {
+        if (s.length <= 2) {
+          hour = parseInt(s, 10);
+          minute = 0;
+        } else if (s.length === 3) {
+          hour = parseInt(s.slice(0, 1), 10);
+          minute = parseInt(s.slice(1), 10);
+        } else if (s.length === 4) {
+          hour = parseInt(s.slice(0, 2), 10);
+          minute = parseInt(s.slice(2), 10);
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+
+      if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+
+      if (suffix) {
+        if (hour < 1 || hour > 12) return null;
+        const isPm = suffix === 'pm' || suffix === 'p';
+        if (hour === 12) hour = isPm ? 12 : 0;
+        else if (isPm) hour += 12;
+      } else {
+        if (hour < 0 || hour > 23) return null;
+      }
+
+      return hour * 60 + minute;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str).replaceAll('`', '&#96;');
+    }
+
+    function wireEvents() {
+      $('refreshPricesBtn').addEventListener('click', refreshPrices);
+      $('addExtraRowBtn').addEventListener('click', () => addExtraRow());
+      $('resetDraftBtn').addEventListener('click', resetStrategy);
+      $('deliOrbSelect').addEventListener('change', () => {
+        const key = $('deliOrbSelect').value.trim().toLowerCase();
+        const p = key ? (state.priceByName[key] || 0) : 0;
+        if (p > 0) $('deliPrice').value = String(p);
+        recalc();
+      });
+      $('deliOrbSelect2').addEventListener('change', () => {
+        const key = $('deliOrbSelect2').value.trim().toLowerCase();
+        const p = key ? (state.priceByName[key] || 0) : 0;
+        if (p > 0) $('deliPrice2').value = String(p);
+        recalc();
+      });
+      $('chiselSelect').addEventListener('change', () => {
+        const key = $('chiselSelect').value.trim().toLowerCase();
+        const p = key ? (state.priceByName[key] || 0) : 0;
+        if (p > 0) $('chiselPrice').value = String(p);
+        recalc();
+      });
+      $('chiselSelect2').addEventListener('change', () => {
+        const key = $('chiselSelect2').value.trim().toLowerCase();
+        const p = key ? (state.priceByName[key] || 0) : 0;
+        if (p > 0) $('chiselPrice2').value = String(p);
+        recalc();
+      });
+      $('useSplit').addEventListener('change', () => {
+        recalc();
+      });
+      $('useSplit2').addEventListener('change', () => {
+        recalc();
+      });
+      $('mapTypeTab1').addEventListener('click', () => switchMapTypeTab('1'));
+      $('mapTypeTab2').addEventListener('click', () => switchMapTypeTab('2'));
+      $('manualDivRate').addEventListener('input', () => { $('manualDivRate').dataset.auto = '0'; });
+      $('totalDisplayUnit').addEventListener('change', recalc);
+      [
+        'mapName','baseMapCost','baseMapCostUnit','chiselPrice',
+        'deliQty','deliPrice','splitBeastPrice',
+        'baseMapCost2','baseMapCostUnit2','chiselPrice2','deliQty2','deliPrice2','splitBeastPrice2',
+        'revInput','mapsType1','mapsType2','runStart','runEnd','manualDivRate'
+      ].forEach(id => $(id).addEventListener('input', recalc));
+      $('leagueSelect').addEventListener('change', () => {
+        restoreStrategy();
+        recalc();
+        refreshPrices();
+      });
+    }
+
+    function strategyKey() {
+      const league = $('leagueSelect').value || 'unknown';
+      return `${STORAGE_PREFIX}:${league.toLowerCase()}`;
+    }
+
+    function serializeStrategy() {
+      const scarabs = [];
+      document.querySelectorAll('#scarabRows tr').forEach(tr => {
+        scarabs.push({
+          name: tr.querySelector('.scarab-name')?.value || '',
+          price: tr.querySelector('.scarab-price')?.value || '0'
+        });
+      });
+      const scarabs2 = [];
+      document.querySelectorAll('#scarabRows2 tr').forEach(tr => {
+        scarabs2.push({
+          name: tr.querySelector('.scarab-name')?.value || '',
+          price: tr.querySelector('.scarab-price')?.value || '0'
+        });
+      });
+      const extras = [];
+      document.querySelectorAll('#extraRows tr').forEach(tr => {
+        extras.push({
+          name: tr.querySelector('.extra-name')?.value || '',
+          qty: tr.querySelector('.extra-qty')?.value || '1',
+          price: tr.querySelector('.extra-price')?.value || '0'
+        });
+      });
+      return {
+        mapName: $('mapName').value || '',
+        baseMapCost: $('baseMapCost').value || '0',
+        baseMapCostUnit: $('baseMapCostUnit').value || 'chaos',
+        chiselName: $('chiselSelect').value || '',
+        chiselPrice: $('chiselPrice').value || '0',
+        deliOrb: $('deliOrbSelect').value || '',
+        deliQty: $('deliQty').value || '0',
+        deliPrice: $('deliPrice').value || '0',
+        useSplit: $('useSplit').checked,
+        splitBeastPrice: $('splitBeastPrice').value || '0',
+        baseMapCost2: $('baseMapCost2').value || '0',
+        baseMapCostUnit2: $('baseMapCostUnit2').value || 'chaos',
+        chiselName2: $('chiselSelect2').value || '',
+        chiselPrice2: $('chiselPrice2').value || '0',
+        deliOrb2: $('deliOrbSelect2').value || '',
+        deliQty2: $('deliQty2').value || '0',
+        deliPrice2: $('deliPrice2').value || '0',
+        useSplit2: $('useSplit2').checked,
+        splitBeastPrice2: $('splitBeastPrice2').value || '0',
+        revInput: $('revInput').value || '0c',
+        mapsType1: $('mapsType1').value || '1',
+        mapsType2: $('mapsType2').value || '0',
+        runStart: $('runStart').value || '',
+        runEnd: $('runEnd').value || '',
+        manualDivRate: $('manualDivRate').value || '0',
+        totalDisplayUnit: $('totalDisplayUnit').value || 'div',
+        scarabs,
+        scarabs2,
+        extras
+      };
+    }
+
+    function applyStrategy(data) {
+      if (!data || typeof data !== 'object') return;
+      $('mapName').value = data.mapName || '';
+      $('baseMapCost').value = data.baseMapCost || '0';
+      $('baseMapCostUnit').value = data.baseMapCostUnit || 'chaos';
+      if (data.chiselName) {
+        const exists = Array.from($('chiselSelect').options).some(o => o.value === data.chiselName);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = data.chiselName;
+          opt.textContent = data.chiselName;
+          $('chiselSelect').appendChild(opt);
+        }
+        $('chiselSelect').value = data.chiselName;
+      } else {
+        $('chiselSelect').value = '';
+      }
+      $('chiselPrice').value = data.chiselPrice || '0';
+      $('deliQty').value = data.deliQty || '0';
+      $('deliPrice').value = data.deliPrice || '0';
+      $('useSplit').checked = !!data.useSplit;
+      $('splitBeastPrice').value = data.splitBeastPrice || '0';
+      $('baseMapCost2').value = data.baseMapCost2 || '0';
+      $('baseMapCostUnit2').value = data.baseMapCostUnit2 || 'chaos';
+      $('chiselPrice2').value = data.chiselPrice2 || '0';
+      $('deliQty2').value = data.deliQty2 || '0';
+      $('deliPrice2').value = data.deliPrice2 || '0';
+      $('useSplit2').checked = !!data.useSplit2;
+      $('splitBeastPrice2').value = data.splitBeastPrice2 || '0';
+      $('revInput').value = data.revInput || '0c';
+      $('mapsType1').value = data.mapsType1 || '1';
+      $('mapsType2').value = data.mapsType2 || '0';
+      $('runStart').value = data.runStart || '';
+      $('runEnd').value = data.runEnd || '';
+      $('manualDivRate').value = data.manualDivRate || '0';
+      $('totalDisplayUnit').value = data.totalDisplayUnit || 'div';
+
+      if (data.deliOrb) {
+        const exists = Array.from($('deliOrbSelect').options).some(o => o.value === data.deliOrb);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = data.deliOrb;
+          opt.textContent = data.deliOrb;
+          $('deliOrbSelect').appendChild(opt);
+        }
+        $('deliOrbSelect').value = data.deliOrb;
+      } else {
+        $('deliOrbSelect').value = '';
+      }
+      if (data.chiselName2) {
+        const exists = Array.from($('chiselSelect2').options).some(o => o.value === data.chiselName2);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = data.chiselName2;
+          opt.textContent = data.chiselName2;
+          $('chiselSelect2').appendChild(opt);
+        }
+        $('chiselSelect2').value = data.chiselName2;
+      } else {
+        $('chiselSelect2').value = '';
+      }
+      if (data.deliOrb2) {
+        const exists = Array.from($('deliOrbSelect2').options).some(o => o.value === data.deliOrb2);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = data.deliOrb2;
+          opt.textContent = data.deliOrb2;
+          $('deliOrbSelect2').appendChild(opt);
+        }
+        $('deliOrbSelect2').value = data.deliOrb2;
+      } else {
+        $('deliOrbSelect2').value = '';
+      }
+
+      setScarabRows();
+      if (Array.isArray(data.scarabs)) {
+        data.scarabs.slice(0, state.scarabSlotCount).forEach((slot, i) => {
+          const tr = document.querySelectorAll('#scarabRows tr')[i];
+          if (!tr) return;
+          const sel = tr.querySelector('.scarab-name');
+          const price = tr.querySelector('.scarab-price');
+          sel.value = slot?.name || '';
+          if (price) price.value = slot?.price || '0';
+        });
+      }
+      setScarabRows('scarabRows2');
+      if (Array.isArray(data.scarabs2)) {
+        data.scarabs2.slice(0, state.scarabSlotCount).forEach((slot, i) => {
+          const tr = document.querySelectorAll('#scarabRows2 tr')[i];
+          if (!tr) return;
+          const sel = tr.querySelector('.scarab-name');
+          const price = tr.querySelector('.scarab-price');
+          sel.value = slot?.name || '';
+          if (price) price.value = slot?.price || '0';
+        });
+      }
+
+      $('extraRows').innerHTML = '';
+      if (Array.isArray(data.extras) && data.extras.length) {
+        data.extras.forEach(addExtraRow);
+      } else {
+        addExtraRow({ name: 'Kirac craft / map device mod', qty: 1, price: 0 });
+      }
+
+      const maxScarabCount = Math.max(
+        Array.isArray(data.scarabs) ? data.scarabs.length : 0,
+        Array.isArray(data.scarabs2) ? data.scarabs2.length : 0
+      );
+      if (maxScarabCount > state.scarabSlotCount) {
+        state.scarabSlotCount = maxScarabCount;
+        setScarabRows('scarabRows');
+        setScarabRows('scarabRows2');
+      }
+    }
+
+    function saveStrategy() {
+      try {
+        localStorage.setItem(strategyKey(), JSON.stringify(serializeStrategy()));
+      } catch (err) { /* ignore */ }
+    }
+
+    function restoreStrategy() {
+      try {
+        const raw = localStorage.getItem(strategyKey());
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        applyStrategy(parsed);
+      } catch (err) { /* ignore */ }
+    }
+
+    function resetStrategy() {
+      try { localStorage.removeItem(strategyKey()); } catch (err) { /* ignore */ }
+      $('mapName').value = '';
+      $('baseMapCost').value = '0';
+      $('baseMapCostUnit').value = 'chaos';
+      $('chiselSelect').value = '';
+      $('chiselPrice').value = '0';
+      $('deliOrbSelect').value = '';
+      $('deliQty').value = '0';
+      $('deliPrice').value = '0';
+      $('useSplit').checked = false;
+      $('splitBeastPrice').value = '0';
+      $('baseMapCost2').value = '0';
+      $('baseMapCostUnit2').value = 'chaos';
+      $('chiselSelect2').value = '';
+      $('chiselPrice2').value = '0';
+      $('deliOrbSelect2').value = '';
+      $('deliQty2').value = '0';
+      $('deliPrice2').value = '0';
+      $('useSplit2').checked = false;
+      $('splitBeastPrice2').value = '0';
+      $('revInput').value = '0c';
+      $('mapsType1').value = '1';
+      $('mapsType2').value = '0';
+      $('runStart').value = '';
+      $('runEnd').value = '';
+      $('manualDivRate').value = '0';
+      $('totalDisplayUnit').value = 'div';
+      $('extraRows').innerHTML = '';
+      addExtraRow({ name: 'Kirac craft / map device mod', qty: 1, price: 0 });
+      setScarabRows('scarabRows');
+      setScarabRows('scarabRows2');
+      recalc();
+      setStatus('Draft reset for this league.', 'ok');
+    }
+
+    wireEvents();
+    setScarabRows('scarabRows');
+    setScarabRows('scarabRows2');
+    setDeliOptions('deliOrbSelect');
+    setDeliOptions('deliOrbSelect2');
+    setChiselOptions('chiselSelect');
+    setChiselOptions('chiselSelect2');
+    switchMapTypeTab('1');
+    restoreStrategy();
+    if (!$('extraRows').children.length) addExtraRow({ name: 'Kirac craft / map device mod', qty: 1, price: 0 });
+    recalc();
+    refreshPrices();
+  </script>
+</body>
+</html>
