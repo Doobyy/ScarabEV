@@ -1727,6 +1727,15 @@ body.graph-palette-ruby {
 }
 [data-theme="dark"] .notice-atlas-config strong { color: var(--accent); }
 [data-theme="dark"] .notice-atlas-config .atlas-evloss { color: var(--chaos); }
+#tab-atlas .notice-atlas-config {
+  margin-bottom: 0;
+  border-radius: 0 6px 0 0;
+}
+#tab-atlas .notice-atlas-config + .notice-atlas-recalc {
+  margin-top: 0;
+  border-top-width: 0;
+  border-radius: 0 0 6px 0;
+}
 .notice code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 [data-theme="dark"] .notice code { background: rgba(255,255,255,0.06); }
 .bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
@@ -2061,8 +2070,9 @@ body.graph-palette-ruby {
   background: var(--bg-table-head); border-bottom: 1px solid var(--border);
 }
 .atlas-col-header-title {
-  font-size: 11px; font-weight: 600; color: var(--text-2); letter-spacing: 0.01em;
+  font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.07em; text-transform: uppercase;
 }
+:root:not([data-theme="dark"]) .atlas-col-header-title { font-weight: 900; }
 .atlas-col-title-tag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
   padding: 1px 5px; border-radius: 3px;
@@ -3202,8 +3212,9 @@ body.graph-palette-ruby {
 
     <div class="atlas-intro">
       <div class="atlas-title" style="margin-bottom:6px">Atlas Optimizer</div>
-      <div class="atlas-sub">Toggle block nodes to remove low-value mechanics from the drop pool, and boost nodes to double the weight of high-value groups. Map drop EV updates live as you experiment.</div>
+      <div class="atlas-sub">Start by clicking toggles to model different Atlas plans before you commit points in game. Block nodes remove mechanics from the pool, and boost nodes double drop weight for chosen groups.</div>
       <div class="notice notice-warn notice-atlas-config" style="margin-top:10px;margin-bottom:0"><strong>Your config is saved manually.</strong> Set up your blocks and boosts, then hit <strong>Save config</strong> to lock it in. On your next visit we'll compare your saved toggles against current prices &mdash; if anything has flipped to an <span class="atlas-evloss">EV loss</span>, we'll flag it. Those pills also show in real time on any toggle that's currently costing you map value.</div>
+      <div class="notice notice-chaos notice-atlas-recalc" style="margin-top:0"><strong>EV re-normalizes and recalculates after every toggle.</strong> For accurate delta values, click to toggle your planned blocks/boosts first.</div>
     </div>
 
     <div class="atlas-hero">
