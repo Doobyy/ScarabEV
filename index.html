@@ -1703,10 +1703,12 @@ body.graph-palette-ruby {
 .notice-warn strong { color: var(--amber); }
 .notice-atlas-config .atlas-evloss { color: var(--red); font-weight: 700; }
 #tab-atlas .atlas-note strong { color: var(--text-2); }
-#tab-atlas .atlas-note .atlas-evloss { color: var(--red); font-weight: 700; }
-#tab-atlas .atlas-note .atlas-suggested { color: var(--green); font-weight: 700; }
-[data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss { color: var(--red); }
-[data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested { color: var(--green); }
+#tab-atlas .atlas-note .atlas-evloss { color: color-mix(in srgb, var(--red) 78%, var(--text-2) 22%); font-weight: 700; }
+#tab-atlas .atlas-note .atlas-suggested { color: color-mix(in srgb, var(--green) 78%, var(--text-2) 22%); font-weight: 700; }
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss { color: color-mix(in srgb, var(--red) 72%, var(--text-3) 28%); }
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested { color: color-mix(in srgb, var(--green) 72%, var(--text-3) 28%); }
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss,
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested { font-weight: 600; }
 [data-theme="dark"] #tab-atlas .atlas-note strong { color: #7faedc; }
 .notice-tip {
   background: var(--accent-dim); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent);
