@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "typecheck": "tsc --noEmit",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:production": "wrangler deploy --env production"
+    "deploy:staging": "wrangler deploy --config wrangler.staging.toml",
+    "deploy:production": "wrangler deploy --config wrangler.production.toml"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260401.0",

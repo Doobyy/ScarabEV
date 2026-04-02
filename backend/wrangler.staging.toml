@@ -1,10 +1,10 @@
-name = "scarabev-backend-dev"
+name = "scarabev-backend-staging"
 main = "src/index.ts"
 compatibility_date = "2026-04-02"
 workers_dev = true
 
 [vars]
 APP_NAME = "scarabev-backend"
-APP_ENV = "dev"
-LOG_LEVEL = "debug"
+APP_ENV = "staging"
+LOG_LEVEL = "info"
 OBS_SAMPLE_RATE = "1"

@@ -14,6 +14,9 @@ This workspace contains the hosted backend foundation for ScarabEV.
 - `src/observability/logger.ts`: structured logging and error capture.
 - `src/types/schema.ts`: shared schema type scaffold.
 - `migrations/`: SQL migration scaffolds.
+- `wrangler.toml`: local dev config.
+- `wrangler.staging.toml`: staging deploy config.
+- `wrangler.production.toml`: production deploy config.
 
 ## Local setup
 1. Install dependencies:
@@ -44,3 +47,4 @@ Optional:
 - `main` branch push deploys `staging` automatically.
 - `production` deploy runs only from manual `workflow_dispatch` with explicit confirmation.
 - Production job uses GitHub `production` environment gate. Configure required reviewers in repo settings for approval.
+- CI deploys staging/production via explicit Wrangler config files (`wrangler.staging.toml`, `wrangler.production.toml`) instead of `--env` mode.
