@@ -2101,17 +2101,19 @@ function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
     <div class="analysis-stat-card"><div class="analysis-stat-label">Jackpot reliance</div><div class="analysis-stat-value ${jackpotRelianceClass}">${jackpotReliancePct.toFixed(1)}%</div><div style="font-size:10px;color:var(--text-3)">Top-3 EV share</div></div>
   `;
 
-  const maxReceived = Math.max(...weightData.map(d => d.count), 1);
-  window._analysisWeightData = weightData;
+  window._analysisWeightAllData = weightData.map(d => ({ ...d }));
+  window._analysisWeightData = [];
   window._analysisWeightSort = { key: 'ninja', dir: -1 };
-  weightData.sort((a, b) => (a.ninjaPrice - b.ninjaPrice) * window._analysisWeightSort.dir);
+  window._analysisWeightFilter = '';
+  const filterInput = document.getElementById('analysis-filter');
+  if (filterInput) filterInput.value = '';
 
   const head = document.getElementById('analysisWeightHead');
   if (head) {
     head.style.gridTemplateColumns = '1fr 82px 76px 82px 84px';
     head.style.gap = '6px';
     head.innerHTML = `
-      <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
+      <div class="th th-search"><input type="text" id="analysis-filter" class="analysis-head-search" placeholder="SCARAB" oninput="setAnalysisWeightFilter(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="analysis_filter" data-lpignore="true"></div>
       <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')"><span class="recv-desktop">Received</span><span class="recv-mobile">Recv</span></div>
       <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
       <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">COST/EA</div>
@@ -2119,16 +2121,7 @@ function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
     `;
   }
 
-  // Axis label and chart (instant tooltip via data attr + one global tooltip)
-  updateAnalysisChartAxisLabel();
-  let chartHtml = '';
-  for (const d of weightData) {
-    const heightPct = maxReceived > 0 ? (d.count / maxReceived * 100) : 0;
-    const safeName = (d.name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    chartHtml += `<div class="analysis-bar-vertical" data-scarab-name="${safeName}" onmouseenter="showAnalysisBarTooltip(this, event)" onmouseleave="hideAnalysisBarTooltip()"><div class="bar-inner" style="height:${heightPct}%"></div></div>`;
-  }
-  document.getElementById('analysisWeightChart').innerHTML = chartHtml || '<div style="font-size:12px;color:var(--text-3)">No output scarab data.</div>';
-  renderAnalysisWeightTable();
+  syncAnalysisWeightView();
 
   // Ninja EV: harmonic mean of all scarab prices (same as app logic)
   const ninjaEntries = Object.keys(state.ninjaPrices || {}).filter(n => state.ninjaPrices[n] > 0).map(n => ({ chaosEa: state.ninjaPrices[n] }));
@@ -2157,15 +2150,6 @@ function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
     </div>
   `;
 
-  // Weight table sort indicators on header (default ninja desc)
-  if (head) {
-    head.querySelectorAll('.th[data-sort]').forEach(th => {
-      th.classList.remove('sort-asc', 'sort-desc');
-      if (th.dataset.sort === (window._analysisWeightSort?.key || 'ninja')) {
-        th.classList.add(window._analysisWeightSort.dir === 1 ? 'sort-asc' : 'sort-desc');
-      }
-    });
-  }
 }
 
 function getAnalysisSortLabel() {
@@ -2204,38 +2188,104 @@ function hideAnalysisBarTooltip() {
   if (tip) { tip.classList.remove('show'); tip.textContent = ''; }
 }
 
-function sortAnalysisWeight(key) {
-  const data = window._analysisWeightData;
-  if (!data || !data.length) return;
-  const prev = window._analysisWeightSort || { key: 'ninja', dir: -1 };
-  const dir = prev.key === key ? -prev.dir : (key === 'name' ? 1 : -1);
-  window._analysisWeightSort = { key, dir };
-  data.sort((a, b) => {
+function normalizeAnalysisSearchText(str) {
+  return String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isSubsequence(needle, haystack) {
+  if (!needle) return true;
+  let j = 0;
+  for (let i = 0; i < haystack.length && j < needle.length; i++) {
+    if (haystack[i] === needle[j]) j++;
+  }
+  return j === needle.length;
+}
+
+function matchesAnalysisWeightFilter(name, rawQuery) {
+  const q = String(rawQuery || '').trim().toLowerCase();
+  if (!q) return true;
+  const nameLower = String(name || '').toLowerCase();
+  if (nameLower.includes(q)) return true;
+
+  const queryTokens = q.split(/\s+/).filter(Boolean);
+  if (!queryTokens.length) return true;
+  const normName = normalizeAnalysisSearchText(nameLower);
+
+  // All typed words can appear in any order.
+  if (queryTokens.every(tok => normName.includes(tok))) return true;
+
+  // Compact typing support (e.g., "hornedblood" or shorthand-like typing).
+  const compactQuery = queryTokens.join('');
+  const compactName = normName.replace(/\s+/g, '');
+  if (compactName.includes(compactQuery)) return true;
+  return isSubsequence(compactQuery, compactName);
+}
+
+function getAnalysisWeightComparator(key, dir) {
+  return (a, b) => {
     if (key === 'name') return (a.name.localeCompare(b.name)) * dir;
     if (key === 'received') return (a.count - b.count) * dir;
     if (key === 'pct') return (a.pct - b.pct) * dir;
     if (key === 'ninja') return (a.ninjaPrice - b.ninjaPrice) * dir;
     if (key === 'contrib') return (a.evContrib - b.evContrib) * dir;
     return 0;
-  });
+  };
+}
+
+function syncAnalysisWeightView() {
+  const source = window._analysisWeightAllData || [];
+  const query = String(window._analysisWeightFilter || '').trim();
+  const sortState = window._analysisWeightSort || { key: 'ninja', dir: -1 };
+  const filtered = source.filter(d => matchesAnalysisWeightFilter(d.name, query));
+  filtered.sort(getAnalysisWeightComparator(sortState.key, sortState.dir));
+  window._analysisWeightData = filtered;
+
   updateAnalysisChartAxisLabel();
-  const maxReceived = Math.max(...data.map(d => d.count), 1);
+  const maxReceived = Math.max(...filtered.map(d => d.count), 1);
   let chartHtml = '';
-  for (const d of data) {
+  for (const d of filtered) {
     const heightPct = maxReceived > 0 ? (d.count / maxReceived * 100) : 0;
     const safeName = (d.name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     chartHtml += `<div class="analysis-bar-vertical" data-scarab-name="${safeName}" onmouseenter="showAnalysisBarTooltip(this, event)" onmouseleave="hideAnalysisBarTooltip()"><div class="bar-inner" style="height:${heightPct}%"></div></div>`;
   }
   const chartEl = document.getElementById('analysisWeightChart');
-  if (chartEl) chartEl.innerHTML = chartHtml;
+  if (chartEl) {
+    chartEl.innerHTML = chartHtml || `<div style="font-size:12px;color:var(--text-3)">${query ? 'No scarabs match the current filter.' : 'No output scarab data.'}</div>`;
+  }
   renderAnalysisWeightTable();
+
   const head = document.getElementById('analysisWeightHead');
   if (head) {
     head.querySelectorAll('.th[data-sort]').forEach(th => {
       th.classList.remove('sort-asc', 'sort-desc');
-      if (th.dataset.sort === key) th.classList.add(dir === 1 ? 'sort-asc' : 'sort-desc');
+      if (th.dataset.sort === (sortState.key || 'ninja')) {
+        th.classList.add(sortState.dir === 1 ? 'sort-asc' : 'sort-desc');
+      }
     });
   }
+
+  const metaEl = document.getElementById('analysisFilterMeta');
+  if (metaEl) {
+    if (!query) {
+      metaEl.textContent = `${filtered.length.toLocaleString()} scarabs shown`;
+    } else {
+      metaEl.textContent = `${filtered.length.toLocaleString()} of ${source.length.toLocaleString()} match`;
+    }
+  }
+}
+
+function setAnalysisWeightFilter(value) {
+  window._analysisWeightFilter = String(value || '');
+  syncAnalysisWeightView();
+}
+
+function sortAnalysisWeight(key) {
+  const source = window._analysisWeightAllData;
+  if (!source || !source.length) return;
+  const prev = window._analysisWeightSort || { key: 'ninja', dir: -1 };
+  const dir = prev.key === key ? -prev.dir : (key === 'name' ? 1 : -1);
+  window._analysisWeightSort = { key, dir };
+  syncAnalysisWeightView();
 }
 
 function renderAnalysisWeightTable() {
@@ -2243,7 +2293,8 @@ function renderAnalysisWeightTable() {
   const el = document.getElementById('analysisWeightTable');
   if (!el) return;
   if (!data.length) {
-    el.innerHTML = '<div style="padding:12px;color:var(--text-3)">No output scarab data.</div>';
+    const q = String(window._analysisWeightFilter || '').trim();
+    el.innerHTML = `<div style="padding:12px;color:var(--text-3)">${q ? 'No scarabs match the current filter.' : 'No output scarab data.'}</div>`;
     return;
   }
   const rows = data.map(d => `
@@ -4128,6 +4179,7 @@ Object.assign(window, {
   showAnalysisBarTooltip,
   hideAnalysisBarTooltip,
   sortAnalysisWeight,
+  setAnalysisWeightFilter,
   renderAnalysisWeightTable,
   normalizeBulkNameMap,
   recomputeBulkNameMap,

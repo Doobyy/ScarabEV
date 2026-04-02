@@ -833,6 +833,23 @@ body.graph-palette-ruby {
 .analysis-weight-head .th[data-sort] { cursor: pointer; user-select: none; }
 .analysis-weight-head .th[data-sort]:hover { color: var(--accent); }
 .analysis-weight-head .th[data-sort] { position: relative; }
+.analysis-weight-head .th-search { padding: 4px 6px; }
+.analysis-head-search {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 4px 6px;
+  outline: none;
+}
+.analysis-head-search::placeholder { color: var(--text-3); opacity: 1; }
+.analysis-head-search:focus { border-color: var(--accent); color: var(--text); background: var(--bg); }
 .analysis-weight-head .th[data-sort].sort-asc::after,
 .analysis-weight-head .th[data-sort].sort-desc::after {
   position: absolute;
@@ -1854,6 +1871,8 @@ body.graph-palette-ruby {
   outline: none;
   width: 100%;
   max-width: 260px;
+  -webkit-text-security: disc;
+  text-security: disc;
 }
 
 .help-box {
@@ -2811,7 +2830,7 @@ body.graph-palette-ruby {
     <div class="toolbar">
       <div class="search-wrap">
         <span class="search-icon">&#128269;</span>
-        <input type="text" class="search-input" id="n-filter" placeholder="Filter scarabs..." oninput="renderVendorTable()">
+        <input type="text" class="search-input" id="n-filter" placeholder="Filter scarabs..." oninput="renderVendorTable()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="ninja_filter" data-lpignore="true">
       </div>
       <div class="view-toggle">
         <button id="n-viewAll" class="active" onclick="setNinjaView('all')">All</button>
@@ -2939,7 +2958,7 @@ body.graph-palette-ruby {
           <span id="loggerRegexBadge" style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:3px;background:var(--ninja-bg);color:var(--ninja-accent);border:1px solid var(--ninja-border);letter-spacing:0.03em">auto</span>
           <span id="loggerRegexNote" style="font-size:11px;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">Auto-filled from Scarab Vendor tab &mdash; click to replace</span>
         </div>
-        <input class="logger-regex-input" type="text" id="loggerRegex" placeholder='e.g. "lk|dg|rus|arr|nsc"'>
+        <input class="logger-regex-input" type="text" id="loggerRegex" placeholder='e.g. "lk|dg|rus|arr|nsc"' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="logger_regex" data-lpignore="true">
         <div style="margin-top:4px;min-height:16px">
           <div class="logger-regex-hint" id="loggerRegexHint"></div>
         </div>
@@ -3025,7 +3044,7 @@ body.graph-palette-ruby {
         </div>
         <div class="table-card" style="margin-top:12px">
           <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 82px 76px 82px 84px;gap:6px" id="analysisWeightHead">
-            <div class="th" data-sort="name" onclick="sortAnalysisWeight('name')">Scarab</div>
+            <div class="th th-search"><input type="text" id="analysis-filter" class="analysis-head-search" placeholder="SCARAB" oninput="setAnalysisWeightFilter(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="analysis_filter" data-lpignore="true"></div>
             <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')"><span class="recv-desktop">Received</span><span class="recv-mobile">Recv</span></div>
             <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
             <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">COST/EA</div>
@@ -3053,7 +3072,7 @@ body.graph-palette-ruby {
     <div class="bulk-controls">
       <div class="bulk-csv-col">
         <label class="bulk-label">Gemini CSV (name,qty)</label>
-        <textarea id="bulkCsv" class="bulk-textarea" placeholder="Name,Qty&#10;Horned of Bloodlines,3&#10;Breach of Instability,21&#10;Ultimatum of Catalysing,1&#10;..."></textarea>
+        <textarea id="bulkCsv" class="bulk-textarea" placeholder="Name,Qty&#10;Horned of Bloodlines,3&#10;Breach of Instability,21&#10;Ultimatum of Catalysing,1&#10;..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_csv" data-lpignore="true"></textarea>
       </div>
       <div class="bulk-right-col">
         <div class="bulk-drop-wrap">
@@ -3073,12 +3092,12 @@ body.graph-palette-ruby {
           <div class="bulk-inputs-row">
             <div class="bulk-field">
               <label class="bulk-label">Asking price (chaos)</label>
-              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { const v = parseFloat(this.value); if (Number.isFinite(v) && v > 0) analyzeBulkFromImage(); } }" />
+              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { const v = parseFloat(this.value); if (Number.isFinite(v) && v > 0) analyzeBulkFromImage(); } }" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_asking_chaos" data-lpignore="true" />
               <div class="bulk-hint">Use the seller's total chaos cost for the lot.</div>
             </div>
             <div class="bulk-field">
               <label class="bulk-label">Gemini API key</label>
-              <input id="bulkGeminiKey" class="bulk-gemini-key" type="password" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)">
+              <input id="bulkGeminiKey" class="bulk-gemini-key" type="text" placeholder="AIza..." onchange="onBulkGeminiKeyChange(this)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_gemini_key" data-lpignore="true">
               <div class="bulk-hint">Stored locally in your browser.</div>
             </div>
           </div>
@@ -3169,7 +3188,7 @@ body.graph-palette-ruby {
           </div>
           <div>
             <div class="bulk-debug-title" style="margin-bottom:4px">Bulk name map (JSON)</div>
-            <textarea id="bulkNameMapInput" class="bulk-debug-map-input" placeholder='{\n  "horned of bloodlines": "Horned Scarab of Bloodlines"\n}'></textarea>
+            <textarea id="bulkNameMapInput" class="bulk-debug-map-input" placeholder='{\n  "horned of bloodlines": "Horned Scarab of Bloodlines"\n}' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_name_map_input" data-lpignore="true"></textarea>
             <div class="bulk-debug-map-hint">
             Lowercase keys -> canonical scarab names. Stored locally only.
               <button type="button" class="bulk-debug-btn" style="margin-left:6px" onclick="saveBulkNameMapFromInput()">Save map</button>
