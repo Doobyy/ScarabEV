@@ -51,7 +51,7 @@ jobs:
         run: npx wrangler@3.114.12 deploy --config wrangler.staging.toml
 
   deploy-production:
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'production' && inputs.confirm_production == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'production' && (inputs.confirm_production == true || inputs.confirm_production == 'true')
     runs-on: ubuntu-latest
     environment: production
     steps:
