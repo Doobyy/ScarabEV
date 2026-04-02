@@ -47,7 +47,8 @@ jobs:
         working-directory: backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --legacy-env --env staging
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@3.114.12 deploy --legacy-env --env staging
 
   deploy-production:
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'production' && inputs.confirm_production == 'true'
@@ -72,4 +73,5 @@ jobs:
         working-directory: backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --legacy-env --env production
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@3.114.12 deploy --legacy-env --env production
