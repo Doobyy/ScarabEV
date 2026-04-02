@@ -3259,8 +3259,12 @@ normalizeBulkNameCells();
 
 function atlasSave() {
   // Compute and store deltas at save time so we can detect when a
-  // previously-positive toggle has flipped negative on revisit
-  const saved = { blocked: [], boosted: [], deltas: {} };
+  // previously-positive toggle has flipped negative on revisit.
+  // Also snapshot untoggled suggestion state so we only alert when a node
+  // newly crosses into suggested territory later.
+  const saved = { blocked: [], boosted: [], deltas: {}, suggestedState: {} };
+  const baselineEV = atlasComputeEV(new Set(), new Set()) || 0;
+  const suggestedThresholdPct = 0.01;
   for (const g of state._atlasBlocked) {
     saved.blocked.push(g);
     saved.deltas[`block:${g}`] = atlasGroupStats(g, true).toggleDelta;
@@ -3268,6 +3272,16 @@ function atlasSave() {
   for (const g of state._atlasBoosted) {
     saved.boosted.push(g);
     saved.deltas[`boost:${g}`] = atlasGroupStats(g, false).toggleDelta;
+  }
+  for (const g of ATLAS_BLOCKABLE) {
+    if (state._atlasBlocked.has(g)) continue;
+    const d = atlasGroupStats(g, true).toggleDelta;
+    saved.suggestedState[`block:${g}`] = baselineEV > 0 ? (d / baselineEV) >= suggestedThresholdPct : false;
+  }
+  for (const g of ATLAS_BOOSTABLE) {
+    if (state._atlasBoosted.has(g)) continue;
+    const d = atlasGroupStats(g, false).toggleDelta;
+    saved.suggestedState[`boost:${g}`] = baselineEV > 0 ? (d / baselineEV) >= suggestedThresholdPct : false;
   }
   try {
     localStorage.setItem(ATLAS_SAVE_KEY, JSON.stringify(saved));
@@ -3304,7 +3318,7 @@ function atlasCheckRevisitWarning() {
     const saved = JSON.parse(raw);
     if (!saved.deltas || !Object.keys(saved.deltas).length) return;
 
-    // Only warn if it was negative (good) when saved but is now positive (bad).
+    // Case 1: was negative (good) when saved, now positive (bad).
     let hasFlipped = false;
     for (const [key, savedDelta] of Object.entries(saved.deltas)) {
       if (savedDelta >= 0) continue; // was already an EV loss when saved \u2014 skip
@@ -3312,31 +3326,60 @@ function atlasCheckRevisitWarning() {
       const currentDelta = atlasGroupStats(group, type === 'block').toggleDelta;
       if (currentDelta > 0) { hasFlipped = true; break; }
     }
-    if (!hasFlipped) return;
+
+    // Case 2: node was not suggested when saved, now newly suggested.
+    let newlySuggestedCount = 0;
+    const baselineEV = atlasComputeEV(new Set(), new Set()) || 0;
+    const suggestedThresholdPct = 0.01;
+    const priorSuggested = saved.suggestedState || {};
+    for (const [key, wasSuggested] of Object.entries(priorSuggested)) {
+      if (wasSuggested) continue; // user already ignored this at save time
+      const [type, group] = key.split(':');
+      const isBlock = type === 'block';
+      const isActive = isBlock ? state._atlasBlocked.has(group) : state._atlasBoosted.has(group);
+      if (isActive) continue; // already toggled now, no reminder needed
+      const currentDelta = atlasGroupStats(group, isBlock).toggleDelta;
+      const isNowSuggested = baselineEV > 0 ? (currentDelta / baselineEV) >= suggestedThresholdPct : false;
+      if (isNowSuggested) newlySuggestedCount++;
+    }
+
+    if (!hasFlipped && newlySuggestedCount === 0) return;
 
     // Only warn once per session
     if (window._atlasWarnedThisSession) return;
     window._atlasWarnedThisSession = true;
 
     setTimeout(() => {
-      showAtlasWarningToast();
+      showAtlasWarningToast({ hasFlipped, newlySuggestedCount });
     }, 2000);
   } catch(e) {}
 }
 
-function showAtlasWarningToast() {
+function showAtlasWarningToast(opts = {}) {
+  const hasFlipped = !!opts.hasFlipped;
+  const newlySuggestedCount = Number(opts.newlySuggestedCount || 0);
   const el = document.getElementById('toastAtlas');
   if (!el || el.classList.contains('show')) return;
-  el.style.setProperty('--vt-accent', 'var(--chaos)');
+  el.style.setProperty('--vt-accent', hasFlipped ? 'var(--chaos)' : 'var(--accent)');
+  const title = hasFlipped ? 'Atlas config needs review' : 'New atlas suggestions available';
+  const alert = hasFlipped
+    ? 'Prices may have shifted since your last save.'
+    : 'Market shifts unlocked new positive Atlas opportunities.';
+  const lines = [];
+  if (hasFlipped) lines.push('One or more of your saved toggles is now hurting your map EV.');
+  if (newlySuggestedCount > 0) {
+    const label = newlySuggestedCount === 1 ? 'One node' : `${newlySuggestedCount} nodes`;
+    lines.push(`${label} crossed above your positive EV suggestion threshold.`);
+  }
+  lines.push('Check Atlas Optimizer pills/deltas and decide if you want to update your config.');
   el.innerHTML = `
     <div class="version-toast-header">
-      <span class="version-toast-title" style="text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap">Atlas config needs review</span>
+      <span class="version-toast-title" style="text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap">${title}</span>
       <button class="version-toast-dismiss" onclick="event.stopPropagation(); dismissAtlasToast()" title="Dismiss">&times;</button>
     </div>
-    <div class="version-toast-alert">Prices may have shifted since your last save.</div>
+    <div class="version-toast-alert">${alert}</div>
     <div class="version-toast-body">
-      <ul><li>One or more of your saved toggles is now hurting your map EV.</li>
-      <li>Check the Atlas Optimizer &mdash; EV loss pills show which ones.</li></ul>
+      <ul>${lines.map(line => `<li>${line}</li>`).join('')}</ul>
     </div>
     <div class="version-toast-footer">Click to open Atlas Optimizer</div>
   `;
