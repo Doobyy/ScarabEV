@@ -1991,8 +1991,6 @@ renderSessionHistory();
 function renderAnalysis() {
   const emptyEl = document.getElementById('analysisEmpty');
   const contentEl = document.getElementById('analysisContent');
-  // Aggregate analytics should stay in chaos to avoid cross-session divine-rate distortion.
-  const fmt = (c) => fmtChaos(c);
 
   if (POOL_API_URL) {
     emptyEl.style.display = 'block';
@@ -2008,29 +2006,38 @@ function renderAnalysis() {
             totalTrades: agg.totalTrades || 0,
             totalInput: agg.totalInput || 0,
             totalOutput: agg.totalOutput || 0,
+            totalInputDivine: agg.totalInputDivine ?? null,
+            totalOutputDivine: agg.totalOutputDivine ?? null,
             receivedByScarab: agg.receivedByScarab || {},
             sessionCount: agg.sessionCount || 0,
             dataSourceLabel: 'Community data (' + (agg.sessionCount || 0).toLocaleString() + ' sessions)'
-          }, fmt, emptyEl, contentEl);
+          }, emptyEl, contentEl);
           return;
         }
-        renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl);
+        renderAnalysisFromLocalSessions(emptyEl, contentEl);
       })
-      .catch(() => renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl));
+      .catch(() => renderAnalysisFromLocalSessions(emptyEl, contentEl));
   } else {
-    renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl);
+    renderAnalysisFromLocalSessions(emptyEl, contentEl);
   }
 }
 
-function renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl) {
+function renderAnalysisFromLocalSessions(emptyEl, contentEl) {
   const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
   let totalConsumed = 0, totalTrades = 0, totalInput = 0, totalOutput = 0;
+  let totalInputDivine = 0, totalOutputDivine = 0, divineSessionCount = 0;
   const receivedByScarab = {};
   for (const s of sessions) {
     totalConsumed += s.total_consumed || 0;
     totalTrades += s.total_trades || 0;
     totalInput += s.input_value || 0;
     totalOutput += s.output_value || 0;
+    const divineRate = Number(s.divine_rate) || 0;
+    if (divineRate > 0) {
+      totalInputDivine += (Number(s.input_value) || 0) / divineRate;
+      totalOutputDivine += (Number(s.output_value) || 0) / divineRate;
+      divineSessionCount += 1;
+    }
     if (s.scarabs && s.scarabs.length) {
       for (const r of s.scarabs) {
         if (r.received > 0 && r.name) {
@@ -2041,16 +2048,22 @@ function renderAnalysisFromLocalSessions(fmt, emptyEl, contentEl) {
   }
   renderAnalysisFromAggregate({
     totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab,
+    totalInputDivine: divineSessionCount > 0 ? totalInputDivine : null,
+    totalOutputDivine: divineSessionCount > 0 ? totalOutputDivine : null,
     sessionCount: sessions.length,
     validCount: sessions.filter(s => !s.flagged).length,
     dataSourceLabel: 'Your data only (' + sessions.length + ' sessions)'
-  }, fmt, emptyEl, contentEl);
+  }, emptyEl, contentEl);
 }
 
-function renderAnalysisFromAggregate(data, fmt, emptyEl, contentEl) {
-  const { totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab, dataSourceLabel } = data;
+function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
+  const { totalConsumed, totalTrades, totalInput, totalOutput, totalInputDivine, totalOutputDivine, receivedByScarab, dataSourceLabel } = data;
   const sessionCount = data.sessionCount != null ? data.sessionCount : 0;
   const validSub = data.validCount != null ? data.validCount + ' unflagged' : '';
+  const aggregateDivRate = Number(totalInputDivine) > 0
+    ? (totalInput / totalInputDivine)
+    : (Number(totalOutputDivine) > 0 ? (totalOutput / totalOutputDivine) : getDivineRate());
+  const fmt = (c) => fmtWithRate(c, aggregateDivRate);
 
   emptyEl.style.display = 'block';
   contentEl.style.display = 'none';
