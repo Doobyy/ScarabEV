@@ -1200,10 +1200,19 @@ function getDivineRate() {
   return state.ninjaDivineRate || null;
 }
 
+function fmtChaos(chaos) {
+  return Math.round(Number(chaos) || 0) + 'c';
+}
+
+function fmtWithRate(chaos, divRate) {
+  const c = Number(chaos) || 0;
+  const r = Number(divRate) || 0;
+  if (r > 0 && c / r >= 1) return (c / r).toFixed(1) + 'd';
+  return fmtChaos(c);
+}
+
 function fmtEst(chaos, divRate) {
-  if (!divRate) return Math.round(chaos) + 'c';
-  const d = chaos / divRate;
-  return d >= 1 ? d.toFixed(1) + 'd' : Math.round(chaos) + 'c';
+  return fmtWithRate(chaos, divRate);
 }
 
 function importWealthyCSV(event) {
@@ -1880,12 +1889,8 @@ function renderSessionHistory() {
     el.innerHTML = '<div class="logger-history-empty">No sessions logged yet.</div>';
     return;
   }
-  const divRate = getDivineRate();
-  const fmt = (c) => divRate && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c) + 'c';
   const cols = '1fr 72px 72px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
   const gap = '12px';
-  const gridStyle = `display:grid;grid-template-columns:${cols};gap:${gap};align-items:center;padding:6px 10px`;
-  const profitFmt = (c) => (c >= 0 ? '+' : '') + fmt(c);
 
   el.innerHTML = `
     <div class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center">
@@ -1894,13 +1899,15 @@ function renderSessionHistory() {
     ${sessions.slice().reverse().map((s, i) => {
       const idx = sessions.length - 1 - i;
       const profit = (s.output_value || 0) - (s.input_value || 0);
+      const fmtSession = (c) => fmtWithRate(c, s.divine_rate);
+      const profitFmt = (c) => (c >= 0 ? '+' : '') + fmtSession(c);
       return `<div>
         <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
           <span class="cell-left">${s.league}</span>
           <span class="cell-right">${s.total_consumed?.toLocaleString()}</span>
           <span class="cell-right">${s.total_trades?.toLocaleString()}</span>
-          <span class="cell-right">${fmt(s.input_value)}</span>
-          <span class="cell-right">${fmt(s.output_value)}</span>
+          <span class="cell-right">${fmtSession(s.input_value)}</span>
+          <span class="cell-right">${fmtSession(s.output_value)}</span>
           <span class="cell-right" style="color:${profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${profitFmt(profit)}</span>
           <span class="cell-right" style="color:var(--chaos)">${s.threshold?.toFixed(2)}c</span>
           <span class="cell-right" style="color:${s.roi_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct?.toFixed(1)}%</span>
@@ -1909,7 +1916,7 @@ function renderSessionHistory() {
           </span>
         </div>
         <div id="hist-detail-${idx}" style="display:none;padding:10px 14px 14px;border-bottom:1px solid var(--border);background:var(--bg)">
-          ${renderSessionDetail(s, fmt)}
+          ${renderSessionDetail(s)}
         </div>
       </div>`;
     }).join('')}
@@ -1931,7 +1938,7 @@ function toggleSessionDetail(idx) {
   if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
 }
 
-function renderSessionDetail(s, fmt) {
+function renderSessionDetail(s) {
   if (!s.scarabs || !s.scarabs.length) return '<div style="font-size:12px;color:var(--text-3)">No scarab data stored.</div>';
   const scarabNameSet = new Set(SCARAB_LIST.map(sc => sc.name));
   const vendors = s.scarabs.filter(r => r.was_vendor && scarabNameSet.has(r.name)).sort((a,b) => b.consumed - a.consumed);
@@ -1984,8 +1991,8 @@ renderSessionHistory();
 function renderAnalysis() {
   const emptyEl = document.getElementById('analysisEmpty');
   const contentEl = document.getElementById('analysisContent');
-  const divRate = getDivineRate();
-  const fmt = (c) => divRate && c !== null && c !== undefined && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c || 0) + 'c';
+  // Aggregate analytics should stay in chaos to avoid cross-session divine-rate distortion.
+  const fmt = (c) => fmtChaos(c);
 
   if (POOL_API_URL) {
     emptyEl.style.display = 'block';
