@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "npm run test:build && node .tmp-test/index.test.js",
+    "test:build": "tsc -p tsconfig.test.json",
     "typecheck": "tsc --noEmit",
     "deploy:staging": "wrangler deploy --config wrangler.staging.toml",
     "deploy:production": "wrangler deploy --config wrangler.production.toml"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260401.0",
+    "@types/node": "^25.5.0",
     "typescript": "^5.8.3",
     "wrangler": "^4.12.0"
   }

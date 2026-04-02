@@ -8,3 +8,8 @@ APP_NAME = "scarabev-backend"
 APP_ENV = "staging"
 LOG_LEVEL = "info"
 OBS_SAMPLE_RATE = "1"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "scarabev-backend-staging"
+database_id = "704619f4-eb84-4c4f-a978-b8eb2d781338"

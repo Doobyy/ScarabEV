@@ -1,4 +1,4 @@
-import type { RuntimeConfig } from "../config/env";
+import type { RuntimeConfig } from "../config/env.js";
 
 type JsonRecord = Record<string, unknown>;
 type LogLevel = RuntimeConfig["logLevel"];

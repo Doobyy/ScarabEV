@@ -8,3 +8,8 @@ APP_NAME = "scarabev-backend"
 APP_ENV = "production"
 LOG_LEVEL = "info"
 OBS_SAMPLE_RATE = "0.2"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "scarabev-backend-production"
+database_id = "02b7cda8-ed66-4340-8a44-457226b11ca2"
