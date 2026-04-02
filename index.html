@@ -1701,17 +1701,19 @@ body.graph-palette-ruby {
   background: var(--amber-bg); border-color: color-mix(in srgb, var(--amber) 24%, var(--border) 76%); border-left-color: var(--amber);
 }
 .notice-warn strong { color: var(--amber); }
-.notice-atlas-config .atlas-evloss { color: var(--amber); font-weight: 700; }
-#tab-atlas .atlas-note strong { color: var(--accent); }
-#tab-atlas .atlas-note .atlas-evloss { color: var(--chaos); font-weight: 700; }
+.notice-atlas-config .atlas-evloss { color: var(--red); font-weight: 700; }
+#tab-atlas .atlas-note strong { color: var(--text-2); }
+#tab-atlas .atlas-note .atlas-evloss { color: var(--red); font-weight: 700; }
 #tab-atlas .atlas-note .atlas-suggested { color: var(--green); font-weight: 700; }
-[data-theme="dark"] #tab-atlas .atlas-note strong { color: var(--accent); }
-[data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss { color: var(--chaos); }
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss { color: var(--red); }
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested { color: var(--green); }
+[data-theme="dark"] #tab-atlas .atlas-note strong { color: #7faedc; }
 .notice-tip {
   background: var(--accent-dim); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent);
 }
 .notice-tip strong { color: var(--accent); }
+.notice-tip-subtle-strong > strong { color: var(--text-2); }
+[data-theme="dark"] .notice-tip-subtle-strong > strong { color: #7faedc; }
 .notice-data {
   background: var(--chaos-bg); border-color: rgba(160,62,200,0.15); border-left-color: var(--chaos);
 }
@@ -1749,16 +1751,7 @@ body.graph-palette-ruby {
   border-left-color: var(--accent);
 }
 [data-theme="dark"] .notice-atlas-config strong { color: var(--accent); }
-[data-theme="dark"] .notice-atlas-config .atlas-evloss { color: var(--chaos); }
-#tab-atlas .notice-atlas-config {
-  margin-bottom: 0;
-  border-radius: 0 6px 0 0;
-}
-#tab-atlas .notice-atlas-config + .notice-atlas-recalc {
-  margin-top: 0;
-  border-top-width: 0;
-  border-radius: 0 0 6px 0;
-}
+[data-theme="dark"] .notice-atlas-config .atlas-evloss { color: var(--red); }
 .notice code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 [data-theme="dark"] .notice code { background: rgba(255,255,255,0.06); }
 .bulk-unmatched-list { margin-top: 4px; color: var(--text-2); }
@@ -2097,6 +2090,7 @@ body.graph-palette-ruby {
 .atlas-col-header-title {
   font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.07em; text-transform: uppercase;
 }
+[data-theme="dark"] .atlas-col-header-title { color: #7faedc; }
 :root:not([data-theme="dark"]) .atlas-col-header-title { font-weight: 900; }
 .atlas-col-title-tag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
@@ -2183,11 +2177,11 @@ body.graph-palette-ruby {
 .atlas-badge.blocked     { background: rgba(214,58,44,0.12); color: var(--red);   border: 1px solid rgba(214,58,44,0.3); }
 .atlas-badge.boosted     { background: #3a5cd4; color: #fff; border: 1px solid #2d4fc0; }
 .atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; }
-.atlas-badge.ev-loss     { background: rgba(160,62,200,0.12); color: var(--chaos); border: 1px solid rgba(160,62,200,0.3); }
+.atlas-badge.ev-loss     { background: rgba(214,58,44,0.12); color: var(--red); border: 1px solid rgba(214,58,44,0.32); }
 [data-theme="dark"] .atlas-badge.blocked     { background: rgba(255,95,80,0.12);  color: var(--red); }
 [data-theme="dark"] .atlas-badge.boosted     { background: #3a5cd4; color: #fff; border-color: #2d4fc0; }
 [data-theme="dark"] .atlas-badge.recommended { background: rgba(54,216,126,0.10); color: var(--green); border-color: rgba(54,216,126,0.3); }
-[data-theme="dark"] .atlas-badge.ev-loss     { background: rgba(208,128,248,0.10); color: var(--chaos); border-color: rgba(208,128,248,0.3); }
+[data-theme="dark"] .atlas-badge.ev-loss     { background: rgba(214,58,44,0.14); color: var(--red); border-color: rgba(214,58,44,0.34); }
 
 .atlas-chevron { font-size: 20px; font-weight: 700; color: var(--text-3); transition: transform 0.15s; text-align: right; line-height: 1; opacity: 0.72; }
 .atlas-chevron.open { transform: rotate(90deg); }
@@ -3237,8 +3231,8 @@ body.graph-palette-ruby {
 
     <div class="atlas-intro">
       <div class="atlas-title" style="margin-bottom:6px">Atlas Optimizer</div>
-      <div class="atlas-sub">Use this tool to find the most efficient block-and-boost setup for maximizing scarab drop EV. Block nodes reduce pool dilution by removing mechanics, boost nodes will double its pool weight, and drop weights are modeled from observed vendor session data as a proxy for in-map drop weighting.<br></div>
-      <div class="notice notice-tip notice-atlas-recalc" style="margin-top:10px"><strong>EV re-normalizes and recalculates after every toggle.</strong> We recommend toggling the suggested positive nodes first, then reviewing marginal-gain nodes to decide whether the extra EV is worth the Atlas point cost for your setup, since those points may return more value elsewhere.</div>
+      <div class="atlas-sub">Use this tool to find the most efficient block-and-boost setup for maximizing scarab drop EV. Block nodes reduce pool dilution by removing mechanics, boost nodes will double its pool weight, and drop weights are modeled from observed vendor session data as a proxy for in-map drop weighting.</div>
+      <div class="notice notice-tip notice-tip-subtle-strong notice-atlas-recalc"><strong>EV re-normalizes and recalculates after every toggle.</strong> We recommend toggling the suggested positive nodes first, then reviewing marginal-gain nodes to decide whether the extra EV is worth the Atlas point cost for your setup, since those points may return more value elsewhere.</div>
     </div>
 
     <div class="atlas-hero">
@@ -3265,7 +3259,7 @@ body.graph-palette-ruby {
     </div>
 
     <div class="atlas-note" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <span style="font-size:12px;color:var(--text-2);line-height:1.7"><strong>Set up and save your config.</strong> On your next visit, we'll flag any toggle that has flipped to an <span class="atlas-evloss">EV loss</span> or is newly <strong class="atlas-suggested">suggested</strong>.</span>
+      <span style="font-size:12px;color:var(--text-2);line-height:1.7"><strong>Set up and save your config.</strong> On your next visit, we'll flag any toggle that has flipped to an <span class="atlas-evloss">EV LOSS</span> or is newly <strong class="atlas-suggested">SUGGESTED</strong>.</span>
       <button id="atlasSaveBtn" class="atlas-save-btn" onclick="atlasSave()">Save config</button>
     </div>
 
