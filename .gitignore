@@ -1,2 +1,7 @@
 .local/
 .temp/
+docket.md
+docs/
+backend/.dev.vars
+backend/.wrangler/
+backend/node_modules/

@@ -1,0 +1,8 @@
+# Copy to `backend/.dev.vars` for local development.
+# Do not commit the real .dev.vars file.
+APP_NAME=scarabev-backend
+APP_ENV=dev
+LOG_LEVEL=debug
+OBS_SAMPLE_RATE=1
+# Optional: remote error sink (future integration)
+ERROR_SINK_DSN=

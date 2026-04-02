@@ -1,0 +1,28 @@
+name = "scarabev-backend-dev"
+main = "src/index.ts"
+compatibility_date = "2026-04-02"
+workers_dev = true
+
+[vars]
+APP_NAME = "scarabev-backend"
+APP_ENV = "dev"
+LOG_LEVEL = "debug"
+OBS_SAMPLE_RATE = "1"
+
+[env.staging]
+name = "scarabev-backend-staging"
+
+[env.staging.vars]
+APP_NAME = "scarabev-backend"
+APP_ENV = "staging"
+LOG_LEVEL = "info"
+OBS_SAMPLE_RATE = "1"
+
+[env.production]
+name = "scarabev-backend-production"
+
+[env.production.vars]
+APP_NAME = "scarabev-backend"
+APP_ENV = "production"
+LOG_LEVEL = "info"
+OBS_SAMPLE_RATE = "0.2"
