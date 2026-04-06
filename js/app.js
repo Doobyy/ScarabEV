@@ -612,6 +612,7 @@ async function fetchMarketScarabPrices() {
   const status = document.getElementById('ninjaStatus');
   const btn    = document.getElementById('refreshBtn');
   const hadPriorData = !!(state.ninjaLoaded && state.ninjaPrices && Object.keys(state.ninjaPrices).length > 0);
+  const LOCAL_FALLBACK_MAX_AGE_MS = 15 * 60 * 1000;
   status.textContent = 'Loading prices from poe.ninja...'; status.className = 'ninja-status loading';
   btn.disabled = true;
   state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
@@ -741,7 +742,9 @@ async function fetchMarketScarabPrices() {
     if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
     else status.textContent = 'Failed to load prices from poe.ninja';
     status.className = 'ninja-status error';
-    if (hadPriorData) {
+    const priorAgeMs = window._ninjaPriceTime ? (Date.now() - new Date(window._ninjaPriceTime).getTime()) : Number.POSITIVE_INFINITY;
+    const canUseLocalFallback = hadPriorData && Number.isFinite(priorAgeMs) && priorAgeMs <= LOCAL_FALLBACK_MAX_AGE_MS;
+    if (canUseLocalFallback) {
       status.textContent = staleExpiredSeen
         ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
         : 'Refresh failed; showing last good market snapshot';
