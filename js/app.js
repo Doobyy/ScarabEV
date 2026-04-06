@@ -614,7 +614,6 @@ async function fetchMarketScarabPrices() {
   const hadPriorData = !!(state.ninjaLoaded && state.ninjaPrices && Object.keys(state.ninjaPrices).length > 0);
   const LOCAL_FALLBACK_MAX_AGE_MS = 15 * 60 * 1000;
   const WORKER_FETCH_TIMEOUT_MS = 7000;
-  const FALLBACK_FETCH_TIMEOUT_MS = 3500;
   status.textContent = 'Loading prices from poe.ninja...'; status.className = 'ninja-status loading';
   btn.disabled = true;
   state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
@@ -633,8 +632,6 @@ async function fetchMarketScarabPrices() {
     const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
     const log = [];
     let staleExpiredSeen = false;
-    const cb = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
 
     const fmtAgeLabel = (ageSeconds) => {
       const s = Math.max(0, Number(ageSeconds) || 0);
@@ -782,26 +779,8 @@ async function fetchMarketScarabPrices() {
       return;
     }
 
-    // 2. Public proxy fallbacks
-    const fallbacks = [
-      { label: 'allorigins/raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(ninjaUrl)}` },
-      { label: 'codetabs',       url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(ninjaUrl)}` },
-    ];
-    for (const attempt of fallbacks) {
-      try {
-        status.textContent = `Trying ${attempt.label}...`;
-        const res = await fetchWithTimeout(attempt.url, { cache: 'no-store' }, FALLBACK_FETCH_TIMEOUT_MS);
-        if (!res.ok) { log.push(`[${attempt.label}] HTTP ${res.status}`); continue; }
-        const text = await res.text();
-        try {
-          const { rawPrices, rawImages } = parseOldNinjaResponse(text, attempt.unwrap);
-          if (applyPrices(rawPrices, rawImages, attempt.label)) { btn.disabled = false; return; }
-        } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
-      } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
-    }
-
     if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
-    else status.textContent = 'Failed to load prices from poe.ninja';
+    else status.textContent = 'Failed to load prices from market worker';
     status.className = 'ninja-status error';
     if (canUseLocalFallback) {
       status.textContent = staleExpiredSeen

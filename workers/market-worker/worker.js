@@ -1,6 +1,7 @@
 const CACHE_PREFIX = "market-cache-v2";
 const KEY_CURRENT_LEAGUE = `${CACHE_PREFIX}:current-league`;
 const BACKOFF_STEPS_MS = [2 * 60 * 1000, 5 * 60 * 1000, 10 * 60 * 1000];
+const UPSTREAM_TIMEOUT_MS = 8000;
 
 const POLICY = {
   currentLeague: {
@@ -215,12 +216,12 @@ async function getCachedCurrentLeagueValue(env) {
 }
 
 async function fetchCurrentLeagueData() {
-  const res = await fetch("https://api.pathofexile.com/leagues?type=main&realm=pc&limit=50", {
+  const res = await fetchWithTimeout("https://api.pathofexile.com/leagues?type=main&realm=pc&limit=50", {
     headers: {
       "User-Agent": "ScarabEV/1.1 (contact: doobyy.github.io)",
       Accept: "application/json"
     }
-  });
+  }, UPSTREAM_TIMEOUT_MS);
   if (!res.ok) {
     throw new Error(`GGG leagues API ${res.status}`);
   }
@@ -310,12 +311,12 @@ async function runDailyEVSnapshot(env) {
 }
 
 async function fetchCurrentChallengeLeaguePair() {
-  const res = await fetch("https://api.pathofexile.com/leagues?type=main&realm=pc&limit=50", {
+  const res = await fetchWithTimeout("https://api.pathofexile.com/leagues?type=main&realm=pc&limit=50", {
     headers: {
       "User-Agent": "ScarabEV/1.1 (contact: doobyy.github.io)",
       Accept: "application/json"
     }
-  });
+  }, UPSTREAM_TIMEOUT_MS);
   if (!res.ok) throw new Error(`GGG leagues API ${res.status}`);
   const data = await res.json();
   const leagues = data.result || data;
@@ -348,7 +349,7 @@ async function handleNinjaProxy(league, type) {
 
 async function fetchNinjaExchange(league, type) {
   const ninjaUrl = `https://poe.ninja/poe1/api/economy/exchange/current/overview?league=${encodeURIComponent(league)}&type=${encodeURIComponent(type)}`;
-  const res = await fetch(ninjaUrl, {
+  const res = await fetchWithTimeout(ninjaUrl, {
     method: "GET",
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -359,11 +360,26 @@ async function fetchNinjaExchange(league, type) {
       "Sec-Fetch-Mode": "cors",
       "Sec-Fetch-Site": "same-origin"
     }
-  });
+  }, UPSTREAM_TIMEOUT_MS);
   if (!res.ok) {
     throw new Error(`poe.ninja returned ${res.status}`);
   }
   return res.json();
+}
+
+async function fetchWithTimeout(url, init = {}, timeoutMs = UPSTREAM_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(250, Number(timeoutMs) || UPSTREAM_TIMEOUT_MS));
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      throw new Error("upstream_timeout");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function jsonWithMeta(data, meta) {

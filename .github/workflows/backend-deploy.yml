@@ -43,6 +43,14 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Typecheck backend
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
       - name: Deploy staging
         working-directory: backend
         env:
@@ -68,6 +76,14 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
+
+      - name: Typecheck backend
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
 
       - name: Deploy production
         working-directory: backend

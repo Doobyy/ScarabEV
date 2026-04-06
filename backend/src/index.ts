@@ -108,6 +108,29 @@ function clearCookie(config: RuntimeConfig, name: string, httpOnly: boolean): st
   });
 }
 
+function buildAdminSecurityHeaders(): Record<string, string> {
+  const csp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https:",
+    "form-action 'self'"
+  ].join("; ");
+  return {
+    "content-type": "text/html; charset=utf-8",
+    "x-frame-options": "DENY",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
+    "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "content-security-policy": csp
+  };
+}
+
 async function parseJsonBody(request: Request): Promise<Record<string, unknown>> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
@@ -953,10 +976,7 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
   if (request.method === "GET" && url.pathname === "/admin/ui") {
     return new Response(buildAdminUiHtml(), {
       status: 200,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "x-frame-options": "DENY"
-      }
+      headers: buildAdminSecurityHeaders()
     });
   }
 

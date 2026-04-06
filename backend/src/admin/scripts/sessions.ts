@@ -1,6 +1,9 @@
 export const ADMIN_SESSIONS_SCRIPT = String.raw`
 function safeNum(v){const n=Number(v);return Number.isFinite(n)?n:0;}
 function signColor(v){const n=safeNum(v);if(n>0)return 'var(--ok)';if(n<0)return 'var(--danger)';return 'var(--muted)';}
+const SESS_CFG_PERSIST_KEY='scarabev-admin-session-manager-v2';
+const SESS_CFG_SESSION_KEY='scarabev-admin-session-admin-key-v1';
+const SESS_CFG_PERSISTED_ADMIN_KEY='scarabev-admin-session-admin-key-persisted-v1';
 function fmtChaosRaw(v){const n=safeNum(v);return Math.round(n).toLocaleString()+'c';}
 function fmtRoiPct(input,output){const i=safeNum(input),o=safeNum(output);if(i<=0)return '-';const pct=((o-i)/i)*100;return (pct>=0?'+':'')+pct.toFixed(1)+'%';}
 function divFromChaos(chaos,divineRate){const rate=safeNum(divineRate);if(rate<=0)return null;return safeNum(chaos)/rate;}
@@ -37,25 +40,43 @@ function syncSessionPager(total){
 
 function loadSessionCfg(){
   try{
-    const raw=localStorage.getItem(SESS_CFG_KEY);
-    if(!raw)return;
-    const parsed=JSON.parse(raw);
-    if(parsed&&typeof parsed==='object'){
-      state.sessionApiUrl=typeof parsed.apiUrl==='string'?parsed.apiUrl.trim():'';
-      state.sessionAdminKey=typeof parsed.adminKey==='string'?parsed.adminKey.trim():'';
-    }
+    const raw=localStorage.getItem(SESS_CFG_PERSIST_KEY);
+    const parsed=raw?JSON.parse(raw):null;
+    const remember=!!(parsed&&typeof parsed==='object'&&parsed.rememberKey===true);
+    state.sessionApiUrl=(parsed&&typeof parsed.apiUrl==='string')?parsed.apiUrl.trim():'';
+    const sessionKey=sessionStorage.getItem(SESS_CFG_SESSION_KEY)||'';
+    const persistedKey=remember?(localStorage.getItem(SESS_CFG_PERSISTED_ADMIN_KEY)||''):'';
+    state.sessionAdminKey=(sessionKey||persistedKey||'').trim();
   }catch(e){}
 }
 function saveSessionCfg(){
   state.sessionApiUrl=($('sessApiUrl').value||'').trim();
   state.sessionAdminKey=($('sessAdminKey').value||'').trim();
-  try{localStorage.setItem(SESS_CFG_KEY,JSON.stringify({apiUrl:state.sessionApiUrl,adminKey:state.sessionAdminKey}));}catch(e){}
+  const remember=!!($('sessRememberKey')&&$('sessRememberKey').checked);
+  try{
+    localStorage.setItem(SESS_CFG_PERSIST_KEY,JSON.stringify({apiUrl:state.sessionApiUrl,rememberKey:remember}));
+    sessionStorage.setItem(SESS_CFG_SESSION_KEY,state.sessionAdminKey);
+    if(remember){
+      localStorage.setItem(SESS_CFG_PERSISTED_ADMIN_KEY,state.sessionAdminKey);
+    }else{
+      localStorage.removeItem(SESS_CFG_PERSISTED_ADMIN_KEY);
+    }
+  }catch(e){}
   status('sessStatus','Session manager config saved.','ok');
   closeSessionCfgModal();
 }
 function hydrateSessionCfgInputs(){
   if($('sessApiUrl'))$('sessApiUrl').value=state.sessionApiUrl||'https://scarabev-api.paperpandastacks.workers.dev/admin/sessions';
   if($('sessAdminKey'))$('sessAdminKey').value=state.sessionAdminKey||'';
+  if($('sessRememberKey')){
+    let remember=false;
+    try{
+      const raw=localStorage.getItem(SESS_CFG_PERSIST_KEY);
+      const parsed=raw?JSON.parse(raw):null;
+      remember=!!(parsed&&typeof parsed==='object'&&parsed.rememberKey===true);
+    }catch(e){}
+    $('sessRememberKey').checked=remember;
+  }
 }
 function sessionApiWithKey(pathSuffix){
   const base=($('sessApiUrl').value||state.sessionApiUrl||'').trim().replace(/\/+$/,'');
