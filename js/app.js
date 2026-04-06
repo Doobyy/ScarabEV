@@ -612,6 +612,7 @@ async function fetchMarketScarabPrices() {
 
   const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
   const log = [];
+  let staleExpiredSeen = false;
   const cb = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
 
@@ -699,7 +700,13 @@ async function fetchMarketScarabPrices() {
           }
           if (applyPrices(rawPrices, rawImages, 'Worker')) { btn.disabled = false; return; }
         } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
-      } else { log.push(`[Worker] HTTP ${res.status}`); }
+      } else {
+        let errPayload = null;
+        try { errPayload = await res.json(); } catch (_) { errPayload = null; }
+        if (errPayload?.error === 'stale_expired') staleExpiredSeen = true;
+        const errTag = errPayload?.error ? ` (${errPayload.error})` : '';
+        log.push(`[Worker] HTTP ${res.status}${errTag}`);
+      }
     } catch(e) { log.push(`[Worker] ${e.message}`); }
   }
 
@@ -721,7 +728,9 @@ async function fetchMarketScarabPrices() {
     } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
   }
 
-  status.textContent = 'Failed to load prices from poe.ninja'; status.className = 'ninja-status error';
+  if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
+  else status.textContent = 'Failed to load prices from poe.ninja';
+  status.className = 'ninja-status error';
   const logHtml = log.map(l => `<div style="margin:3px 0;font-size:10px;color:var(--text-3);font-family:monospace;word-break:break-all">${l}</div>`).join('');
   document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">&#9888; Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
   btn.disabled = false;

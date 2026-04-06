@@ -47,6 +47,24 @@ function classifyMarketAge(ms){
   return 'err';
 }
 
+function parseMetaAgeMs(meta){
+  if(!meta||typeof meta!=='object')return null;
+  const ageSec=Number(meta.ageSeconds);
+  if(Number.isFinite(ageSec)&&ageSec>=0)return Math.round(ageSec*1000);
+  const lastIso=meta.lastSuccessAt;
+  if(lastIso){
+    const ms=msSince(lastIso);
+    if(ms!==null)return ms;
+  }
+  return null;
+}
+
+function parseMetaState(meta){
+  const s=String(meta&&meta.dataState||'').toLowerCase();
+  if(s==='live'||s==='stale'||s==='error')return s;
+  return null;
+}
+
 async function checkHealthBackend(){
   const started=performance.now();
   const r=await api('/admin/healthz');
@@ -163,6 +181,12 @@ async function getMarketHealthBundle(){
       };
     }
     let data=null;try{data=await res.json();}catch(e){}
+    const leagueMeta=data&&data._meta?data._meta:null;
+    const leagueAgeMs=parseMetaAgeMs(leagueMeta);
+    const leagueState=parseMetaState(leagueMeta);
+    if(leagueMeta&&leagueAgeMs!==null){
+      marketWorkerLastSuccessAt=Date.now()-leagueAgeMs;
+    }
     const league=String((data&&data.league)||'').trim();
     if(!league){
       const ageMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
@@ -173,7 +197,9 @@ async function getMarketHealthBundle(){
         poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Current league missing from market worker response.'}
       };
     }
-    marketWorkerLastSuccessAt=Date.now();
+    if(!leagueMeta||leagueAgeMs===null){
+      marketWorkerLastSuccessAt=Date.now();
+    }
     const pullStarted=performance.now();
     const [scarabRes,currencyRes]=await Promise.all([
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Scarab',{cache:'no-store'}),
@@ -194,6 +220,43 @@ async function getMarketHealthBundle(){
     let scarab=null,currency=null;
     try{scarab=await scarabRes.json();}catch(e){}
     try{currency=await currencyRes.json();}catch(e){}
+    const scarabMeta=scarab&&scarab._meta?scarab._meta:null;
+    const currencyMeta=currency&&currency._meta?currency._meta:null;
+    const scarabState=parseMetaState(scarabMeta);
+    const currencyState=parseMetaState(currencyMeta);
+    const scarabAgeMs=parseMetaAgeMs(scarabMeta);
+    const currencyAgeMs=parseMetaAgeMs(currencyMeta);
+    const pullAgeMs=Math.max(scarabAgeMs||0,currencyAgeMs||0)||null;
+    if(pullAgeMs!==null){
+      poePullLastSuccessAt=Date.now()-pullAgeMs;
+    }
+    const pullState=(scarabState==='error'||currencyState==='error')?'error':((scarabState==='stale'||currencyState==='stale')?'stale':'live');
+
+    if(leagueState==='error'){
+      return {
+        marketWorker:{level:'err',detail:'Market worker cache is in error state.',meta:'Last success '+humanAge(leagueAgeMs)+' | '+took+'ms'},
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker reported error state for league lookup.'}
+      };
+    }
+    if(leagueState==='stale'){
+      return {
+        marketWorker:{level:classifyMarketAge(leagueAgeMs),detail:'Market worker serving stale league cache.',meta:'Last success '+humanAge(leagueAgeMs)+' | League '+league+' | '+took+'ms'},
+        poePull:{level:'warn',detail:'Market worker is stale; freshness should recover after refresh.',meta:'League '+league}
+      };
+    }
+
+    if(pullState==='error'){
+      return {
+        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        poePull:{level:'err',detail:'Market worker reports market cache error.',meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms'}
+      };
+    }
+    if(pullState==='stale'){
+      return {
+        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        poePull:{level:classifyMarketAge(pullAgeMs),detail:'Serving stale market data cache.',meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms'}
+      };
+    }
 
     const scarabLines=Array.isArray(scarab&&scarab.lines)?scarab.lines:[];
     const currencyLines=Array.isArray(currency&&currency.lines)?currency.lines:[];
@@ -212,14 +275,14 @@ async function getMarketHealthBundle(){
       };
     }
     if(divineValue<=0){
-      poePullLastSuccessAt=Date.now();
+      if(poePullLastSuccessAt===null)poePullLastSuccessAt=Date.now();
       const ageMs=Date.now()-poePullLastSuccessAt;
       return {
         marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
         poePull:{level:'warn',detail:'Scarab data loaded, but Divine Orb rate missing/invalid.',meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | '+pullTook+'ms'}
       };
     }
-    poePullLastSuccessAt=Date.now();
+    if(poePullLastSuccessAt===null)poePullLastSuccessAt=Date.now();
     const ageMs=Date.now()-poePullLastSuccessAt;
     return {
       marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},

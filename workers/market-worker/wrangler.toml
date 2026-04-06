@@ -1,0 +1,11 @@
+name = "scarabev-market-worker"
+main = "worker.js"
+compatibility_date = "2026-03-13"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "EV_HISTORY"
+id = "45058621c81d439d9ce0d12b61dc0c66"
+
+[triggers]
+crons = ["* * * * *", "*/10 * * * *", "0 0 * * *"]
