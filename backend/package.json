@@ -8,6 +8,8 @@
     "test": "npm run test:build && node .tmp-test/index.test.js",
     "test:build": "tsc -p tsconfig.test.json",
     "typecheck": "tsc --noEmit",
+    "admin:scripts:generate": "node ./scripts/generate-admin-inline-scripts.mjs",
+    "admin:scripts:verify": "npm run admin:scripts:generate && git diff --exit-code -- src/admin/scripts",
     "admin:scripts:check": "node ./scripts/check-admin-inline-scripts.mjs",
     "security:check": "npm audit --omit=dev --audit-level=high",
     "deps:outdated": "npm outdated",

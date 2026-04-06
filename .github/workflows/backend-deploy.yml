@@ -47,6 +47,10 @@ jobs:
         working-directory: backend
         run: npm run typecheck
 
+      - name: Verify admin inline script generation is up to date
+        working-directory: backend
+        run: npm run admin:scripts:verify
+
       - name: Check admin inline script syntax
         working-directory: backend
         run: npm run admin:scripts:check
@@ -88,6 +92,10 @@ jobs:
       - name: Typecheck backend
         working-directory: backend
         run: npm run typecheck
+
+      - name: Verify admin inline script generation is up to date
+        working-directory: backend
+        run: npm run admin:scripts:verify
 
       - name: Check admin inline script syntax
         working-directory: backend
