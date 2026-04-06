@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScarabEV Admin Redirect</title>
+</head>
+<body>
+  <script>
+    (function () {
+      var host = String(window.location.hostname || "").toLowerCase();
+      var isStaging = /(^localhost$)|(^127\.0\.0\.1$)|staging|dev/.test(host);
+      var target = isStaging
+        ? "https://scarabev-backend-staging.paperpandastacks.workers.dev/admin/ui"
+        : "https://scarabev-backend-production.paperpandastacks.workers.dev/admin/ui";
+      window.location.replace(target + window.location.search + window.location.hash);
+    })();
+  </script>
+</body>
+</html>
