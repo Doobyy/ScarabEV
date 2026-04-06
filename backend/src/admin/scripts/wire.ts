@@ -20,5 +20,17 @@ function wire(){
   $('healthRefreshBtn').onclick=()=>loadHealthOverview();
   $('editorModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='editorModalWrap')closeModal();}); $('captureModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='captureModalWrap')closeCaptureModal();}); $('sessCfgModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='sessCfgModalWrap')closeSessionCfgModal();});
 }
-(async function init(){initTheme();loadSessionCfg();wire();hydrateSessionCfgInputs();switchScarabSubtab('list');switchSessionSubtab('sessions');initCaptureQueue();switchPanel('health');state.user=null;setAuthUi(false);$('authStatus').classList.add('hidden');$('retireSelectedBtn').disabled=true;$('deleteSelectedBtn').disabled=true;try{await api('/admin/auth/logout',{method:'POST',body:'{}'});}catch(e){}})();
+(async function init(){
+  initTheme();loadSessionCfg();wire();hydrateSessionCfgInputs();switchScarabSubtab('list');switchSessionSubtab('sessions');initCaptureQueue();switchPanel('health');state.user=null;setAuthUi(false);$('authStatus').classList.add('hidden');$('retireSelectedBtn').disabled=true;$('deleteSelectedBtn').disabled=true;
+  try{
+    const sess=await api('/admin/auth/session');
+    if(sess.res.status===200&&sess.json&&sess.json.user){
+      state.user=sess.json.user;
+      setAuthUi(true);
+      await loadAll();
+      await loadHealthOverview({quiet:true});
+      return;
+    }
+  }catch(e){}
+})();
 `;
