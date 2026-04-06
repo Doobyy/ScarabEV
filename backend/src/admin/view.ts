@@ -1,11 +1,13 @@
 export function buildAdminMarkup(): string {
   return String.raw`
-<header id="topBar" class="top"><div><div class="title">ScarabEV Admin Plane</div><div id="panelTitle" class="sub">Scarab Manager | Staging-first control plane</div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
+<header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button><div><div class="title">ScarabEV Admin Plane</div><div id="panelTitle" class="sub">Scarab Manager | Staging-first control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
 <section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" placeholder="Username"/><input id="password" type="password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
 <section id="app" class="shell hidden">
   <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button></aside>
+  <div id="navBackdrop" class="nav-backdrop"></div>
   <main class="content">
     <section id="panel-scarab" class="panel">
+      <div class="mobile-tab-pick"><select id="scarabTabMobile" aria-label="Scarab section"><option value="list">Scarab List</option><option value="restore">Restore</option><option value="regex">Regex Test</option></select></div>
       <div class="mgr-filetabs"><button id="scarabTabList" class="mgr-tab active" type="button">Scarab List</button><button id="scarabTabRestore" class="mgr-tab" type="button">Restore</button><button id="scarabTabRegex" class="mgr-tab" type="button">Regex Test</button></div>
       <div class="card mgr-frame">
         <section id="scarabPaneList" class="scarab-pane active">
@@ -24,6 +26,7 @@ export function buildAdminMarkup(): string {
       </div>
     </section>
     <section id="panel-sessions" class="panel">
+      <div class="mobile-tab-pick"><select id="sessTabMobile" aria-label="Session section"><option value="sessions">Session Manager</option><option value="backups">Session Backups</option><option value="dupes">Resubmission Guard</option><option value="signals">Integrity Checker</option></select></div>
       <div class="sess-filetabs"><button id="sessTabSessions" class="sess-tab active" type="button">Session Manager</button><button id="sessTabBackups" class="sess-tab" type="button">Session Backups</button><button id="sessTabDupes" class="sess-tab" type="button">Resubmission Guard</button><button id="sessTabSignals" class="sess-tab" type="button">Integrity Checker</button></div>
       <div class="card sess-frame">
         <section id="sessPaneSessions" class="sess-pane active">

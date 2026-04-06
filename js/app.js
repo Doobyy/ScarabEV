@@ -453,7 +453,6 @@ async function initializeRegexTokenSource() {
         tokensByName: byName
       }));
     } catch (e) {}
-    showToast('Regex tokens: backend published set', 2200);
   } catch(e) {
     let cached = null;
     try {
@@ -467,13 +466,11 @@ async function initializeRegexTokenSource() {
       configureRegexEngine({ POE_RE_TOKENS: cachedByName });
       state._regexTokenSource = 'backend-cache';
       state._backendTokenVersion = cached?.versionId || null;
-      showToast('Backend token set unavailable, using cached backend tokens', 2800);
       return;
     }
     configureRegexEngine({ POE_RE_TOKENS: {} });
     state._regexTokenSource = 'backend-unavailable';
     state._backendTokenVersion = null;
-    showToast('Backend token set unavailable', 2600);
   }
 }
 

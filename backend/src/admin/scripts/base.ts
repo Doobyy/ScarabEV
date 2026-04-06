@@ -46,9 +46,19 @@ function switchPanel(name){
   ['scarab','sessions','health','regex'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
   document.querySelectorAll('.navbtn').forEach((b)=>b.classList.toggle('active',b.dataset.panel===name));
   $('panelTitle').textContent=(labels[name]||'Dashboard')+' | Staging-first control plane';
+  closeMobileNav();
 }
 
-function setAuthUi(ok){$('login').classList.toggle('hidden',ok);$('app').classList.toggle('hidden',!ok);$('topBar').classList.toggle('hidden',!ok);$('sessionTxt').textContent=ok?('Signed in: '+state.user.username):'Signed out';}
+function isMobileNav(){return !!window.matchMedia&&window.matchMedia('(max-width:1000px)').matches;}
+function setMobileNavOpen(open){
+  const app=$('app');const btn=$('navToggleBtn');if(!app)return;
+  app.classList.toggle('nav-open',!!open);
+  if(btn)btn.setAttribute('aria-expanded',open?'true':'false');
+}
+function toggleMobileNav(){if(!isMobileNav())return;const app=$('app');if(!app)return;setMobileNavOpen(!app.classList.contains('nav-open'));}
+function closeMobileNav(){if(!isMobileNav())return;setMobileNavOpen(false);}
+
+function setAuthUi(ok){$('login').classList.toggle('hidden',ok);$('app').classList.toggle('hidden',!ok);$('topBar').classList.toggle('hidden',!ok);$('sessionTxt').textContent=ok?('Signed in: '+state.user.username):'Signed out';if(ok)closeMobileNav();}
 function csrf(){const p=document.cookie.split(';').map((v)=>v.trim()).find((v)=>v.startsWith('scarabev_csrf='));return p?decodeURIComponent(p.slice(14)):'';}
 async function api(path,opt={}){const m=opt.method||'GET';const h=opt.headers||{};if(opt.body&&!h['content-type'])h['content-type']='application/json';if(m!=='GET'&&m!=='HEAD')h['x-csrf-token']=csrf();const r=await fetch(path,{method:m,headers:h,body:opt.body,credentials:'include'});const txt=await r.text();let j=null;try{j=JSON.parse(txt);}catch(e){}return{res:r,json:j,text:txt};}
 

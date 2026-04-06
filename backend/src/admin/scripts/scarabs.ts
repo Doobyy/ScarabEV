@@ -9,6 +9,7 @@ function switchScarabSubtab(tab){
   if(tabList)tabList.classList.toggle('active',mode==='list');
   if(tabRestore)tabRestore.classList.toggle('active',mode==='restore');
   if(tabRegex)tabRegex.classList.toggle('active',mode==='regex');
+  const mobile=$('scarabTabMobile'); if(mobile&&mobile.value!==mode)mobile.value=mode;
 }
 function sortFiltered(arr){const mode=state.sortBy;const copy=arr.slice();copy.sort((a,b)=>{const an=(a.currentText?.name||'').toLowerCase();const bn=(b.currentText?.name||'').toLowerCase();if(mode==='name_asc')return an.localeCompare(bn)||String(a.id).localeCompare(String(b.id));if(mode==='name_desc')return bn.localeCompare(an)||String(a.id).localeCompare(String(b.id));if(mode==='created_desc')return String(b.createdAt||'').localeCompare(String(a.createdAt||''));if(mode==='created_asc')return String(a.createdAt||'').localeCompare(String(b.createdAt||''));if(mode==='status')return String(a.status).localeCompare(String(b.status))||an.localeCompare(bn);return an.localeCompare(bn);});return copy;}
 function selectedTokenForScarab(s){const n=s.currentText?.name||'';return state.draftTokensByScarabId[s.id]||state.tokensByName[n]||'-';}

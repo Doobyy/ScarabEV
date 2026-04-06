@@ -8,12 +8,19 @@ APP_NAME = "scarabev-backend"
 APP_ENV = "production"
 LOG_LEVEL = "info"
 OBS_SAMPLE_RATE = "0.2"
-BACKUP_ENABLED = "false"
+BACKUP_ENABLED = "true"
 BACKUP_RETENTION_DAYS = "14"
-BACKUP_REQUIRE_EXTERNAL = "false"
+BACKUP_REQUIRE_EXTERNAL = "true"
 BACKUP_OBJECT_PREFIX = "snapshots"
+
+[triggers]
+crons = ["0 9 * * *"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "scarabev-backend-production"
 database_id = "02b7cda8-ed66-4340-8a44-457226b11ca2"
+
+[[r2_buckets]]
+binding = "BACKUP_R2"
+bucket_name = "scarabev-backups-production"

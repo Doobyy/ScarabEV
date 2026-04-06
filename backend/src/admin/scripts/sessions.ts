@@ -21,6 +21,7 @@ function switchSessionSubtab(tab){
   if(tabBackups)tabBackups.classList.toggle('active',mode==='backups');
   if(tabDupes)tabDupes.classList.toggle('active',mode==='dupes');
   if(tabSignals)tabSignals.classList.toggle('active',mode==='signals');
+  const mobile=$('sessTabMobile'); if(mobile&&mobile.value!==mode)mobile.value=mode;
 }
 function syncSessionPager(total){
   const size=Math.max(1,Number(state.sessionPageSize)||25);
