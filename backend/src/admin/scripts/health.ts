@@ -1,5 +1,13 @@
 export const ADMIN_HEALTH_SCRIPT = String.raw`
 const MARKET_WORKER_URL='https://scarabev-market-worker.paperpandastacks.workers.dev';
+const MARKET_HEALTH_CACHE_MS=15000;
+const MARKET_HEALTHY_AGE_MS=120000;
+const MARKET_WARN_AGE_MS=900000;
+let marketHealthCacheAt=0;
+let marketHealthCache=null;
+let marketHealthInFlight=null;
+let marketWorkerLastSuccessAt=null;
+let poePullLastSuccessAt=null;
 
 function healthBadge(level){
   const cls=level==='ok'?'ok':(level==='warn'?'warn':'danger');
@@ -30,6 +38,13 @@ function humanAge(ms){
   if(h<24)return h+'h ago';
   const d=Math.floor(h/24);
   return d+'d ago';
+}
+
+function classifyMarketAge(ms){
+  if(ms===null)return 'err';
+  if(ms<=MARKET_HEALTHY_AGE_MS)return 'ok';
+  if(ms<=MARKET_WARN_AGE_MS)return 'warn';
+  return 'err';
 }
 
 async function checkHealthBackend(){
@@ -116,42 +131,64 @@ async function checkHealthTokenHistory(){
 }
 
 async function checkHealthMarketWorker(){
+  const bundle=await getMarketHealthBundle();
+  return bundle.marketWorker;
+}
+
+async function checkHealthPoeNinjaPull(){
+  const bundle=await getMarketHealthBundle();
+  return bundle.poePull;
+}
+
+async function getMarketHealthBundle(){
+  const now=Date.now();
+  if(marketHealthCache&&((now-marketHealthCacheAt)<MARKET_HEALTH_CACHE_MS)){
+    return marketHealthCache;
+  }
+  if(marketHealthInFlight){
+    return marketHealthInFlight;
+  }
+  marketHealthInFlight=(async()=>{
   const started=performance.now();
   try{
     const res=await fetch(MARKET_WORKER_URL+'?type=CurrentLeague',{cache:'no-store'});
     const took=Math.round(performance.now()-started);
     if(!res.ok){
-      return {level:'err',detail:'Market worker is unreachable or errored.',meta:'Status '+res.status+' | '+took+'ms'};
+      const ageMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
+      const ageTxt=humanAge(ageMs);
+      const ageLevel=classifyMarketAge(ageMs);
+      return {
+        marketWorker:{level:ageLevel,detail:'Market worker request failed; using last known health window.',meta:'Last success '+ageTxt+' | Status '+res.status+' | '+took+'ms'},
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker league lookup failed ('+res.status+').'}
+      };
     }
     let data=null;try{data=await res.json();}catch(e){}
     const league=String((data&&data.league)||'').trim();
     if(!league){
-      return {level:'warn',detail:'Market worker responded but did not return current league.',meta:'Status '+res.status+' | '+took+'ms'};
+      const ageMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
+      const ageTxt=humanAge(ageMs);
+      const ageLevel=classifyMarketAge(ageMs);
+      return {
+        marketWorker:{level:ageLevel,detail:'Market worker responded but current league was missing.',meta:'Last success '+ageTxt+' | Status '+res.status+' | '+took+'ms'},
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Current league missing from market worker response.'}
+      };
     }
-    return {level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'};
-  }catch(e){
-    return {level:'err',detail:'Market worker request failed.',meta:String((e&&e.message)||e||'error')};
-  }
-}
-
-async function checkHealthPoeNinjaPull(){
-  const started=performance.now();
-  try{
-    let league='Standard';
-    try{
-      const lr=await fetch(MARKET_WORKER_URL+'?type=CurrentLeague',{cache:'no-store'});
-      const lj=lr.ok?await lr.json():null;
-      if(lj&&lj.league)league=String(lj.league);
-    }catch(_){}
-
+    marketWorkerLastSuccessAt=Date.now();
+    const pullStarted=performance.now();
     const [scarabRes,currencyRes]=await Promise.all([
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Scarab',{cache:'no-store'}),
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Currency',{cache:'no-store'})
     ]);
-    const took=Math.round(performance.now()-started);
+    const pullTook=Math.round(performance.now()-pullStarted);
 
     if(!scarabRes.ok||!currencyRes.ok){
-      return {level:'err',detail:'Worker could not fetch PoE.ninja data.',meta:'Scarab '+scarabRes.status+' | Currency '+currencyRes.status+' | '+took+'ms'};
+      const ageMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
+      const ageTxt=humanAge(ageMs);
+      const ageLevel=classifyMarketAge(ageMs);
+      return {
+        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        poePull:{level:ageLevel,detail:'Worker could not fetch fresh PoE.ninja data.',meta:'Last success '+ageTxt+' | Scarab '+scarabRes.status+' | Currency '+currencyRes.status+' | '+pullTook+'ms'}
+      };
     }
 
     let scarab=null,currency=null;
@@ -166,15 +203,39 @@ async function checkHealthPoeNinjaPull(){
     const divineValue=Number(divineLine&&(divineLine.primaryValue??divineLine.chaosEquivalent))||0;
 
     if(!scarabLines.length){
-      return {level:'err',detail:'No scarab lines returned from PoE.ninja pull.',meta:'League '+league+' | '+took+'ms'};
+      const ageMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
+      const ageTxt=humanAge(ageMs);
+      const ageLevel=classifyMarketAge(ageMs);
+      return {
+        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        poePull:{level:ageLevel,detail:'No scarab lines returned from latest PoE.ninja pull.',meta:'Last success '+ageTxt+' | League '+league+' | '+pullTook+'ms'}
+      };
     }
     if(divineValue<=0){
-      return {level:'warn',detail:'Scarab data loaded, but Divine Orb rate missing/invalid.',meta:'League '+league+' | Scarabs '+scarabLines.length+' | '+took+'ms'};
+      poePullLastSuccessAt=Date.now();
+      const ageMs=Date.now()-poePullLastSuccessAt;
+      return {
+        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        poePull:{level:'warn',detail:'Scarab data loaded, but Divine Orb rate missing/invalid.',meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | '+pullTook+'ms'}
+      };
     }
-    return {level:'ok',detail:'PoE.ninja scarab + currency pulls are healthy.',meta:'League '+league+' | Scarabs '+scarabLines.length+' | Divine '+divineValue.toFixed(2)+'c | '+took+'ms'};
+    poePullLastSuccessAt=Date.now();
+    const ageMs=Date.now()-poePullLastSuccessAt;
+    return {
+      marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+      poePull:{level:'ok',detail:'PoE.ninja scarab + currency pulls are healthy.',meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | Divine '+divineValue.toFixed(2)+'c | '+pullTook+'ms'}
+    };
   }catch(e){
-    return {level:'err',detail:'PoE.ninja pull validation failed.',meta:String((e&&e.message)||e||'error')};
-  }
+    const marketAgeMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
+    const pullAgeMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
+    return {
+      marketWorker:{level:classifyMarketAge(marketAgeMs),detail:'Market worker request failed.',meta:'Last success '+humanAge(marketAgeMs)+' | '+String((e&&e.message)||e||'error')},
+      poePull:{level:classifyMarketAge(pullAgeMs),detail:'PoE.ninja pull validation failed.',meta:'Last success '+humanAge(pullAgeMs)+' | '+String((e&&e.message)||e||'error')}
+    };
+  }})()
+    .then((bundle)=>{marketHealthCache=bundle;marketHealthCacheAt=Date.now();return bundle;})
+    .finally(()=>{marketHealthInFlight=null;});
+  return marketHealthInFlight;
 }
 
 function renderHealthCards(results){
