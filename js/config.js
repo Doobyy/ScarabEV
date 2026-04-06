@@ -166,11 +166,11 @@ export const POOL_API_URL = 'https://scarabev-api.paperpandastacks.workers.dev';
 export const FAQ_SECTIONS = [
   {
     title: 'What is the scarab vendor recipe?',
-    body: `Trade <strong>3 scarabs of the same tier</strong> to any vendor NPC and receive <strong>1 random scarab</strong> from a higher output pool. Most returns are cheap commons, but occasionally you get something worth 50–500× your inputs. Over enough trades the expected value of outputs tends to exceed the cost — that's the edge this tool finds and tracks.`
+    body: `Trade <strong>any 3 scarabs</strong> to any vendor NPC and receive <strong>1 random scarab</strong> from the vendor recipe pool. Most returns are cheap commons, but occasionally you get something worth 50–500× your inputs. Over enough trades, outputs can exceed input cost when market conditions make the recipe favorable.`
   },
   {
     title: 'Why vendor instead of just selling?',
-    body: `<strong>Liquidity</strong> — low-value scarabs tend to move slowly on the market. Listing hundreds of them and waiting days for buyers is impractical. The vendor recipe converts that unsellable bulk into fewer, higher-value scarabs that actually sell. <strong>Profitability</strong> — when your vendor targets cost less than what the vendor returns on average, every trade is mathematically in your favour. It's typically more profitable to vendor them than to sell at market. ScarabEV shows exactly which scarabs fall below that line.`
+    body: `<strong>Liquidity</strong> — low-value scarabs tend to move slowly on the market. Listing hundreds of them and waiting days for buyers is impractical. The vendor recipe converts that unsellable bulk into fewer, higher-value scarabs that actually sell. <strong>Profitability</strong> — when your vendor targets cost less than what the vendor returns on average, every trade is mathematically in your favor. When scarabs are priced below your active threshold, vendoring is usually more profitable than direct selling. ScarabEV shows exactly which scarabs fall below that line.`
   },
     {
     title: 'What is the vendor threshold and how is it calculated?',
@@ -180,7 +180,7 @@ export const FAQ_SECTIONS = [
 <strong>Weighted EV</strong> - uses observed community session data to weight each scarab by how often it actually appears as a vendor output, then applies current market prices:<br>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = SUM(weight_i * price_i) / 3<br>weight_i = times scarab_i appeared as output / total outputs observed</code>
 The weights are purely frequency data from real sessions - no historical prices involved. Current market prices are applied on top so the threshold reflects the current economy.<br><br>
-<div class="notice notice-amber"><strong>Weighted EV accuracy:</strong> weighted EV is only as accurate as the session data behind it. With fewer sessions the weights carry more variance - a few lucky expensive drops can pull the threshold higher than it should be. As more sessions accumulate the weights converge toward true drop frequencies. Until then, harmonic EV is the more conservative and reliable choice.</div><br>
+<div class="notice notice-amber"><strong>How to choose:</strong> Use <strong>Weighted</strong> if you want the best average result over many trades and you’re comfortable with higher variance. Use <strong>Harmonic</strong> if you want a steadier, safer threshold that isn’t overly influenced by rare big jackpot hits. Pick based on your risk tolerance and strategy, not whichever number is higher right now.</div><br>
 Both modes recalculate whenever market prices are refreshed.`
   },
     {
@@ -202,10 +202,10 @@ This keeps estimates aligned with real workflows where you keep vendoring until 
 <strong>What gets excluded:</strong><br>
 • <em>Low sample</em> — fewer than 500 scarabs consumed<br>
 • <em>Zero keeper outputs</em> — nothing came back worth keeping<br>
-• <em>Recycled session</em> — if less than 15% of outputs are vendor-target quality, the person likely re-vendored their returns multiple times in one session. This inflates expensive scarabs in the weight data and gets excluded automatically.<br>
+• <em>Recycled session</em> — recycled runs are excluded using multiple integrity checks (including vendor-target ratio, output-count tolerance, and output/trade coverage) because re-vendoring returns in the same session inflates expensive scarab frequency in weight data.<br>
 • <em>Outputs exceed inputs</em> — physically impossible in a single pass<br>
 • <em>No movement / no meaningful change</em> — before/after snapshots show no valid session delta, so submission is blocked<br><br>
-The recycling check matters most. A clean single-pass session always returns a mix of cheap commons and occasional keepers — cheap commons dominate the vendor pool. If almost nothing vendor-target came back, the session was recycled and the data is unusable for weight calibration.`
+The recycling checks matter most. A clean single-pass session usually returns a mix of cheap commons and occasional keepers — cheap commons dominate the vendor pool. If almost nothing vendor-target came back, the session was likely recycled and the data is unusable for weight calibration.`
   },
   {
     title: 'How do I log a session?',
@@ -219,31 +219,35 @@ Export Wealthy Exile before your session → vendor your marked scarabs → expo
 <strong>Two ways to get listing data in:</strong><br>
 - <strong>API image parsing</strong> - drop a screenshot and let Gemini parse it automatically (requires a free API key from aistudio.google.com). Convenient but less accurate, especially on dense or cluttered listings.<br>
 - <strong>Manual CSV</strong> - paste <code>Name,Qty</code> directly and click Analyze CSV only. Most reliable.<br><br>
-<div class="notice notice-amber"><strong>Best method for accuracy:</strong> paste your listing screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. The full Gemini web interface handles complex listings significantly better than the API and does not need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div><br>
+<div class="notice notice-amber"><strong>Best method for accuracy:</strong> paste your listing screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. In practice, the full Gemini web interface often handles complex listings better than the API and does not need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div><br>
 Regardless of method, always cross-reference the parsed data against the original listing before committing to a purchase.`
   },
     {
     title: 'Where do prices come from?',
-    body: `Prices come from <strong>poe.ninja</strong>. The app makes API calls (primarily through the Cloudflare worker path) to pull current market data on load/refresh. The divine orb rate is fetched separately and used to display larger values in divines. poe.ninja data is near-live market data but can lag active trade by a few hours.`
+    body: `Prices come from <strong>poe.ninja</strong>. The app pulls current market data on load/refresh. The divine orb rate is fetched separately and used to display larger values in divines. Because poe.ninja updates in intervals rather than continuously, fast market moves can create temporary price discrepancies between live trade and displayed values, especially during high volatility.`
   },
   {
     title: 'Is my data private?',
-    body: `Session history, price overrides, and settings are stored in your <strong>browser's localStorage only</strong> — nothing leaves your device unless you explicitly submit a session. The community database stores only anonymous aggregate data: scarab output counts, total trades, and input/output values. No account, no login, no way to identify individual contributors.`
+    body: `Session history, price overrides, and settings are stored in your <strong>browser's localStorage only</strong>. Only session submissions are sent as contribution data. The community database stores only anonymous aggregate data: scarab output counts, total trades, and input/output values. No account, no login, no way to identify individual contributors.`
   },
   {
     title: 'Why do I have to manually export CSVs? Can\'t this be automated?',
     body: `Yes — and it's the most common piece of feedback. Right now the tool relies on <strong>Wealthy Exile CSV exports</strong> for inventory snapshots because that's the only reliable way to read your stash contents without GGG's direct involvement.<br><br>
 The proper solution is <strong>OAuth access via GGG's official API</strong>. With OAuth, the tool could read your stash tabs directly — no Wealthy Exile, no manual exports, no before/after snapshots. Session logging would be as simple as clicking a button before and after vendoring. Everything tedious about the current workflow goes away.<br><br>
-GGG does offer OAuth access to third-party developers, but it requires a formal application and approval process. I haven't applied yet because I wanted to validate that there's genuine demand for the tool first.<br><br>
+GGG does offer OAuth access to third-party developers, but it requires a formal application and approval process.<br><br>
 <strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application.`
   },
   {
     title: 'Harmonic vs Weighted EV — which should I use?',
-    body: `They answer different questions, and the right choice depends on how you think about variance.<br><br>
-<strong>Harmonic EV</strong> structurally suppresses expensive outliers — a 512c Horned Scarab of Bloodlines contributes almost nothing to the calculation (<code>1/512 ≈ 0.002</code>). This makes it robust and consistent. It's essentially saying: <em>ignore the jackpot, base your threshold on what you reliably get back most of the time.</em> Good if you want predictable returns and don't want to over-extend your vendor budget chasing rare drops.<br><br>
-<strong>Weighted EV</strong> is the mathematically correct expected value given observed drop frequencies. If Bloodlines drops 0.03% of the time and is worth 512c, it contributes <code>0.0003 × 512 / 3 ≈ 0.05c</code> to the threshold. That's real EV you'd be ignoring with harmonic. Weighted EV is essentially saying: <em>the jackpot is real, factor it in, maximise your rolls.</em> If you're running thousands of trades and playing the long game, weighted EV is the theoretically correct threshold to use — every scarab you incorrectly sell instead of vendor is a missed roll at the jackpot pool.<br><br>
-The tradeoff is permanent, not just a data problem. Even with perfect drop rate data, weighted EV will always be higher than harmonic when there are jackpot scarabs in the pool — that's by design, not a flaw. Harmonic protects you from variance. Weighted maximises expected value at the cost of higher variance.<br><br>
-<div class="notice notice-amber"><strong>Practical recommendation:</strong> use Harmonic as your default. Switch to Weighted if you're running large volumes and are comfortable accepting that you might go hundreds of trades below the mean before the jackpots balance it out.</div>`
+    body: `Both models are valid, but they optimize for different outcomes.<br><br>
+<strong>Harmonic EV</strong> uses the harmonic mean of market prices:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic EV = N / SUM(1 / price_i)</code>
+Because it works on reciprocals, very expensive scarabs have limited influence, while cheap/common scarabs dominate the threshold. This makes Harmonic more conservative and stable for day-to-day decisions.<br><br>
+<strong>Weighted EV</strong> uses observed output frequencies from community sessions with current market prices:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = SUM(weight_i * price_i) / 3</code>
+This captures full long-run expected value, including rare expensive outcomes, so it can run higher variance in practice.<br><br>
+The gap between Harmonic and Weighted is dynamic, not fixed. As market prices shift, the two lines can widen, converge, or occasionally cross. That behavior is expected: Harmonic emphasizes common outcomes, while Weighted reflects long-run average value including rare outcomes. Neither model is more correct in every moment — they are tools for different risk profiles.<br><br>
+<div class="notice notice-amber"><strong>Practical recommendation:</strong> use Harmonic as your default for stable, risk-aware thresholds. Switch to Weighted when your goal is maximizing long-run average return and you’re comfortable with higher variance.</div>`
   },
   {
     title: 'Why use harmonic mean instead of arithmetic mean for EV?',
@@ -251,13 +255,13 @@ The tradeoff is permanent, not just a data problem. Even with perfect drop rate 
   },
   {
     title: 'What is the Atlas Optimizer and how does it calculate EV?',
-    body: `The Atlas Optimizer helps you find the best atlas passive configuration for maximising the value of scarab drops in your maps.<br><br>
+    body: `The Atlas Optimizer helps you find the best atlas passive configuration for maximizing the value of scarab drops in your maps.<br><br>
 <strong>How it works:</strong> every scarab type has an observed drop weight — how often it appears relative to others, derived from community vendor sessions. The map drop EV is the weighted average price across all active scarabs in the pool:<br>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">Map Drop EV = Σ(weight_i × price_i) / Σ(weight_i)</code>
 <strong>Block nodes</strong> remove a mechanic's scarabs from the pool entirely — their weight drops to zero and the remaining weights are renormalised. This raises the EV if the blocked group is below-average value, because every drop that would have been a cheap common now rolls against a higher-value pool instead.<br><br>
 <strong>Boost nodes</strong> apply a ×2 weight multiplier to a group before renormalising — doubling that mechanic's share of the drop pool. This pays off most when the boosted group's average scarab price is well above the current pool EV.<br><br>
 The <strong>Delta</strong> column shows exactly how much each toggle moves the EV — positive means it helps, negative means it hurts. The <strong>Suggested</strong> badge marks the single toggle with the highest positive delta given your current configuration.<br><br>
-<div class="notice notice-amber"><strong>Weight data variance:</strong> The drop weights come from vendor session outputs submitted by the community. With a smaller dataset, rare expensive scarabs can appear more or less frequently than their true long-run rate — which shifts the EV figures. The relative rankings between mechanics are reliable even with limited data, but the exact numbers will tighten as more sessions accumulate. Treat this as directional guidance, not a precision instrument.</div>`
+<div class="notice notice-amber"><strong>Weight data variance:</strong> The drop weights come from vendor session outputs submitted by the community. With a smaller dataset, rare expensive scarabs can appear more or less frequently than their true long-run rate — which shifts the EV figures. Relative rankings are often directionally useful, while exact values tighten as more sessions accumulate. Treat this as directional guidance, not a precision instrument.</div>`
   },
 ];
 
