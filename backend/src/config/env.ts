@@ -7,6 +7,7 @@ export interface Env {
   LOG_LEVEL: LogLevel;
   OBS_SAMPLE_RATE: string;
   ERROR_SINK_DSN?: string;
+  ALERT_WEBHOOK_URL?: string;
   SESSION_COOKIE_NAME?: string;
   CSRF_COOKIE_NAME?: string;
   SESSION_TTL_SECONDS?: string;
@@ -17,7 +18,12 @@ export interface Env {
   ADMIN_RATE_LIMIT_WINDOW_SECONDS?: string;
   ADMIN_RATE_LIMIT_PER_IP?: string;
   ADMIN_RATE_LIMIT_PER_USER?: string;
+  BACKUP_ENABLED?: string;
+  BACKUP_RETENTION_DAYS?: string;
+  BACKUP_REQUIRE_EXTERNAL?: string;
+  BACKUP_OBJECT_PREFIX?: string;
   DB?: D1Database;
+  BACKUP_R2?: R2Bucket;
 }
 
 export interface RuntimeConfig {
@@ -26,6 +32,7 @@ export interface RuntimeConfig {
   logLevel: LogLevel;
   observabilitySampleRate: number;
   errorSinkDsn?: string;
+  alertWebhookUrl?: string;
   sessionCookieName: string;
   csrfCookieName: string;
   sessionTtlSeconds: number;
@@ -36,6 +43,10 @@ export interface RuntimeConfig {
   adminRateLimitWindowSeconds: number;
   adminRateLimitPerIp: number;
   adminRateLimitPerUser: number;
+  backupEnabled: boolean;
+  backupRetentionDays: number;
+  backupRequireExternal: boolean;
+  backupObjectPrefix: string;
 }
 
 const VALID_ENV: ReadonlySet<string> = new Set(["dev", "staging", "production"]);
@@ -59,6 +70,20 @@ function parseOptionalInt(name: keyof Env, value: string | undefined, fallback: 
   }
 
   return parsed;
+}
+
+function parseOptionalBool(name: keyof Env, value: string | undefined, fallback: boolean): boolean {
+  if (!value || !value.trim()) {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1" || normalized === "yes") {
+    return true;
+  }
+  if (normalized === "false" || normalized === "0" || normalized === "no") {
+    return false;
+  }
+  throw new Error(`${name} must be a boolean-like value (true|false|1|0|yes|no). Received: ${value}`);
 }
 
 export function loadConfig(env: Env): RuntimeConfig {
@@ -103,6 +128,10 @@ export function loadConfig(env: Env): RuntimeConfig {
   );
   const adminRateLimitPerIp = parseOptionalInt("ADMIN_RATE_LIMIT_PER_IP", env.ADMIN_RATE_LIMIT_PER_IP, 240, 1);
   const adminRateLimitPerUser = parseOptionalInt("ADMIN_RATE_LIMIT_PER_USER", env.ADMIN_RATE_LIMIT_PER_USER, 120, 1);
+  const backupEnabled = parseOptionalBool("BACKUP_ENABLED", env.BACKUP_ENABLED, false);
+  const backupRetentionDays = parseOptionalInt("BACKUP_RETENTION_DAYS", env.BACKUP_RETENTION_DAYS, 14, 1);
+  const backupRequireExternal = parseOptionalBool("BACKUP_REQUIRE_EXTERNAL", env.BACKUP_REQUIRE_EXTERNAL, false);
+  const backupObjectPrefix = env.BACKUP_OBJECT_PREFIX?.trim() || "snapshots";
 
   if (sessionRotationSeconds >= sessionTtlSeconds) {
     throw new Error("SESSION_ROTATION_SECONDS must be lower than SESSION_TTL_SECONDS");
@@ -114,6 +143,7 @@ export function loadConfig(env: Env): RuntimeConfig {
     logLevel: logLevel as LogLevel,
     observabilitySampleRate: sampleRate,
     errorSinkDsn: env.ERROR_SINK_DSN?.trim() || undefined,
+    alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim() || undefined,
     sessionCookieName: env.SESSION_COOKIE_NAME?.trim() || "scarabev_session",
     csrfCookieName: env.CSRF_COOKIE_NAME?.trim() || "scarabev_csrf",
     sessionTtlSeconds,
@@ -123,6 +153,10 @@ export function loadConfig(env: Env): RuntimeConfig {
     authRateLimitPerUser,
     adminRateLimitWindowSeconds,
     adminRateLimitPerIp,
-    adminRateLimitPerUser
+    adminRateLimitPerUser,
+    backupEnabled,
+    backupRetentionDays,
+    backupRequireExternal,
+    backupObjectPrefix
   };
 }

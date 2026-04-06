@@ -8,7 +8,31 @@ import { state } from './state.js';
 import { configureScarabEngine, calcEV, calcAutoEV, computeWeightBasedRate, getNinjaEntries } from './scarabEngine.js';
 import { configureRegexEngine, buildRegex, buildReverseTokenMap, parseRegexToScarabs } from './regexEngine.js';
 import { parseWorkerResponse, parseOldNinjaResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, parseSnapCSV } from './market.js';
-import { CDN, SCARAB_LIST, ALPHA_ORDER, INGAME_ORDER, POOL_API_URL, FAQ_SECTIONS, CHAR_LIMIT, POE_RE_TOKENS, WORKER_URL, ATLAS_BLOCKABLE, ATLAS_BOOSTABLE, ATLAS_SAVE_KEY } from './config.js';
+import {
+  CDN,
+  SCARAB_LIST,
+  ALPHA_ORDER,
+  INGAME_ORDER,
+  POOL_API_URL,
+  FAQ_SECTIONS,
+  CHAR_LIMIT,
+  POE_RE_TOKENS,
+  WORKER_URL,
+  ATLAS_BLOCKABLE,
+  ATLAS_BOOSTABLE,
+  ATLAS_SAVE_KEY,
+  TOKEN_SOURCE_DEFAULT,
+  TOKEN_SOURCE_STORAGE_KEY,
+  BACKEND_TOKEN_SET_URL,
+  BACKEND_ADMIN_UI_URL
+} from './config.js';
+
+{
+  const p = String(window.location.pathname || '').toLowerCase();
+  if (p === '/admin' || p === '/admin/' || p.startsWith('/admin/')) {
+    window.location.replace(BACKEND_ADMIN_UI_URL + window.location.search + window.location.hash);
+  }
+}
 
 
 
@@ -382,10 +406,75 @@ function toggleFaqItem(bodyId, chevronId, questionId) {
 // used by poe.re/#/scarab. The regex is simply token1|token2|... for all
 // vendor-targeted scarabs, joined and wrapped in quotes.
 
-// Canonical token map sourced directly from poe.re scarab data (Scarabs.ts)
-// Each token is the exact pre-validated regex string poe.re uses for that scarab
+// Legacy static token map retained for explicit manual override only.
+const BACKEND_TOKEN_CACHE_KEY = 'scarabev-backend-token-cache-v1';
 
-configureRegexEngine({ POE_RE_TOKENS });
+function parseTokenSourceFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const source = (params.get('tokenSource') || '').trim().toLowerCase();
+    return source === 'backend' || source === 'legacy' ? source : null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function getTokenSourceMode() {
+  const fromUrl = parseTokenSourceFromUrl();
+  if (fromUrl) return fromUrl;
+  const fromStorage = (localStorage.getItem(TOKEN_SOURCE_STORAGE_KEY) || '').trim().toLowerCase();
+  if (fromStorage === 'backend') return fromStorage;
+  return TOKEN_SOURCE_DEFAULT;
+}
+
+async function initializeRegexTokenSource() {
+  const mode = getTokenSourceMode();
+  if (mode !== 'backend') {
+    configureRegexEngine({ POE_RE_TOKENS });
+    state._regexTokenSource = 'legacy';
+    return;
+  }
+
+  try {
+    const res = await fetch(BACKEND_TOKEN_SET_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const payload = await res.json();
+    const byName = payload?.tokensByName;
+    if (!byName || typeof byName !== 'object' || !Object.keys(byName).length) {
+      throw new Error('missing_tokensByName');
+    }
+    configureRegexEngine({ POE_RE_TOKENS: byName });
+    state._regexTokenSource = 'backend';
+    state._backendTokenVersion = payload.versionId || null;
+    try {
+      localStorage.setItem(BACKEND_TOKEN_CACHE_KEY, JSON.stringify({
+        versionId: state._backendTokenVersion,
+        tokensByName: byName
+      }));
+    } catch (e) {}
+    showToast('Regex tokens: backend published set', 2200);
+  } catch(e) {
+    let cached = null;
+    try {
+      const raw = localStorage.getItem(BACKEND_TOKEN_CACHE_KEY);
+      cached = raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      cached = null;
+    }
+    const cachedByName = cached?.tokensByName;
+    if (cachedByName && typeof cachedByName === 'object' && Object.keys(cachedByName).length) {
+      configureRegexEngine({ POE_RE_TOKENS: cachedByName });
+      state._regexTokenSource = 'backend-cache';
+      state._backendTokenVersion = cached?.versionId || null;
+      showToast('Backend token set unavailable, using cached backend tokens', 2800);
+      return;
+    }
+    configureRegexEngine({ POE_RE_TOKENS: {} });
+    state._regexTokenSource = 'backend-unavailable';
+    state._backendTokenVersion = null;
+    showToast('Backend token set unavailable', 2600);
+  }
+}
 
 
 // vendorNames = names to match; keepNames kept for API compat but unused (poe.re tokens are pre-validated)
@@ -4123,11 +4212,13 @@ function parseChangelog(md) {
 }
 
 atlasLoad();    // restore saved atlas config before any rendering
-fetchCurrentLeague().then(() => {
+(async () => {
+  await initializeRegexTokenSource();
+  await fetchCurrentLeague();
   fetchMarketScarabPrices();
   fetchPriceHistory();
   fetchAndRenderEVChart();
-});
+})();
 fetchObservedWeights(); // pull weight distribution from community aggregate
 updateSortArrows();
 initSlider();

@@ -403,6 +403,17 @@ export const POE_RE_TOKENS = {
   "Ultimatum Scarab of Inscription":        "nsc",
 };
 
+export const TOKEN_SOURCE_DEFAULT = 'backend'; // 'legacy' | 'backend'
+export const TOKEN_SOURCE_STORAGE_KEY = 'scarabev-token-source';
+export const BACKEND_TOKEN_SET_URL = 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/token-set/latest';
+const FRONTEND_HOST = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.hostname)
+  ? String(globalThis.location.hostname).toLowerCase()
+  : '';
+const IS_STAGING_FRONTEND = /(^localhost$)|(^127\.0\.0\.1$)|staging|dev/.test(FRONTEND_HOST);
+export const BACKEND_ADMIN_UI_URL = IS_STAGING_FRONTEND
+  ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/admin/ui'
+  : 'https://scarabev-backend-production.paperpandastacks.workers.dev/admin/ui';
+
 export const WORKER_URL = 'https://scarabev-market-worker.paperpandastacks.workers.dev';
 
 export const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum'];

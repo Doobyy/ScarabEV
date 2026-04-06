@@ -8,6 +8,10 @@ APP_NAME = "scarabev-backend"
 APP_ENV = "dev"
 LOG_LEVEL = "debug"
 OBS_SAMPLE_RATE = "1"
+BACKUP_ENABLED = "false"
+BACKUP_RETENTION_DAYS = "14"
+BACKUP_REQUIRE_EXTERNAL = "false"
+BACKUP_OBJECT_PREFIX = "snapshots"
 
 [[d1_databases]]
 binding = "DB"

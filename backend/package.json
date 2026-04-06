@@ -8,6 +8,12 @@
     "test": "npm run test:build && node .tmp-test/index.test.js",
     "test:build": "tsc -p tsconfig.test.json",
     "typecheck": "tsc --noEmit",
+    "security:check": "npm audit --omit=dev --audit-level=high",
+    "deps:outdated": "npm outdated",
+    "block7:export-inventory": "node ./scripts/block7/export-inventory.mjs",
+    "block7:migrate:dry-run": "node ./scripts/block7/migrate-scarabs.mjs",
+    "block7:migrate:apply": "node ./scripts/block7/migrate-scarabs.mjs --apply",
+    "block7:parity": "node ./scripts/block7/parity-check.mjs",
     "deploy:staging": "wrangler deploy --config wrangler.staging.toml",
     "deploy:production": "wrangler deploy --config wrangler.production.toml"
   },
