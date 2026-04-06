@@ -97,6 +97,7 @@ async function fetchObservedWeights() {
     const hasWeights = !!(weights && Object.keys(weights).length > 0);
     state._observedWeights = hasWeights ? weights : null;
     state._weightSessionCount = data.weightSessionCount || data.sessionCount || 0;
+    state._weightTradeCount = data.weightTradeCount || data.totalTrades || data?.weightMeta?.totalTrades || 0;
     state._weightMeta = data.weightMeta || null;
     state._weightUnavailableReason = hasWeights ? null : (data?.weightMeta?.reason || 'Not enough community data for weighted mode yet.');
 
@@ -1157,9 +1158,9 @@ function setEVMode(mode) {
 
   // Show/hide weighted warning
   const hint = document.getElementById('weightedEvWarning');
-  const countEl = document.getElementById('weightedSessionCount');
+  const countEl = document.getElementById('weightedTradeCount');
   if (hint) hint.style.display = mode === 'weighted' ? '' : 'none';
-  if (countEl) countEl.textContent = state._weightSessionCount > 0 ? state._weightSessionCount.toLocaleString() : '\u2014';
+  if (countEl) countEl.textContent = state._weightTradeCount > 0 ? state._weightTradeCount.toLocaleString() : '\u2014';
 
   // Only switch to weighted if data is ready
   if (mode === 'weighted' && state._calibratedMean === null) {
@@ -2099,7 +2100,7 @@ function renderAnalysis() {
             totalOutputDivine: agg.totalOutputDivine ?? null,
             receivedByScarab: agg.receivedByScarab || {},
             sessionCount: agg.sessionCount || 0,
-            dataSourceLabel: 'Community data (' + (agg.sessionCount || 0).toLocaleString() + ' sessions)'
+            dataSourceLabel: 'Community data (' + (agg.totalTrades || 0).toLocaleString() + ' trades)'
           }, emptyEl, contentEl);
           return;
         }
@@ -2141,7 +2142,7 @@ function renderAnalysisFromLocalSessions(emptyEl, contentEl) {
     totalOutputDivine: divineSessionCount > 0 ? totalOutputDivine : null,
     sessionCount: sessions.length,
     validCount: sessions.filter(s => !s.flagged).length,
-    dataSourceLabel: 'Your data only (' + sessions.length + ' sessions)'
+    dataSourceLabel: 'Your data only (' + totalTrades.toLocaleString() + ' trades)'
   }, emptyEl, contentEl);
 }
 
@@ -2200,12 +2201,12 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
 
   // Summary stats bar
   document.getElementById('analysisStatsBar').innerHTML = `
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '\u2014'}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Trade samples</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '\u2014'}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3:1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Overall ROI</div><div class="analysis-stat-value ${overallRoi >= 0 ? 'green' : ''}">${(overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1)}%</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Real avg/trade</div><div class="analysis-stat-value chaos">${realAvgPerTrade.toFixed(2)}c</div><div style="font-size:10px;color:var(--text-3)">from sessions</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Real avg/trade</div><div class="analysis-stat-value chaos">${realAvgPerTrade.toFixed(2)}c</div><div style="font-size:10px;color:var(--text-3)">from trades</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Weight stability</div><div class="analysis-stat-value ${weightStabilityClass}">${weightStabilityPct.toFixed(0)}%</div><div style="font-size:10px;color:var(--text-3)">Higher = lower output variance.</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Jackpot reliance</div><div class="analysis-stat-value ${jackpotRelianceClass}">${jackpotReliancePct.toFixed(1)}%</div><div style="font-size:10px;color:var(--text-3)">Top-3 EV share</div></div>
   `;
@@ -2238,7 +2239,7 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
 
   document.getElementById('analysisEvCompare').innerHTML = `
     <div class="analysis-ev-card">
-      <div class="label">Realized avg per trade (sessions)</div>
+              <div class="label">Realized avg per trade (trades)</div>
       <div class="value chaos">${realAvgPerTrade.toFixed(2)}c</div>
       <div style="font-size:10px;color:var(--text-3);margin-top:2px">Total output ÷ total trades</div>
     </div>

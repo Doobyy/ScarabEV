@@ -17,6 +17,7 @@ export const state = {
   // Weight / calibration
   _observedWeights: null,  // { scarabName -> normalizedWeight } from aggregate
   _weightSessionCount: 0,
+  _weightTradeCount: 0,
   _weightMeta: null,
   _weightUnavailableReason: null,
   _observedRateRaw: null,  // kept for admin/historical display only - not used in EV calc
