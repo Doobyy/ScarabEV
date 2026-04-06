@@ -613,9 +613,21 @@ async function fetchMarketScarabPrices() {
   const btn    = document.getElementById('refreshBtn');
   const hadPriorData = !!(state.ninjaLoaded && state.ninjaPrices && Object.keys(state.ninjaPrices).length > 0);
   const LOCAL_FALLBACK_MAX_AGE_MS = 15 * 60 * 1000;
+  const WORKER_FETCH_TIMEOUT_MS = 7000;
+  const FALLBACK_FETCH_TIMEOUT_MS = 3500;
   status.textContent = 'Loading prices from poe.ninja...'; status.className = 'ninja-status loading';
   btn.disabled = true;
   state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
+
+  const fetchWithTimeout = async (url, options, timeoutMs) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(250, Number(timeoutMs) || 5000));
+    try {
+      return await fetch(url, { ...(options || {}), signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   try {
     const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
@@ -691,11 +703,19 @@ async function fetchMarketScarabPrices() {
       return true;
     }
 
+    let workerAttempted = false;
+    let workerOkParsed = false;
+
     // 1. Cloudflare Worker (new format)
     if (WORKER_URL) {
       try {
+        workerAttempted = true;
         status.textContent = 'Trying Cloudflare Worker...';
-        const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(
+          `${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`,
+          { cache: 'no-store' },
+          WORKER_FETCH_TIMEOUT_MS
+        );
         if (res.ok) {
           const data = await res.json();
           try {
@@ -709,6 +729,7 @@ async function fetchMarketScarabPrices() {
             if (parsed.priceTotalChange && Object.keys(parsed.priceTotalChange).length > 0) {
               state._priceTotalChange = parsed.priceTotalChange;
             }
+            workerOkParsed = true;
             if (applyPrices(rawPrices, rawImages, 'Worker')) { btn.disabled = false; return; }
           } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
         } else {
@@ -721,6 +742,17 @@ async function fetchMarketScarabPrices() {
       } catch(e) { log.push(`[Worker] ${e.message}`); }
     }
 
+    const priorAgeMs = window._ninjaPriceTime ? (Date.now() - new Date(window._ninjaPriceTime).getTime()) : Number.POSITIVE_INFINITY;
+    const canUseLocalFallback = hadPriorData && Number.isFinite(priorAgeMs) && priorAgeMs <= LOCAL_FALLBACK_MAX_AGE_MS;
+    if (canUseLocalFallback && workerAttempted && !workerOkParsed) {
+      status.textContent = staleExpiredSeen
+        ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
+        : 'Refresh failed; showing last good market snapshot';
+      status.className = 'ninja-status loaded';
+      btn.disabled = false;
+      return;
+    }
+
     // 2. Public proxy fallbacks
     const fallbacks = [
       { label: 'allorigins/raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(ninjaUrl)}` },
@@ -729,7 +761,7 @@ async function fetchMarketScarabPrices() {
     for (const attempt of fallbacks) {
       try {
         status.textContent = `Trying ${attempt.label}...`;
-        const res = await fetch(attempt.url, { cache: 'no-store' });
+        const res = await fetchWithTimeout(attempt.url, { cache: 'no-store' }, FALLBACK_FETCH_TIMEOUT_MS);
         if (!res.ok) { log.push(`[${attempt.label}] HTTP ${res.status}`); continue; }
         const text = await res.text();
         try {
@@ -742,8 +774,6 @@ async function fetchMarketScarabPrices() {
     if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
     else status.textContent = 'Failed to load prices from poe.ninja';
     status.className = 'ninja-status error';
-    const priorAgeMs = window._ninjaPriceTime ? (Date.now() - new Date(window._ninjaPriceTime).getTime()) : Number.POSITIVE_INFINITY;
-    const canUseLocalFallback = hadPriorData && Number.isFinite(priorAgeMs) && priorAgeMs <= LOCAL_FALLBACK_MAX_AGE_MS;
     if (canUseLocalFallback) {
       status.textContent = staleExpiredSeen
         ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
