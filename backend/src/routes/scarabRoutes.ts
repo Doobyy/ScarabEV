@@ -1,12 +1,12 @@
-import type { ScarabListOptions } from "../security/types.js";
+import type { RequestContext, RouteDeps, ScarabListOptions, ScarabRouteHelpers } from "./types.js";
 
 export async function handleScarabRoutes(
   request: Request,
   url: URL,
-  deps: any,
-  context: any,
+  deps: RouteDeps,
+  context: RequestContext,
   responseCookieHeaders: Headers,
-  helpers: any
+  helpers: ScarabRouteHelpers
 ): Promise<Response | null> {
   const {
     authenticateRequest,

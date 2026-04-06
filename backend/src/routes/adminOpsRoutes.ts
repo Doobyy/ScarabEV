@@ -1,20 +1,10 @@
-interface OpsRouteHelpers {
-  authenticateRequest: (...args: any[]) => Promise<any>;
-  writeAudit: (...args: any[]) => Promise<void>;
-  requireRoleOrResponse: (...args: any[]) => Response | null;
-  listBackupSnapshots: (...args: any[]) => Promise<unknown[]>;
-  computeBackupStorageUsage: (...args: any[]) => Promise<unknown>;
-  runBackupSnapshot: (...args: any[]) => Promise<any>;
-  jsonResponse: (...args: any[]) => Response;
-  withBaseHeaders: (...args: any[]) => Response;
-  parseNullableString: (...args: any[]) => string | null;
-}
+import type { OpsRouteHelpers, RequestContext, RouteDeps } from "./types.js";
 
 export async function handleOpsRoutes(
   request: Request,
   url: URL,
-  deps: any,
-  context: any,
+  deps: RouteDeps,
+  context: RequestContext,
   responseCookieHeaders: Headers,
   helpers: OpsRouteHelpers
 ): Promise<Response | null> {
@@ -59,7 +49,7 @@ export async function handleOpsRoutes(
     if (auth instanceof Response) {
       return auth;
     }
-    const ownerOnly = requireRoleOrResponse(auth as any, "owner", context.requestId);
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
     if (ownerOnly) {
       await writeAudit(deps.securityRepo, context, request, "admin.backup_list", 403, auth.session.user.id);
       return ownerOnly;
@@ -85,8 +75,8 @@ export async function handleOpsRoutes(
     const storageUsage = await computeBackupStorageUsage(deps.backupR2, storagePrefix);
     await writeAudit(deps.securityRepo, context, request, "admin.backup_list", 200, auth.session.user.id, {
       count: items.length,
-      storageObjectCount: (storageUsage as any)?.objectCount ?? null,
-      storageTotalBytes: (storageUsage as any)?.totalBytes ?? null
+      storageObjectCount: storageUsage?.objectCount ?? null,
+      storageTotalBytes: storageUsage?.totalBytes ?? null
     });
     const response = jsonResponse(
       {
@@ -108,7 +98,7 @@ export async function handleOpsRoutes(
       await writeAudit(deps.securityRepo, context, request, "admin.backup_run", auth.status, null);
       return auth;
     }
-    const ownerOnly = requireRoleOrResponse(auth as any, "owner", context.requestId);
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
     if (ownerOnly) {
       await writeAudit(deps.securityRepo, context, request, "admin.backup_run", 403, auth.session.user.id);
       return ownerOnly;

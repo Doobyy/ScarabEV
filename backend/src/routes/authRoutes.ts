@@ -1,10 +1,12 @@
+import type { AuthRouteHelpers, RequestContext, RouteDeps } from "./types.js";
+
 export async function handleAuthRoutes(
   request: Request,
   url: URL,
-  deps: any,
-  context: any,
+  deps: RouteDeps,
+  context: RequestContext,
   responseCookieHeaders: Headers,
-  helpers: any
+  helpers: AuthRouteHelpers
 ): Promise<Response | null> {
   const {
     enforceRateLimit,

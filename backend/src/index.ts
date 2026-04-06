@@ -21,6 +21,7 @@ import { handleAuthRoutes } from "./routes/authRoutes.js";
 import { handleScarabRoutes } from "./routes/scarabRoutes.js";
 import { handleTokenRoutes } from "./routes/tokenRoutes.js";
 import { handleOpsRoutes } from "./routes/adminOpsRoutes.js";
+import type { AuthContext, RequestContext, RouteDeps } from "./routes/types.js";
 import type {
   AdminRole,
   AuditLogInput,
@@ -34,24 +35,7 @@ import type {
   SessionWithUser
 } from "./security/types.js";
 
-interface RequestContext {
-  requestId: string;
-  startedAt: number;
-}
-
-interface AuthContext {
-  session: SessionWithUser;
-}
-
 interface RuntimeDeps {
-  config: RuntimeConfig;
-  securityRepo: SecurityRepository;
-  db?: D1Database;
-  backupR2?: R2Bucket;
-  now: () => Date;
-}
-
-interface RouteDeps {
   config: RuntimeConfig;
   securityRepo: SecurityRepository;
   db?: D1Database;
@@ -1008,7 +992,8 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     authenticateRequest,
     clearCookie,
     requireRoleOrResponse,
-    hashPassword
+    hashPassword,
+    parseNullableString
   });
   if (authRouteResponse) return authRouteResponse;
 
@@ -1074,7 +1059,8 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     runBackupSnapshot,
     jsonResponse,
     withBaseHeaders,
-    parseNullableString
+    parseNullableString,
+    parseJsonBody
   });
   if (opsRouteResponse) return opsRouteResponse;
 

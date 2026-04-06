@@ -1,12 +1,13 @@
 import type { DraftTokenExcludedRetired, PoeRegexViolation } from "../security/types.js";
+import type { RequestContext, RouteDeps, TokenRouteHelpers } from "./types.js";
 
 export async function handleTokenRoutes(
   request: Request,
   url: URL,
-  deps: any,
-  context: any,
+  deps: RouteDeps,
+  context: RequestContext,
   responseCookieHeaders: Headers,
-  helpers: any
+  helpers: TokenRouteHelpers
 ): Promise<Response | null> {
   const {
     authenticateRequest,
@@ -86,20 +87,20 @@ export async function handleTokenRoutes(
 
     const activeInputs = await deps.securityRepo.listTokenGenerationInputs(["active"], scope);
     const retiredInputs = await deps.securityRepo.listTokenGenerationInputs(["retired"], scope);
-    const excludedRetired: DraftTokenExcludedRetired[] = retiredInputs.map((entry: any) => ({
+    const excludedRetired: DraftTokenExcludedRetired[] = retiredInputs.map((entry) => ({
       scarabId: entry.scarabId,
       name: entry.name
     }));
 
-    let entries: any[];
+    let entries;
     try {
       entries = generateDraftTokenEntries(activeInputs);
     } catch (error) {
-      const failure: any = error instanceof TokenGenerationFailure ? error : null;
-      const partialEntries: any[] = failure?.partialEntries ?? [];
-      const problematicScarabIds: string[] = failure?.problematicScarabIds ?? [];
+      const failure = error instanceof TokenGenerationFailure ? error : null;
+      const partialEntries = failure?.partialEntries ?? [];
+      const problematicScarabIds = failure?.problematicScarabIds ?? [];
       const previousByScarab = await deps.securityRepo.listLatestDraftTokensByScarabIds(
-        partialEntries.map((entry: any) => entry.scarabId)
+        partialEntries.map((entry) => entry.scarabId)
       );
       const failedReport = buildDraftGenerationReport(partialEntries, previousByScarab, excludedRetired);
       const failedDraft = await deps.securityRepo.saveDraftTokenSet({
@@ -110,11 +111,11 @@ export async function handleTokenRoutes(
         entries: partialEntries,
         report: failedReport
       });
-      const covered = new Set(partialEntries.map((entry: any) => entry.scarabId));
-      const missingCoverage = activeInputs.filter((entry: any) => !covered.has(entry.scarabId)).map((entry: any) => entry.scarabId);
-      const nameById = new Map(activeInputs.map((entry: any) => [entry.scarabId, entry.name]));
-      const problematicScarabNames = problematicScarabIds.map((id: string) => nameById.get(id) ?? id);
-      const missingCoverageNames = missingCoverage.map((id: string) => nameById.get(id) ?? id);
+      const covered = new Set(partialEntries.map((entry) => entry.scarabId));
+      const missingCoverage = activeInputs.filter((entry) => !covered.has(entry.scarabId)).map((entry) => entry.scarabId);
+      const nameById = new Map(activeInputs.map((entry) => [entry.scarabId, entry.name]));
+      const problematicScarabNames = problematicScarabIds.map((id) => nameById.get(id) ?? id);
+      const missingCoverageNames = missingCoverage.map((id) => nameById.get(id) ?? id);
       const message = error instanceof Error ? error.message : String(error);
       await writeAudit(deps.securityRepo, context, request, "admin.token_draft.generate", 409, auth.session.user.id, {
         reason: "token_generation_failed",
@@ -143,7 +144,7 @@ export async function handleTokenRoutes(
         { status: 409 }
       );
     }
-    const previousByScarab = await deps.securityRepo.listLatestDraftTokensByScarabIds(entries.map((entry: any) => entry.scarabId));
+    const previousByScarab = await deps.securityRepo.listLatestDraftTokensByScarabIds(entries.map((entry) => entry.scarabId));
     const report = buildDraftGenerationReport(entries, previousByScarab, excludedRetired);
     const persisted = await deps.securityRepo.saveDraftTokenSet({
       id: crypto.randomUUID(),
@@ -205,8 +206,8 @@ export async function handleTokenRoutes(
     }
 
     const activeInputs = await deps.securityRepo.listTokenGenerationInputs(["active"]);
-    const activeIds = new Set(activeInputs.map((entry: any) => entry.scarabId));
-    const entryIds = new Set(latestDraft.entries.map((entry: any) => entry.scarabId));
+    const activeIds = new Set(activeInputs.map((entry) => entry.scarabId));
+    const entryIds = new Set(latestDraft.entries.map((entry) => entry.scarabId));
     const missingCoverage = [...activeIds].filter((id) => !entryIds.has(id)).sort();
     const hasUnresolvedCollisions = latestDraft.report.collisions.length > 0;
 
@@ -250,7 +251,7 @@ export async function handleTokenRoutes(
 
     const nowIso = deps.now().toISOString();
     const allScarabs = await deps.securityRepo.listScarabs();
-    const scarabNameById = new Map<string, string>(allScarabs.map((scarab: any) => [scarab.id, scarab.currentText.name]));
+    const scarabNameById = new Map<string, string>(allScarabs.map((scarab) => [scarab.id, scarab.currentText.name]));
     const published = await deps.securityRepo.publishTokenSet({
       id: crypto.randomUUID(),
       sourceDraftSetId: latestDraft.id,
@@ -258,7 +259,7 @@ export async function handleTokenRoutes(
       createdByUserId: auth.session.user.id,
       createdAt: nowIso,
       publishedAt: nowIso,
-      entries: latestDraft.entries.map((entry: any) => ({
+      entries: latestDraft.entries.map((entry) => ({
         scarabId: entry.scarabId,
         token: normalizePublishToken(entry.token)
       }))
@@ -388,7 +389,7 @@ export async function handleTokenRoutes(
       publishedAt: nowIso,
       entries
     });
-    const scarabNameById = new Map<string, string>(activeScarabs.map((scarab: any) => [scarab.id, scarab.currentText.name]));
+    const scarabNameById = new Map<string, string>(activeScarabs.map((scarab) => [scarab.id, scarab.currentText.name]));
     const tokensByName = buildTokensByName(published, scarabNameById);
     await cachePublishedTokenPayload(published, tokensByName);
 
@@ -435,7 +436,7 @@ export async function handleTokenRoutes(
     }
 
     const allScarabs = await deps.securityRepo.listScarabs();
-    const scarabNameById = new Map<string, string>(allScarabs.map((scarab: any) => [scarab.id, scarab.currentText.name]));
+    const scarabNameById = new Map<string, string>(allScarabs.map((scarab) => [scarab.id, scarab.currentText.name]));
     const tokensByName = buildTokensByName(activated, scarabNameById);
     await cachePublishedTokenPayload(activated, tokensByName);
     await writeAudit(deps.securityRepo, context, request, "admin.token_rollback", 200, auth.session.user.id, {
@@ -539,7 +540,7 @@ export async function handleTokenRoutes(
     }
 
     const allScarabs = await deps.securityRepo.listScarabs();
-    const scarabNameById = new Map<string, string>(allScarabs.map((scarab: any) => [scarab.id, scarab.currentText.name]));
+    const scarabNameById = new Map<string, string>(allScarabs.map((scarab) => [scarab.id, scarab.currentText.name]));
     const tokensByName = buildTokensByName(latest, scarabNameById);
     await cachePublishedTokenPayload(latest, tokensByName);
     return withPublicCorsHeaders(
