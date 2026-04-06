@@ -32,7 +32,7 @@ This workspace contains the hosted backend foundation for ScarabEV.
   - Audit log search/view via authenticated API.
   - Owner/editor role split: publish + rollback remain owner-only.
 - Block 7 migration and cutover tooling:
-  - Legacy inventory export + migration/parity scripts in `scripts/block7`.
+- Legacy inventory export + migration/parity scripts in `scripts/data-migration`.
   - Legacy token import path with publish-gate checks.
   - Public token payload includes `tokensByName` for frontend cutover.
 - Block 8 reliability slice (staging-first):
