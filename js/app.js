@@ -1981,24 +1981,59 @@ async function submitSession() {
 function renderSessionHistory() {
   const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
   const el = document.getElementById('loggerHistoryTable');
+  const validSizes = [10, 25, 50, 100];
+  const savedSize = Number(localStorage.getItem('poepool-logger-history-page-size') || 25);
+  const pageSize = validSizes.includes(savedSize) ? savedSize : 25;
+  const currentPage = Math.max(1, Number(window._loggerHistoryPage || 1));
   if (!sessions.length) {
+    window._loggerHistoryPage = 1;
     el.innerHTML = '<div class="logger-history-empty">No sessions logged yet.</div>';
     return;
   }
-  const cols = '1fr 72px 72px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
+  const ordered = sessions.slice().reverse();
+  const total = ordered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(currentPage, totalPages);
+  window._loggerHistoryPage = page;
+  const start = (page - 1) * pageSize;
+  const end = Math.min(total, start + pageSize);
+  const pageRows = ordered.slice(start, end);
+  const cols = '132px 1fr 72px 72px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
   const gap = '12px';
+  const fmtSessionDate = (iso) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '-';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+  };
 
   el.innerHTML = `
-    <div class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center">
-      <span class="cell-left">League</span><span class="cell-right">Scarabs</span><span class="cell-right">Trades</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 10px">
+      <div style="font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums">Showing ${start + 1}-${end} of ${total}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--text-3)">Rows</label>
+        <select id="loggerHistoryPageSize" onchange="setLoggerHistoryPageSize(this.value)" style="height:24px;padding:2px 4px;border-radius:5px;font-size:11px">
+          ${validSizes.map((n) => `<option value="${n}" ${n === pageSize ? 'selected' : ''}>${n}</option>`).join('')}
+        </select>
+      </div>
     </div>
-    ${sessions.slice().reverse().map((s, i) => {
-      const idx = sessions.length - 1 - i;
+    <div class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center">
+      <span class="cell-left">Date</span><span class="cell-left">League</span><span class="cell-right">Scarabs</span><span class="cell-right">Trades</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
+    </div>
+    ${pageRows.map((s, i) => {
+      const globalPos = start + i;
+      const idx = sessions.length - 1 - globalPos;
       const profit = (s.output_value || 0) - (s.input_value || 0);
       const fmtSession = (c) => fmtWithRate(c, s.divine_rate);
       const profitFmt = (c) => (c >= 0 ? '+' : '') + fmtSession(c);
       return `<div>
         <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
+          <span class="cell-left">${fmtSessionDate(s.created_at)}</span>
           <span class="cell-left">${s.league}</span>
           <span class="cell-right">${s.total_consumed?.toLocaleString()}</span>
           <span class="cell-right">${s.total_trades?.toLocaleString()}</span>
@@ -2016,7 +2051,29 @@ function renderSessionHistory() {
         </div>
       </div>`;
     }).join('')}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 10px 4px">
+      <div style="font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums">Page ${page} of ${totalPages}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="setLoggerHistoryPage(${page - 1})" ${page <= 1 ? 'disabled' : ''} style="font-family:inherit;font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--bg-table-head);color:var(--text-2);cursor:${page <= 1 ? 'default' : 'pointer'};opacity:${page <= 1 ? '0.45' : '1'}">Prev</button>
+        <button onclick="setLoggerHistoryPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''} style="font-family:inherit;font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--bg-table-head);color:var(--text-2);cursor:${page >= totalPages ? 'default' : 'pointer'};opacity:${page >= totalPages ? '0.45' : '1'}">Next</button>
+      </div>
+    </div>
   `;
+}
+
+function setLoggerHistoryPage(page) {
+  const n = Math.max(1, Number(page) || 1);
+  window._loggerHistoryPage = n;
+  renderSessionHistory();
+}
+
+function setLoggerHistoryPageSize(size) {
+  const validSizes = [10, 25, 50, 100];
+  const n = Number(size) || 25;
+  const next = validSizes.includes(n) ? n : 25;
+  try { localStorage.setItem('poepool-logger-history-page-size', String(next)); } catch (e) {}
+  window._loggerHistoryPage = 1;
+  renderSessionHistory();
 }
 
 function deleteSession(id) {
@@ -4329,6 +4386,8 @@ Object.assign(window, {
   tryPreview,
   submitSession,
   renderSessionHistory,
+  setLoggerHistoryPage,
+  setLoggerHistoryPageSize,
   deleteSession,
   toggleSessionDetail,
   renderSessionDetail,
