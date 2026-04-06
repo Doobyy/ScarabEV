@@ -980,13 +980,13 @@ async function handleSystemRoutes(request: Request, url: URL, deps: RouteDeps, c
   return null;
 }
 
-async function routeRequest(request: Request, deps: RouteDeps, context: RequestContext): Promise<Response> {
-  const url = new URL(request.url);
-  const responseCookieHeaders = new Headers();
-
-  const systemResponse = await handleSystemRoutes(request, url, deps, context);
-  if (systemResponse) return systemResponse;
-
+async function handleAuthRoutes(
+  request: Request,
+  url: URL,
+  deps: RouteDeps,
+  context: RequestContext,
+  responseCookieHeaders: Headers
+): Promise<Response | null> {
   if (request.method === "POST" && url.pathname === "/admin/auth/login") {
     const now = deps.now();
     const ipAddress = getClientIp(request) ?? "unknown";
@@ -1282,6 +1282,16 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     return withBaseHeaders(response, context.requestId, responseCookieHeaders);
   }
 
+  return null;
+}
+
+async function handleScarabRoutes(
+  request: Request,
+  url: URL,
+  deps: RouteDeps,
+  context: RequestContext,
+  responseCookieHeaders: Headers
+): Promise<Response | null> {
   if (request.method === "GET" && url.pathname === "/admin/scarabs/token-inputs") {
     const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
     if (auth instanceof Response) {
@@ -1801,6 +1811,16 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     return withBaseHeaders(response, context.requestId, responseCookieHeaders);
   }
 
+  return null;
+}
+
+async function handleTokenRoutes(
+  request: Request,
+  url: URL,
+  deps: RouteDeps,
+  context: RequestContext,
+  responseCookieHeaders: Headers
+): Promise<Response | null> {
   if (request.method === "GET" && url.pathname === "/admin/token-drafts/latest") {
     const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
     if (auth instanceof Response) {
@@ -2372,6 +2392,24 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
       return withBaseHeaders(response, context.requestId, responseCookieHeaders);
     }
   }
+
+  return null;
+}
+async function routeRequest(request: Request, deps: RouteDeps, context: RequestContext): Promise<Response> {
+  const url = new URL(request.url);
+  const responseCookieHeaders = new Headers();
+
+  const systemResponse = await handleSystemRoutes(request, url, deps, context);
+  if (systemResponse) return systemResponse;
+
+  const authRouteResponse = await handleAuthRoutes(request, url, deps, context, responseCookieHeaders);
+  if (authRouteResponse) return authRouteResponse;
+
+  const scarabRouteResponse = await handleScarabRoutes(request, url, deps, context, responseCookieHeaders);
+  if (scarabRouteResponse) return scarabRouteResponse;
+
+  const tokenRouteResponse = await handleTokenRoutes(request, url, deps, context, responseCookieHeaders);
+  if (tokenRouteResponse) return tokenRouteResponse;
 
   if (request.method === "GET" && url.pathname === "/admin/audit-logs") {
     const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
