@@ -636,7 +636,16 @@ async function fetchMarketScarabPrices() {
     const cb = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
 
-    function applyPrices(rawPrices, rawImages, label) {
+    const fmtAgeLabel = (ageSeconds) => {
+      const s = Math.max(0, Number(ageSeconds) || 0);
+      if (s < 60) return 'just now';
+      const mins = Math.floor(s / 60);
+      if (mins < 60) return mins === 1 ? '1 min ago' : `${mins} mins ago`;
+      const hours = Math.floor(mins / 60);
+      return hours === 1 ? '1 hr ago' : `${hours} hrs ago`;
+    };
+
+    function applyPrices(rawPrices, rawImages, label, meta) {
       rawPrices = (rawPrices && typeof rawPrices === 'object') ? rawPrices : {};
       rawImages = (rawImages && typeof rawImages === 'object') ? rawImages : {};
       const matchCount = Object.keys(rawPrices).filter(n => ourNames.has(n.toLowerCase())).length;
@@ -665,21 +674,31 @@ async function fetchMarketScarabPrices() {
       atlasCheckRevisitWarning();
       // Fetch real price history for sparklines
 
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      status.textContent = `Prices loaded from poe.ninja \u00B7 ${timeStr}`;
+      const hasMeta = !!(meta && typeof meta === 'object');
+      const lastSuccessAtRaw = hasMeta ? String(meta.lastSuccessAt || '') : '';
+      const lastSuccessMs = lastSuccessAtRaw ? Date.parse(lastSuccessAtRaw) : NaN;
+      const snapshotTimeMs = Number.isFinite(lastSuccessMs) ? lastSuccessMs : Date.now();
+      const snapshotDate = new Date(snapshotTimeMs);
+      if (hasMeta && meta.dataState === 'stale') {
+        const ageLabel = fmtAgeLabel(meta.ageSeconds);
+        status.textContent = `Prices loaded from cache \u00B7 ${ageLabel}`;
+      } else {
+        const timeStr = snapshotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        status.textContent = `Prices loaded from poe.ninja \u00B7 ${timeStr}`;
+      }
       if (state.currentTab === 'atlas') renderAtlas();
       if (state.currentTab === 'analysis') renderAnalysis();
       status.className = 'ninja-status loaded';
       clearInterval(window._ninjaAgeTicker);
-      window._ninjaPriceTime = now;
+      window._ninjaPriceTime = snapshotDate;
       window._ninjaAgeTicker = setInterval(() => {
         const mins = Math.floor((Date.now() - window._ninjaPriceTime) / 60000);
         const statusEl = document.getElementById('ninjaStatus');
         if (!statusEl) return;
-        if (mins < 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 just now`;
-        else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 1 min ago`;
-        else statusEl.textContent = `Prices loaded from poe.ninja \u00B7 ${mins} mins ago`;
+        const sourceLabel = hasMeta && meta.dataState === 'stale' ? 'Prices loaded from cache' : 'Prices loaded from poe.ninja';
+        if (mins < 1) statusEl.textContent = `${sourceLabel} \u00B7 just now`;
+        else if (mins === 1) statusEl.textContent = `${sourceLabel} \u00B7 1 min ago`;
+        else statusEl.textContent = `${sourceLabel} \u00B7 ${mins} mins ago`;
       }, 30000);
       renderVendorTable();
       btn.disabled = false;
@@ -719,6 +738,16 @@ async function fetchMarketScarabPrices() {
         if (res.ok) {
           const data = await res.json();
           try {
+            const meta = (data && typeof data === 'object' && data._meta && typeof data._meta === 'object') ? data._meta : null;
+            if (meta && meta.dataState === 'stale') {
+              const metaAgeMs = (Number(meta.ageSeconds) || 0) * 1000;
+              if (metaAgeMs > LOCAL_FALLBACK_MAX_AGE_MS) {
+                staleExpiredSeen = true;
+                log.push('[Worker] stale snapshot exceeded local max age window');
+                workerOkParsed = false;
+                throw new Error('stale_snapshot_too_old');
+              }
+            }
             const parsed = Array.isArray(data.items) && data.items.length > 0
               ? parseWorkerResponse(data)
               : parseOldNinjaResponse(JSON.stringify(data), false);
@@ -730,7 +759,7 @@ async function fetchMarketScarabPrices() {
               state._priceTotalChange = parsed.priceTotalChange;
             }
             workerOkParsed = true;
-            if (applyPrices(rawPrices, rawImages, 'Worker')) { btn.disabled = false; return; }
+            if (applyPrices(rawPrices, rawImages, 'Worker', meta)) { btn.disabled = false; return; }
           } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
         } else {
           let errPayload = null;
