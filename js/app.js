@@ -602,6 +602,11 @@ async function fetchCurrentLeague() {
 }
 
 async function fetchMarketScarabPrices() {
+  if (state._marketFetchBusy) {
+    state._marketFetchPending = true;
+    return;
+  }
+  state._marketFetchBusy = true;
   const league = document.getElementById('leagueSelect').value;
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
@@ -611,140 +616,149 @@ async function fetchMarketScarabPrices() {
   btn.disabled = true;
   state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
 
-  const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
-  const log = [];
-  let staleExpiredSeen = false;
-  const cb = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
+  try {
+    const ourNames = new Set(SCARAB_LIST.map(s => s.name.toLowerCase()));
+    const log = [];
+    let staleExpiredSeen = false;
+    const cb = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
 
-  function applyPrices(rawPrices, rawImages, label) {
-    rawPrices = (rawPrices && typeof rawPrices === 'object') ? rawPrices : {};
-    rawImages = (rawImages && typeof rawImages === 'object') ? rawImages : {};
-    const matchCount = Object.keys(rawPrices).filter(n => ourNames.has(n.toLowerCase())).length;
-    if (matchCount < 10) { log.push(`[${label}] only ${matchCount} matched`); return false; }
-    const top3 = Object.entries(rawPrices).filter(([n]) => ourNames.has(n.toLowerCase())).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    log.push(`[${label}] OK \u2014 ${matchCount} matched. Top: ${top3.map(([n,p])=>`${n.split(' ').pop()}=${p.toFixed(1)}c`).join(', ')}`);
-    state.ninjaPrices = rawPrices;
-    state.ninjaImages = rawImages;
-    state.ninjaLoaded = true;
+    function applyPrices(rawPrices, rawImages, label) {
+      rawPrices = (rawPrices && typeof rawPrices === 'object') ? rawPrices : {};
+      rawImages = (rawImages && typeof rawImages === 'object') ? rawImages : {};
+      const matchCount = Object.keys(rawPrices).filter(n => ourNames.has(n.toLowerCase())).length;
+      if (matchCount < 10) { log.push(`[${label}] only ${matchCount} matched`); return false; }
+      const top3 = Object.entries(rawPrices).filter(([n]) => ourNames.has(n.toLowerCase())).sort((a,b)=>b[1]-a[1]).slice(0,3);
+      log.push(`[${label}] OK \u2014 ${matchCount} matched. Top: ${top3.map(([n,p])=>`${n.split(' ').pop()}=${p.toFixed(1)}c`).join(', ')}`);
+      state.ninjaPrices = rawPrices;
+      state.ninjaImages = rawImages;
+      state.ninjaLoaded = true;
     // If observed weights were already fetched, recompute the calibrated rate now
     // that we have live ninja prices to pair them with
-    if (state._observedWeights) {
-      const result = computeWeightBasedRate();
-      if (result) {
-        state._calibratedMean = result.mean;
-        state._calibratedP20 = result.conservative;
-        state._calibratedRate = result.conservative;
-      } else {
-        state._calibratedMean = null;
-        state._calibratedP20 = null;
-        state._calibratedRate = null;
+      if (state._observedWeights) {
+        const result = computeWeightBasedRate();
+        if (result) {
+          state._calibratedMean = result.mean;
+          state._calibratedP20 = result.conservative;
+          state._calibratedRate = result.conservative;
+        } else {
+          state._calibratedMean = null;
+          state._calibratedP20 = null;
+          state._calibratedRate = null;
+        }
       }
-    }
-    // Check atlas revisit warning now that prices are live
-    atlasCheckRevisitWarning();
-    // Fetch real price history for sparklines
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    status.textContent = `Prices loaded from poe.ninja \u00B7 ${timeStr}`;
-    if (state.currentTab === 'atlas') renderAtlas();
-    if (state.currentTab === 'analysis') renderAnalysis();
-    status.className = 'ninja-status loaded';
-    clearInterval(window._ninjaAgeTicker);
-    window._ninjaPriceTime = now;
-    window._ninjaAgeTicker = setInterval(() => {
-      const mins = Math.floor((Date.now() - window._ninjaPriceTime) / 60000);
-      const statusEl = document.getElementById('ninjaStatus');
-      if (!statusEl) return;
-      if (mins < 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 just now`;
-      else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 1 min ago`;
-      else statusEl.textContent = `Prices loaded from poe.ninja \u00B7 ${mins} mins ago`;
-    }, 30000);
-    renderVendorTable();
-    btn.disabled = false;
+      // Check atlas revisit warning now that prices are live
+      atlasCheckRevisitWarning();
+      // Fetch real price history for sparklines
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      status.textContent = `Prices loaded from poe.ninja \u00B7 ${timeStr}`;
+      if (state.currentTab === 'atlas') renderAtlas();
+      if (state.currentTab === 'analysis') renderAnalysis();
+      status.className = 'ninja-status loaded';
+      clearInterval(window._ninjaAgeTicker);
+      window._ninjaPriceTime = now;
+      window._ninjaAgeTicker = setInterval(() => {
+        const mins = Math.floor((Date.now() - window._ninjaPriceTime) / 60000);
+        const statusEl = document.getElementById('ninjaStatus');
+        if (!statusEl) return;
+        if (mins < 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 just now`;
+        else if (mins === 1) statusEl.textContent = `Prices loaded from poe.ninja \u00B7 1 min ago`;
+        else statusEl.textContent = `Prices loaded from poe.ninja \u00B7 ${mins} mins ago`;
+      }, 30000);
+      renderVendorTable();
+      btn.disabled = false;
+      if (WORKER_URL) {
+        fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Currency`, { cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (!data) return;
+            try {
+              const { rawPrices } = parseWorkerResponse(data);
+              const d = rawPrices['Divine Orb'];
+              if (d && d > 50) {
+                state.ninjaDivineRate = d;
+                calcEstimator();
+                if (state.currentTab === 'analysis') renderAnalysis();
+              }
+            } catch(e) { /* silent */ }
+          })
+          .catch(() => { /* silent */ });
+      }
+      return true;
+    }
+
+    // 1. Cloudflare Worker (new format)
     if (WORKER_URL) {
-      fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Currency`, { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (!data) return;
-          try {
-            const { rawPrices } = parseWorkerResponse(data);
-            const d = rawPrices['Divine Orb'];
-            if (d && d > 50) {
-              state.ninjaDivineRate = d;
-              calcEstimator();
-              if (state.currentTab === 'analysis') renderAnalysis();
-            }
-          } catch(e) { /* silent */ }
-        })
-        .catch(() => { /* silent */ });
-    }
-    return true;
-  }
-
-  // 1. Cloudflare Worker (new format)
-  if (WORKER_URL) {
-    try {
-      status.textContent = 'Trying Cloudflare Worker...';
-      const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        try {
-          const parsed = Array.isArray(data.items) && data.items.length > 0
-            ? parseWorkerResponse(data)
-            : parseOldNinjaResponse(JSON.stringify(data), false);
-          const { rawPrices, rawImages } = parsed;
-          if (parsed.priceHistory && Object.keys(parsed.priceHistory).length > 0) {
-            state._priceHistory = parsed.priceHistory;
-          }
-          if (parsed.priceTotalChange && Object.keys(parsed.priceTotalChange).length > 0) {
-            state._priceTotalChange = parsed.priceTotalChange;
-          }
-          if (applyPrices(rawPrices, rawImages, 'Worker')) { btn.disabled = false; return; }
-        } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
-      } else {
-        let errPayload = null;
-        try { errPayload = await res.json(); } catch (_) { errPayload = null; }
-        if (errPayload?.error === 'stale_expired') staleExpiredSeen = true;
-        const errTag = errPayload?.error ? ` (${errPayload.error})` : '';
-        log.push(`[Worker] HTTP ${res.status}${errTag}`);
-      }
-    } catch(e) { log.push(`[Worker] ${e.message}`); }
-  }
-
-  // 2. Public proxy fallbacks
-  const fallbacks = [
-    { label: 'allorigins/raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(ninjaUrl)}` },
-    { label: 'codetabs',       url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(ninjaUrl)}` },
-  ];
-  for (const attempt of fallbacks) {
-    try {
-      status.textContent = `Trying ${attempt.label}...`;
-      const res = await fetch(attempt.url, { cache: 'no-store' });
-      if (!res.ok) { log.push(`[${attempt.label}] HTTP ${res.status}`); continue; }
-      const text = await res.text();
       try {
-        const { rawPrices, rawImages } = parseOldNinjaResponse(text, attempt.unwrap);
-        if (applyPrices(rawPrices, rawImages, attempt.label)) { btn.disabled = false; return; }
-      } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
-    } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
-  }
+        status.textContent = 'Trying Cloudflare Worker...';
+        const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          try {
+            const parsed = Array.isArray(data.items) && data.items.length > 0
+              ? parseWorkerResponse(data)
+              : parseOldNinjaResponse(JSON.stringify(data), false);
+            const { rawPrices, rawImages } = parsed;
+            if (parsed.priceHistory && Object.keys(parsed.priceHistory).length > 0) {
+              state._priceHistory = parsed.priceHistory;
+            }
+            if (parsed.priceTotalChange && Object.keys(parsed.priceTotalChange).length > 0) {
+              state._priceTotalChange = parsed.priceTotalChange;
+            }
+            if (applyPrices(rawPrices, rawImages, 'Worker')) { btn.disabled = false; return; }
+          } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
+        } else {
+          let errPayload = null;
+          try { errPayload = await res.json(); } catch (_) { errPayload = null; }
+          if (errPayload?.error === 'stale_expired') staleExpiredSeen = true;
+          const errTag = errPayload?.error ? ` (${errPayload.error})` : '';
+          log.push(`[Worker] HTTP ${res.status}${errTag}`);
+        }
+      } catch(e) { log.push(`[Worker] ${e.message}`); }
+    }
 
-  if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
-  else status.textContent = 'Failed to load prices from poe.ninja';
-  status.className = 'ninja-status error';
-  if (hadPriorData) {
-    status.textContent = staleExpiredSeen
-      ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
-      : 'Refresh failed; showing last good market snapshot';
-    status.className = 'ninja-status loaded';
+    // 2. Public proxy fallbacks
+    const fallbacks = [
+      { label: 'allorigins/raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(ninjaUrl)}` },
+      { label: 'codetabs',       url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(ninjaUrl)}` },
+    ];
+    for (const attempt of fallbacks) {
+      try {
+        status.textContent = `Trying ${attempt.label}...`;
+        const res = await fetch(attempt.url, { cache: 'no-store' });
+        if (!res.ok) { log.push(`[${attempt.label}] HTTP ${res.status}`); continue; }
+        const text = await res.text();
+        try {
+          const { rawPrices, rawImages } = parseOldNinjaResponse(text, attempt.unwrap);
+          if (applyPrices(rawPrices, rawImages, attempt.label)) { btn.disabled = false; return; }
+        } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
+      } catch(e) { log.push(`[${attempt.label}] ${e.message}`); }
+    }
+
+    if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
+    else status.textContent = 'Failed to load prices from poe.ninja';
+    status.className = 'ninja-status error';
+    if (hadPriorData) {
+      status.textContent = staleExpiredSeen
+        ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
+        : 'Refresh failed; showing last good market snapshot';
+      status.className = 'ninja-status loaded';
+      btn.disabled = false;
+      return;
+    }
+    const logHtml = log.map(l => `<div style="margin:3px 0;font-size:10px;color:var(--text-3);font-family:monospace;word-break:break-all">${l}</div>`).join('');
+    document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">&#9888; Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
     btn.disabled = false;
-    return;
+  } finally {
+    state._marketFetchBusy = false;
+    if (state._marketFetchPending) {
+      state._marketFetchPending = false;
+      fetchMarketScarabPrices();
+    }
   }
-  const logHtml = log.map(l => `<div style="margin:3px 0;font-size:10px;color:var(--text-3);font-family:monospace;word-break:break-all">${l}</div>`).join('');
-  document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">&#9888; Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
-  btn.disabled = false;
 }
 
 function resetNinjaSort() {
