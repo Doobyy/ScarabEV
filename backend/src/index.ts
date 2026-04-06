@@ -960,10 +960,7 @@ async function runBackupSnapshot(
   }
 }
 
-async function routeRequest(request: Request, deps: RouteDeps, context: RequestContext): Promise<Response> {
-  const url = new URL(request.url);
-  const responseCookieHeaders = new Headers();
-
+async function handleSystemRoutes(request: Request, url: URL, deps: RouteDeps, context: RequestContext): Promise<Response | null> {
   if (request.method === "GET" && url.pathname === "/healthz") {
     return jsonResponse({
       ok: true,
@@ -979,6 +976,16 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
       headers: buildAdminSecurityHeaders()
     });
   }
+
+  return null;
+}
+
+async function routeRequest(request: Request, deps: RouteDeps, context: RequestContext): Promise<Response> {
+  const url = new URL(request.url);
+  const responseCookieHeaders = new Headers();
+
+  const systemResponse = await handleSystemRoutes(request, url, deps, context);
+  if (systemResponse) return systemResponse;
 
   if (request.method === "POST" && url.pathname === "/admin/auth/login") {
     const now = deps.now();

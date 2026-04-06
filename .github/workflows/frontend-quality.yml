@@ -1,0 +1,37 @@
+name: frontend-quality
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - "js/**"
+      - ".github/workflows/frontend-quality.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "js/**"
+      - ".github/workflows/frontend-quality.yml"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check frontend module syntax
+        run: |
+          node --check js/app.js
+          node --check js/config.js
+          node --check js/market.js
+          node --check js/regexEngine.js
+          node --check js/scarabEngine.js
+          node --check js/state.js
+          node --check js/tokenSource.js

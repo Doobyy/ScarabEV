@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { configureScarabEngine, calcEV, calcAutoEV, computeWeightBasedRate, getNinjaEntries } from './scarabEngine.js';
 import { configureRegexEngine, buildRegex, buildReverseTokenMap, parseRegexToScarabs } from './regexEngine.js';
 import { parseWorkerResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, parseSnapCSV } from './market.js';
+import { initializeBackendTokenSource } from './tokenSource.js';
 import {
   CDN,
   SCARAB_LIST,
@@ -403,48 +404,6 @@ function toggleFaqItem(bodyId, chevronId, questionId) {
 // one scarab and nothing else in the PoE item tooltip. Mirrors the approach
 // used by poe.re/#/scarab. The regex is simply token1|token2|... for all
 // vendor-targeted scarabs, joined and wrapped in quotes.
-
-const BACKEND_TOKEN_CACHE_KEY = 'scarabev-backend-token-cache-v1';
-
-async function initializeRegexTokenSource() {
-  try {
-    const res = await fetch(BACKEND_TOKEN_SET_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const payload = await res.json();
-    const byName = payload?.tokensByName;
-    if (!byName || typeof byName !== 'object' || !Object.keys(byName).length) {
-      throw new Error('missing_tokensByName');
-    }
-    configureRegexEngine({ POE_RE_TOKENS: byName });
-    state._regexTokenSource = 'backend';
-    state._backendTokenVersion = payload.versionId || null;
-    try {
-      localStorage.setItem(BACKEND_TOKEN_CACHE_KEY, JSON.stringify({
-        versionId: state._backendTokenVersion,
-        tokensByName: byName
-      }));
-    } catch (e) {}
-  } catch(e) {
-    let cached = null;
-    try {
-      const raw = localStorage.getItem(BACKEND_TOKEN_CACHE_KEY);
-      cached = raw ? JSON.parse(raw) : null;
-    } catch (err) {
-      cached = null;
-    }
-    const cachedByName = cached?.tokensByName;
-    if (cachedByName && typeof cachedByName === 'object' && Object.keys(cachedByName).length) {
-      configureRegexEngine({ POE_RE_TOKENS: cachedByName });
-      state._regexTokenSource = 'backend-cache';
-      state._backendTokenVersion = cached?.versionId || null;
-      return;
-    }
-    configureRegexEngine({ POE_RE_TOKENS: {} });
-    state._regexTokenSource = 'backend-unavailable';
-    state._backendTokenVersion = null;
-  }
-}
-
 
 // vendorNames = names to match; keepNames kept for API compat but unused (poe.re tokens are pre-validated)
 function syncLoggerRegex() {
@@ -4313,7 +4272,7 @@ function parseChangelog(md) {
 atlasLoad();    // restore saved atlas config before any rendering
 (async () => {
   await Promise.allSettled([
-    initializeRegexTokenSource(),
+    initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
     fetchCurrentLeague()
   ]);
   fetchMarketScarabPrices();
