@@ -606,6 +606,7 @@ async function fetchMarketScarabPrices() {
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
   const btn    = document.getElementById('refreshBtn');
+  const hadPriorData = !!(state.ninjaLoaded && state.ninjaPrices && Object.keys(state.ninjaPrices).length > 0);
   status.textContent = 'Loading prices from poe.ninja...'; status.className = 'ninja-status loading';
   btn.disabled = true;
   state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
@@ -617,6 +618,8 @@ async function fetchMarketScarabPrices() {
   const ninjaUrl = `https://poe.ninja/poe1/api/data/itemoverview?league=${encodeURIComponent(league)}&type=Scarab&_cb=${cb}`;
 
   function applyPrices(rawPrices, rawImages, label) {
+    rawPrices = (rawPrices && typeof rawPrices === 'object') ? rawPrices : {};
+    rawImages = (rawImages && typeof rawImages === 'object') ? rawImages : {};
     const matchCount = Object.keys(rawPrices).filter(n => ourNames.has(n.toLowerCase())).length;
     if (matchCount < 10) { log.push(`[${label}] only ${matchCount} matched`); return false; }
     const top3 = Object.entries(rawPrices).filter(([n]) => ourNames.has(n.toLowerCase())).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -731,6 +734,14 @@ async function fetchMarketScarabPrices() {
   if (staleExpiredSeen) status.textContent = 'Market data unavailable (worker cache expired while upstream fetch failed)';
   else status.textContent = 'Failed to load prices from poe.ninja';
   status.className = 'ninja-status error';
+  if (hadPriorData) {
+    status.textContent = staleExpiredSeen
+      ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
+      : 'Refresh failed; showing last good market snapshot';
+    status.className = 'ninja-status loaded';
+    btn.disabled = false;
+    return;
+  }
   const logHtml = log.map(l => `<div style="margin:3px 0;font-size:10px;color:var(--text-3);font-family:monospace;word-break:break-all">${l}</div>`).join('');
   document.getElementById('n-tableBody').innerHTML = `<div style="padding:20px 24px;line-height:1.9;font-size:12px"><strong style="color:var(--red)">&#9888; Could not load data.</strong><br><br><details open><summary style="cursor:pointer;font-weight:600;color:var(--text-2)">Attempt log</summary><div style="margin-top:6px">${logHtml}</div></details></div>`;
   btn.disabled = false;
@@ -4277,8 +4288,10 @@ function parseChangelog(md) {
 
 atlasLoad();    // restore saved atlas config before any rendering
 (async () => {
-  await initializeRegexTokenSource();
-  await fetchCurrentLeague();
+  await Promise.allSettled([
+    initializeRegexTokenSource(),
+    fetchCurrentLeague()
+  ]);
   fetchMarketScarabPrices();
   fetchPriceHistory();
   fetchAndRenderEVChart();

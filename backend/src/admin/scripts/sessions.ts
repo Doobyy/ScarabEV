@@ -183,7 +183,7 @@ async function loadSessionsManager(opts){
   try{
     const r=await fetch(url,{method:'GET'});
     const txt=await r.text();
-    if(!r.ok){if(!quiet)status('sessStatus','Load sessions failed ('+r.status+'). '+txt.slice(0,180),'err');return false;}
+    if(!r.ok){if(!quiet)status('sessStatus','Load sessions failed ('+formatApiFailure(r,null,txt)+').','err');return false;}
     let data=null;try{data=JSON.parse(txt);}catch(e){}
     if(!Array.isArray(data)){if(!quiet)status('sessStatus','Unexpected session payload format.','err');return false;}
     state.sessions=data;
@@ -196,7 +196,7 @@ async function loadSessionsManager(opts){
     if(!quiet)status('sessStatus','Loaded '+state.sessions.length+' session(s). Click a row to expand details.','ok');
     return true;
   }catch(e){
-    if(!quiet)status('sessStatus','Session fetch error: '+(e&&e.message?e.message:String(e)),'err');
+    if(!quiet)status('sessStatus','Session fetch error: '+formatThrownError(e),'err');
     return false;
   }finally{
     busy('sessLoadBtn',false);
@@ -209,10 +209,11 @@ async function recomputeAggregate(){
   busy('sessRecomputeBtn',true);
   try{
     const r=await fetch(base+'/api/aggregate?recompute=1');
-    if(!r.ok){status('sessStatus','Recompute failed ('+r.status+').','err');return;}
+    const txt=await r.text();
+    if(!r.ok){status('sessStatus','Recompute failed ('+formatApiFailure(r,null,txt)+').','err');return;}
     status('sessStatus','Aggregate recompute triggered.','ok');
   }catch(e){
-    status('sessStatus','Recompute error: '+(e&&e.message?e.message:String(e)),'err');
+    status('sessStatus','Recompute error: '+formatThrownError(e),'err');
   }finally{
     busy('sessRecomputeBtn',false);
   }
@@ -227,7 +228,8 @@ async function deleteSessionRow(id,btn){
   btn.disabled=true;const prev=btn.textContent;btn.textContent='Working...';
   try{
     const r=await fetch(base+'/'+encodeURIComponent(id)+'?key='+encodeURIComponent(key),{method:'DELETE'});
-    if(!r.ok){status('sessStatus','Delete failed ('+r.status+').','err');return;}
+    const txt=await r.text();
+    if(!r.ok){status('sessStatus','Delete failed ('+formatApiFailure(r,null,txt)+').','err');return;}
     state.sessions=state.sessions.filter((x)=>String(x.id)!==String(id));
     state.sessionExpandedIds.delete(String(id));
     updateSessionStats(state.sessions);
@@ -236,7 +238,7 @@ async function deleteSessionRow(id,btn){
     await recomputeAggregate();
     toast('Session deleted');
   }catch(e){
-    status('sessStatus','Delete error: '+(e&&e.message?e.message:String(e)),'err');
+    status('sessStatus','Delete error: '+formatThrownError(e),'err');
   }finally{
     btn.disabled=false;btn.textContent=prev;
   }

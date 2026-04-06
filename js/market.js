@@ -93,15 +93,17 @@ export function parseOldNinjaResponse(text, unwrap) {
 }
 
 export function buildNinjaLookup() {
+  const prices = state.ninjaPrices && typeof state.ninjaPrices === 'object' ? state.ninjaPrices : {};
   const lower = {};
-  for (const [name, price] of Object.entries(state.ninjaPrices)) {
+  for (const [name, price] of Object.entries(prices)) {
     lower[name.toLowerCase()] = { price, name };
   }
   return lower;
 }
 
 export function getNinjaPrice(scarabName, lower) {
-  return state.ninjaPrices[scarabName] ?? lower[scarabName.toLowerCase()]?.price ?? 0;
+  const prices = state.ninjaPrices && typeof state.ninjaPrices === 'object' ? state.ninjaPrices : {};
+  return prices[scarabName] ?? lower?.[scarabName.toLowerCase()]?.price ?? 0;
 }
 
 export function getNinjaImage(scarabName) {

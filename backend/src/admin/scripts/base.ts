@@ -18,6 +18,24 @@ const $=(id)=>document.getElementById(id);
 const status=(id,msg,t)=>{const n=$(id);if(!n)return;n.className='status'+(t?(' '+t):'');n.textContent=msg;};
 const toast=(m)=>{const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(window.__tt);window.__tt=setTimeout(()=>t.style.display='none',2200);};
 const busy=(id,b)=>{const x=$(id);if(!x)return;x.disabled=!!b;if(b){x.dataset.prev=x.textContent;x.textContent='Working...';}else if(x.dataset.prev){x.textContent=x.dataset.prev;}};
+function clipText(v,maxLen){
+  const s=String(v||'').replace(/\\s+/g,' ').trim();
+  if(!s)return '';
+  const n=Number(maxLen)||160;
+  return s.length>n?(s.slice(0,n)+'...'):s;
+}
+function formatApiFailure(res,json,text){
+  const statusCode=res&&typeof res.status==='number'?res.status:0;
+  const jsonMsg=(json&&typeof json==='object')
+    ?(json.error||json.message||json.detail||json.reason||'')
+    :'';
+  const body=clipText(jsonMsg||text||'',180);
+  return 'HTTP '+statusCode+(body?(': '+body):'');
+}
+function formatThrownError(err){
+  const msg=(err&&err.message)?err.message:String(err||'error');
+  return clipText(msg,180)||'error';
+}
 
 function formatAdminTime(value){
   if(!value)return '-';
