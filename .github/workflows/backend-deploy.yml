@@ -47,6 +47,10 @@ jobs:
         working-directory: backend
         run: npm run typecheck
 
+      - name: Check admin inline script syntax
+        working-directory: backend
+        run: npm run admin:scripts:check
+
       - name: Run backend tests
         working-directory: backend
         run: npm test
@@ -84,6 +88,10 @@ jobs:
       - name: Typecheck backend
         working-directory: backend
         run: npm run typecheck
+
+      - name: Check admin inline script syntax
+        working-directory: backend
+        run: npm run admin:scripts:check
 
       - name: Run backend tests
         working-directory: backend

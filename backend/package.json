@@ -8,6 +8,7 @@
     "test": "npm run test:build && node .tmp-test/index.test.js",
     "test:build": "tsc -p tsconfig.test.json",
     "typecheck": "tsc --noEmit",
+    "admin:scripts:check": "node ./scripts/check-admin-inline-scripts.mjs",
     "security:check": "npm audit --omit=dev --audit-level=high",
     "deps:outdated": "npm outdated",
     "block7:export-inventory": "node ./scripts/data-migration/export-inventory.mjs",

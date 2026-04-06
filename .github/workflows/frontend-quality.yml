@@ -7,11 +7,13 @@ on:
     paths:
       - "index.html"
       - "js/**"
+      - "scripts/frontend-smoke.mjs"
       - ".github/workflows/frontend-quality.yml"
   pull_request:
     paths:
       - "index.html"
       - "js/**"
+      - "scripts/frontend-smoke.mjs"
       - ".github/workflows/frontend-quality.yml"
 
 jobs:
@@ -35,3 +37,8 @@ jobs:
           node --check js/scarabEngine.js
           node --check js/state.js
           node --check js/tokenSource.js
+          node --check js/hashRouting.js
+          node --check js/globalExpose.js
+
+      - name: Frontend smoke checks
+        run: node scripts/frontend-smoke.mjs

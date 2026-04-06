@@ -9,6 +9,8 @@ import { configureScarabEngine, calcEV, calcAutoEV, computeWeightBasedRate, getN
 import { configureRegexEngine, buildRegex, buildReverseTokenMap, parseRegexToScarabs } from './regexEngine.js';
 import { parseWorkerResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, parseSnapCSV } from './market.js';
 import { initializeBackendTokenSource } from './tokenSource.js';
+import { initHashRouting } from './hashRouting.js';
+import { exposeGlobals } from './globalExpose.js';
 import {
   CDN,
   SCARAB_LIST,
@@ -4284,16 +4286,7 @@ updateSortArrows();
 initSlider();
 checkVersionToast();
 
-(function initHashRouting() {
-  const VALID_TABS = ['scarabEV','atlas','bulk','logger','analysis','faq'];
-  function loadFromHash() {
-    const raw = window.location.hash.replace('#', '');
-    const hash = raw === 'scarabEV' ? 'ninja' : raw;
-    if (VALID_TABS.includes(raw)) switchTab(hash, true);
-  }
-  loadFromHash();
-  window.addEventListener('hashchange', () => loadFromHash());
-})();
+initHashRouting(switchTab);
 
 function copyRegex(type) {
   let bodyId, btnId;
@@ -4318,7 +4311,7 @@ function copyRegex(type) {
 
 
 // Expose selected helpers on window for debug tooling and static markup hooks.
-Object.assign(window, {
+exposeGlobals({
   mobileScarabName,
   computeWeightBasedRate,
   fetchObservedWeights,
