@@ -7,7 +7,7 @@
 import { state } from './state.js';
 import { configureScarabEngine, calcEV, calcAutoEV, computeWeightBasedRate, getNinjaEntries } from './scarabEngine.js';
 import { configureRegexEngine, buildRegex, buildReverseTokenMap, parseRegexToScarabs } from './regexEngine.js';
-import { parseWorkerResponse, parseOldNinjaResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, parseSnapCSV } from './market.js';
+import { parseWorkerResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, parseSnapCSV } from './market.js';
 import {
   CDN,
   SCARAB_LIST,
@@ -16,13 +16,10 @@ import {
   POOL_API_URL,
   FAQ_SECTIONS,
   CHAR_LIMIT,
-  POE_RE_TOKENS,
   WORKER_URL,
   ATLAS_BLOCKABLE,
   ATLAS_BOOSTABLE,
   ATLAS_SAVE_KEY,
-  TOKEN_SOURCE_DEFAULT,
-  TOKEN_SOURCE_STORAGE_KEY,
   BACKEND_TOKEN_SET_URL,
   BACKEND_ADMIN_UI_URL
 } from './config.js';
@@ -407,35 +404,9 @@ function toggleFaqItem(bodyId, chevronId, questionId) {
 // used by poe.re/#/scarab. The regex is simply token1|token2|... for all
 // vendor-targeted scarabs, joined and wrapped in quotes.
 
-// Legacy static token map retained for explicit manual override only.
 const BACKEND_TOKEN_CACHE_KEY = 'scarabev-backend-token-cache-v1';
 
-function parseTokenSourceFromUrl() {
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    const source = (params.get('tokenSource') || '').trim().toLowerCase();
-    return source === 'backend' || source === 'legacy' ? source : null;
-  } catch(e) {
-    return null;
-  }
-}
-
-function getTokenSourceMode() {
-  const fromUrl = parseTokenSourceFromUrl();
-  if (fromUrl) return fromUrl;
-  const fromStorage = (localStorage.getItem(TOKEN_SOURCE_STORAGE_KEY) || '').trim().toLowerCase();
-  if (fromStorage === 'backend') return fromStorage;
-  return TOKEN_SOURCE_DEFAULT;
-}
-
 async function initializeRegexTokenSource() {
-  const mode = getTokenSourceMode();
-  if (mode !== 'backend') {
-    configureRegexEngine({ POE_RE_TOKENS });
-    state._regexTokenSource = 'legacy';
-    return;
-  }
-
   try {
     const res = await fetch(BACKEND_TOKEN_SET_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -745,9 +716,7 @@ async function fetchMarketScarabPrices() {
                 throw new Error('stale_snapshot_too_old');
               }
             }
-            const parsed = Array.isArray(data.items) && data.items.length > 0
-              ? parseWorkerResponse(data)
-              : parseOldNinjaResponse(JSON.stringify(data), false);
+            const parsed = parseWorkerResponse(data);
             const { rawPrices, rawImages } = parsed;
             if (parsed.priceHistory && Object.keys(parsed.priceHistory).length > 0) {
               state._priceHistory = parsed.priceHistory;
@@ -4389,7 +4358,7 @@ function copyRegex(type) {
 }
 
 
-// Preserve legacy global access for inline HTML handlers after module migration.
+// Expose selected helpers on window for debug tooling and static markup hooks.
 Object.assign(window, {
   mobileScarabName,
   computeWeightBasedRate,
@@ -4410,7 +4379,6 @@ Object.assign(window, {
   syncLoggerRegex,
   updateRegexUI,
   parseWorkerResponse,
-  parseOldNinjaResponse,
   buildNinjaLookup,
   getNinjaPrice,
   getNinjaImage,

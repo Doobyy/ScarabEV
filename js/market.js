@@ -1,5 +1,5 @@
 // Market data parsing and lookup helpers.
-// Owns worker/legacy response parsing and price/image lookup utilities.
+// Owns worker response parsing and price/image lookup utilities.
 // Provides CSV parsing helpers consumed by frontend orchestration.
 // Reads shared market state where required.
 // Does not render UI or control fetch fallback strategy.
@@ -65,31 +65,6 @@ export function parseWorkerResponse(data) {
   }
 
   return { rawPrices, rawImages, priceHistory, priceTotalChange };
-}
-
-export function parseOldNinjaResponse(text, unwrap) {
-  if (!text || text.length < 100) throw new Error('empty response');
-  let data;
-  try {
-    const parsed = JSON.parse(text);
-    data = (unwrap && parsed.contents) ? JSON.parse(parsed.contents) : parsed;
-    if (!data.lines && data.contents) data = JSON.parse(data.contents);
-  } catch(e) {
-    throw new Error(`bad JSON: ${text.slice(0, 60).replace(/\n/g,' ')}`);
-  }
-  if (!Array.isArray(data?.lines) || !data.lines.length)
-    throw new Error(`no lines array (keys: ${Object.keys(data||{}).join(', ')})`);
-
-  const rawPrices = {};
-  const rawImages = {};
-  for (const item of data.lines) {
-    if (!item.name) continue;
-    const price = item.chaosValue ?? item.chaosEquivalent ?? null;
-    if (!price || price <= 0) continue;
-    rawPrices[item.name] = price;
-    if (item.icon) rawImages[item.name] = item.icon;
-  }
-  return { rawPrices, rawImages };
 }
 
 export function buildNinjaLookup() {

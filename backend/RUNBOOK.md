@@ -22,7 +22,7 @@
    - `POST /admin/token-sets/:tokenSetId/activate`
 4. Verify:
    - `GET /public/token-set/latest` returns expected `versionId`.
-   - Frontend with `tokenSource=backend` uses expected mapping.
+   - Frontend reflects the expected mapping from the published backend token set.
 
 ## Backup Operations
 - Scheduled backup trigger is configured in staging (`0 */6 * * *`).

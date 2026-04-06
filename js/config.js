@@ -407,8 +407,6 @@ export const POE_RE_TOKENS = {
   "Ultimatum Scarab of Inscription":        "nsc",
 };
 
-export const TOKEN_SOURCE_DEFAULT = 'backend'; // 'legacy' | 'backend'
-export const TOKEN_SOURCE_STORAGE_KEY = 'scarabev-token-source';
 const FRONTEND_HOST = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.hostname)
   ? String(globalThis.location.hostname).toLowerCase()
   : '';
