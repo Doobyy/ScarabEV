@@ -1,0 +1,44 @@
+name: frontend-e2e
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - "js/**"
+      - "tests/frontend-e2e/**"
+      - ".github/workflows/frontend-e2e.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "js/**"
+      - "tests/frontend-e2e/**"
+      - ".github/workflows/frontend-e2e.yml"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: tests/frontend-e2e/package-lock.json
+
+      - name: Install e2e deps
+        working-directory: tests/frontend-e2e
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: tests/frontend-e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend e2e tests
+        working-directory: tests/frontend-e2e
+        run: npm test
+
