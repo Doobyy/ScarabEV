@@ -2260,7 +2260,7 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
 
   // Summary stats bar
   document.getElementById('analysisStatsBar').innerHTML = `
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Trade samples</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '\u2014'}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions tracked</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '\u2014'}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3:1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
     <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
@@ -3884,7 +3884,7 @@ function renderAtlas() {
       <div class="atlas-leftovers-wrap">
         <div class="atlas-leftovers-header" onclick="atlasToggleLeftovers()">
           <span class="atlas-chevron${isOpen ? ' open' : ''}">&#9656;</span>
-          <span class="atlas-leftovers-title">Fixed pool &mdash; ${leftovers.length} remaining groups</span>
+          <span class="atlas-leftovers-title">Fixed pool</span>
         </div>
         ${isOpen ? `
         <div class="atlas-leftovers-body">
