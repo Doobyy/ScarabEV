@@ -1705,10 +1705,13 @@ body.graph-palette-ruby {
 #tab-atlas .atlas-note strong { color: var(--text-2); }
 #tab-atlas .atlas-note .atlas-evloss { color: color-mix(in srgb, var(--red) 78%, var(--text-2) 22%); font-weight: 700; }
 #tab-atlas .atlas-note .atlas-suggested { color: color-mix(in srgb, var(--green) 78%, var(--text-2) 22%); font-weight: 700; }
+#tab-atlas .atlas-note .atlas-marginal { color: color-mix(in srgb, #9d8700 78%, var(--text-2) 22%); font-weight: 700; }
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss { color: color-mix(in srgb, var(--red) 72%, var(--text-3) 28%); }
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested { color: color-mix(in srgb, var(--green) 72%, var(--text-3) 28%); }
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-marginal { color: color-mix(in srgb, #ccb700 72%, var(--text-3) 28%); }
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss,
-[data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested { font-weight: 600; }
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested,
+[data-theme="dark"] #tab-atlas .atlas-note .atlas-marginal { font-weight: 600; }
 [data-theme="dark"] #tab-atlas .atlas-note strong { color: #7faedc; }
 .notice-tip {
   background: var(--accent-dim); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent);
@@ -2058,6 +2061,48 @@ body.graph-palette-ruby {
 .atlas-hero-val.muted { color: var(--text-2); }
 .atlas-hero-sub { font-size: 10px; color: var(--text-3); margin-top: 3px; }
 
+.atlas-trend-preview {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
+  padding: 10px 12px 12px; box-shadow: var(--shadow-sm); margin-bottom: 14px;
+}
+.atlas-trend-preview-head {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 8px;
+  cursor: pointer; user-select: none;
+}
+.atlas-trend-preview-title {
+  font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.07em; text-transform: uppercase;
+}
+[data-theme="dark"] .atlas-trend-preview-title { color: #7faedc; }
+.atlas-trend-preview-legend { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.atlas-trend-preview-legend-item { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-3); }
+.atlas-trend-preview-legend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.atlas-trend-preview-legend-dot.base { background: var(--text-2); }
+.atlas-trend-preview-legend-dot.opt { background: var(--chaos); }
+.atlas-trend-preview-chart {
+  width: 100%; height: 132px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-card); position: relative;
+}
+.atlas-trend-preview-axis { font-size: 9px; fill: var(--text-3); }
+.atlas-trend-preview-grid { stroke: var(--border); stroke-width: 1; }
+.atlas-trend-preview-line-base { fill: none; stroke: var(--text-2); stroke-width: 1.6; }
+.atlas-trend-preview-line-opt { fill: none; stroke: var(--chaos); stroke-width: 1.9; }
+.atlas-trend-preview-dot-base { fill: var(--text-2); }
+.atlas-trend-preview-dot-opt { fill: var(--chaos); }
+.atlas-trend-preview-chart canvas { width: 100% !important; height: 100% !important; display: block; }
+.atlas-trend-preview-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 8px;
+}
+.atlas-trend-preview.collapsed .atlas-trend-preview-body { display: none; }
+.atlas-trend-preview.collapsed .estimator-chevron { transform: rotate(-90deg); }
+
 .atlas-note {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 14px; font-size: 11px; color: var(--text-3); line-height: 1.6;
@@ -2179,10 +2224,12 @@ body.graph-palette-ruby {
 .atlas-badge.blocked     { background: rgba(214,58,44,0.12); color: var(--red);   border: 1px solid rgba(214,58,44,0.3); }
 .atlas-badge.boosted     { background: #3a5cd4; color: #fff; border: 1px solid #2d4fc0; }
 .atlas-badge.recommended { background: rgba(30,156,82,0.12); color: var(--green); border: 1px solid rgba(30,156,82,0.35); font-weight: 700; }
+.atlas-badge.marginal    { background: rgba(184,160,0,0.12); color: #9d8700; border: 1px solid rgba(184,160,0,0.3); }
 .atlas-badge.ev-loss     { background: rgba(214,58,44,0.12); color: var(--red); border: 1px solid rgba(214,58,44,0.32); }
 [data-theme="dark"] .atlas-badge.blocked     { background: rgba(255,95,80,0.12);  color: var(--red); }
 [data-theme="dark"] .atlas-badge.boosted     { background: #3a5cd4; color: #fff; border-color: #2d4fc0; }
 [data-theme="dark"] .atlas-badge.recommended { background: rgba(54,216,126,0.10); color: var(--green); border-color: rgba(54,216,126,0.3); }
+[data-theme="dark"] .atlas-badge.marginal    { background: rgba(200,180,0,0.14); color: #ccb700; border-color: rgba(200,180,0,0.32); }
 [data-theme="dark"] .atlas-badge.ev-loss     { background: rgba(214,58,44,0.14); color: var(--red); border-color: rgba(214,58,44,0.34); }
 
 .atlas-chevron { font-size: 20px; font-weight: 700; color: var(--text-3); transition: transform 0.15s; text-align: right; line-height: 1; opacity: 0.72; }
@@ -2209,7 +2256,7 @@ body.graph-palette-ruby {
 
 .atlas-scarab-rows { border-top: 1px solid var(--border); background: var(--bg); }
 .atlas-scarab-head {
-  display: grid; grid-template-columns: 1fr 54px 54px 64px;
+  display: grid; grid-template-columns: 1fr 54px 54px 64px 56px;
   padding: 4px 10px 4px 44px; gap: 6px;
   font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-3); border-bottom: 1px solid var(--border);
@@ -2217,7 +2264,7 @@ body.graph-palette-ruby {
 .atlas-scarab-head span { text-align: right; }
 .atlas-scarab-head span:first-child { text-align: left; }
 .atlas-scarab-row {
-  display: grid; grid-template-columns: 1fr 54px 54px 64px;
+  display: grid; grid-template-columns: 1fr 54px 54px 64px 56px;
   padding: 4px 10px 4px 44px; gap: 6px; align-items: center; font-size: 11px;
   border-bottom: 1px solid var(--border);
 }
@@ -2228,6 +2275,9 @@ body.graph-palette-ruby {
 .atlas-scarab-stat.chaos  { color: var(--chaos); }
 .atlas-scarab-stat.muted  { color: var(--text-3); }
 .atlas-scarab-stat.accent { color: var(--accent); }
+.atlas-scarab-stat.trend-pos { color: var(--green); }
+.atlas-scarab-stat.trend-neg { color: var(--red); }
+.atlas-scarab-stat.trend-flat { color: var(--text-3); }
 
 .atlas-leftovers-wrap { margin-top: 0; }
 .atlas-leftovers-header {
@@ -2345,6 +2395,7 @@ body.graph-palette-ruby {
   /* -- STAT CARDS -- */
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
   .atlas-hero { grid-template-columns: repeat(2, 1fr); }
+  .atlas-trend-preview-chart { height: 118px; }
   .estimator-results { grid-template-columns: repeat(2, 1fr); }
   .logger-stats-row { grid-template-columns: repeat(3, 1fr); }
   .analysis-stats-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2467,6 +2518,12 @@ body.graph-palette-ruby {
   .atlas-group-row > span:nth-child(5),
   .atlas-col-subhead > span:nth-child(4),
   .atlas-col-subhead > span:nth-child(5) { display: none; }
+
+  /* Keep expanded atlas rows readable on mobile: hide group share */
+  .atlas-scarab-head,
+  .atlas-scarab-row { grid-template-columns: 1fr 54px 64px 56px; }
+  .atlas-scarab-head span:nth-child(2),
+  .atlas-scarab-row .atlas-scarab-stat:nth-child(3) { display: none; }
 
   /* -- LEFTOVER TABLE -- */
   .atlas-leftover-head,
@@ -2749,7 +2806,7 @@ body.graph-palette-ruby {
     <!-- EV HISTORY CHART -->
     <div class="ev-chart-panel" id="evChartPanel">
       <div class="ev-chart-header" onclick="toggleEVChart()">
-        <span class="ev-chart-title">EV Trend</span>
+        <span class="ev-chart-title" id="evChartTitle">HARMONIC THRESHOLD TREND</span>
         <span class="ev-chart-meta" id="evChartMeta"></span>
         <span class="estimator-chevron" id="evChartChevron">&#9656;</span>
       </div>
@@ -2757,7 +2814,7 @@ body.graph-palette-ruby {
         <div style="position:relative;width:100%;height:140px">
           <canvas id="evHistoryChart"></canvas>
         </div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Daily EV snapshot at 7PM UTC &middot; 90 day window</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px" id="evSnapshotTimeLabel">Daily EV snapshot at 18:00 UTC</div>
       </div>
     </div>
 
@@ -2847,7 +2904,7 @@ body.graph-palette-ruby {
         <div class="th th-icon"></div>
         <div class="th th-name" id="n-th-name" onclick="setNinjaSort('name')" style="cursor:pointer;user-select:none">Scarab</div>
         <div class="th th-group" id="n-th-group" onclick="setNinjaSort('group')" style="cursor:pointer;user-select:none">Group</div>
-        <div class="th center th-trend" id="n-th-trend" onclick="setNinjaSort('trend')" style="cursor:pointer;user-select:none">History</div>
+        <div class="th center th-trend" id="n-th-trend" onclick="setNinjaSort('trend')" style="cursor:pointer;user-select:none">7D History</div>
         <div class="th right th-delta" id="n-th-delta" onclick="setNinjaSort('delta')" style="cursor:pointer;user-select:none">Trend</div>
         <div class="th right th-price" id="n-th-chaosPerUnit" onclick="setNinjaSort('chaosPerUnit')" style="cursor:pointer;user-select:none">Cost/ea</div>
         <div class="th center th-diff" id="n-th-diff" onclick="setNinjaSort('diff')" style="cursor:pointer;user-select:none">vs EV</div>
@@ -3260,8 +3317,25 @@ body.graph-palette-ruby {
       </div>
     </div>
 
+    <div class="atlas-trend-preview" id="atlasTrendPreview" aria-hidden="true">
+      <div class="atlas-trend-preview-head" onclick="toggleAtlasTrendPreview()">
+        <span class="atlas-trend-preview-title">Map Drop EV History</span>
+        <span class="atlas-trend-preview-legend">
+          <span class="atlas-trend-preview-legend-item"><span class="atlas-trend-preview-legend-dot base"></span>Baseline</span>
+          <span class="atlas-trend-preview-legend-item"><span class="atlas-trend-preview-legend-dot opt"></span>Optimized</span>
+        </span>
+        <span class="estimator-chevron" id="atlasTrendPreviewChevron">&#9656;</span>
+      </div>
+      <div class="atlas-trend-preview-body">
+      <div class="atlas-trend-preview-chart">
+        <canvas id="atlasTrendPreviewChart" aria-label="Atlas EV trend preview"></canvas>
+        <div class="atlas-trend-preview-empty" id="atlasTrendPreviewEmpty" hidden>No Atlas EV history snapshots yet.</div>
+      </div>
+      </div>
+    </div>
+
     <div class="atlas-note" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <span style="font-size:12px;color:var(--text-2);line-height:1.7"><strong>Set up and save your config.</strong> On your next visit, we'll flag any toggle that has flipped to an <span class="atlas-evloss">EV LOSS</span> or is newly <strong class="atlas-suggested">SUGGESTED</strong>.</span>
+      <span style="font-size:12px;color:var(--text-2);line-height:1.7"><strong>Set up and save your config.</strong> On your next visit, we'll flag any toggle that has flipped to an <span class="atlas-evloss">EV LOSS</span> or is newly <strong class="atlas-suggested">SUGGESTED</strong>. <strong class="atlas-marginal">MARGINAL GAINS</strong> = &lt;1% Change.</span>
       <button id="atlasSaveBtn" class="atlas-save-btn" onclick="atlasSave()">Save config</button>
     </div>
 

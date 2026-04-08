@@ -40,6 +40,8 @@ import {
 // On mobile: show last meaningful word. If that word is ambiguous (shared by
 // multiple scarabs), fall back to last two meaningful words.
 const _SCARAB_STOP = new Set(['scarab','of','the','a','an']);
+const DAILY_SNAPSHOT_UTC_HOUR = 18;
+const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 const _AMBIGUOUS_LAST = (() => {
   const counts = {};
   for (const s of SCARAB_LIST) {
@@ -95,13 +97,23 @@ async function fetchObservedWeights() {
       }
     }
     const hasWeights = !!(weights && Object.keys(weights).length > 0);
-    state._observedWeights = hasWeights ? weights : null;
+    const previousWeights = state._observedWeights && Object.keys(state._observedWeights).length > 0
+      ? state._observedWeights
+      : null;
+    state._observedWeights = hasWeights ? weights : previousWeights;
     state._weightSessionCount = data.weightSessionCount || data.sessionCount || 0;
     state._weightTradeCount = data.weightTradeCount || data.totalTrades || data?.weightMeta?.totalTrades || 0;
     state._weightMeta = data.weightMeta || null;
     state._weightUnavailableReason = hasWeights ? null : (data?.weightMeta?.reason || 'Not enough community data for weighted mode yet.');
 
     if (!hasWeights) {
+      if (previousWeights) {
+        // Keep last known good weights to avoid transient weighted-mode/chart flicker.
+        state._weightUnavailableReason = data?.weightMeta?.reason || state._weightUnavailableReason || 'Using last known weight snapshot.';
+        calcEstimator();
+        if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+        return;
+      }
       state._calibratedMean = null;
       state._calibratedP20 = null;
       state._calibratedRate = null;
@@ -111,6 +123,8 @@ async function fetchObservedWeights() {
         if (threshModeEl) threshModeEl.textContent = 'harmonic EV';
       }
       calcEstimator();
+      if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+      if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
       return;
     }
 
@@ -122,6 +136,7 @@ async function fetchObservedWeights() {
         state._calibratedRate = result.conservative;
       }
       calcEstimator();
+      if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
       // If user already switched to weighted mode before data arrived, apply it now
       if (state._evMode === 'weighted') {
         state.ninjaEvOverride = null;
@@ -131,6 +146,7 @@ async function fetchObservedWeights() {
       }
       // If atlas tab is open, render it now that weights are available
       if (state.currentTab === 'atlas') renderAtlas();
+      if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
     }
   } catch(e) { /* silent \u2014 estimator shows nothing until data is available */ }
 }
@@ -182,6 +198,8 @@ async function fetchPriceHistory() {
     if (data.prices && Object.keys(data.prices).length > 0) {
       state._priceHistory = data.prices;
       if (state.ninjaLoaded) renderVendorTable();
+      if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+      if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
     }
   } catch(e) { /* silent */ }
 }
@@ -307,6 +325,34 @@ function hideSparkTooltip() {
   if (tip) tip.classList.remove('show');
 }
 
+function getDailySnapshotLocalTimeLabel() {
+  try {
+    const now = new Date();
+    const utcSlot = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      DAILY_SNAPSHOT_UTC_HOUR,
+      0,
+      0
+    ));
+    const formatted = new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    }).format(utcSlot);
+    return formatted;
+  } catch (_e) {
+    return `${DAILY_SNAPSHOT_UTC_HOUR}:00 UTC`;
+  }
+}
+
+function updateDailySnapshotCopy() {
+  const el = document.getElementById('evSnapshotTimeLabel');
+  if (!el) return;
+  el.textContent = `Daily EV snapshot at ${getDailySnapshotLocalTimeLabel()}`;
+}
+
 // Theme
 const savedTheme = localStorage.getItem('poepool-theme') || 'dark';
 if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme','dark');
@@ -314,6 +360,8 @@ function toggleTheme() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
   localStorage.setItem('poepool-theme', isDark ? 'light' : 'dark');
+  if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
+  else fetchAndRenderAtlasTrendPreview();
 }
 
 // TABS
@@ -540,12 +588,14 @@ async function fetchMarketScarabPrices() {
   }
   state._marketFetchBusy = true;
   const league = document.getElementById('leagueSelect').value;
+  fetchAndRenderAtlasTrendPreview();
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
   const btn    = document.getElementById('refreshBtn');
   const hadPriorData = !!(state.ninjaLoaded && state.ninjaPrices && Object.keys(state.ninjaPrices).length > 0);
   const LOCAL_FALLBACK_MAX_AGE_MS = 15 * 60 * 1000;
   const WORKER_FETCH_TIMEOUT_MS = 7000;
+  const WORKER_SNAPSHOT_KEY = 'scarabev-worker-snapshot-v1';
   status.textContent = 'Loading prices from poe.ninja...'; status.className = 'ninja-status loading';
   btn.disabled = true;
   state.ninjaDivineRate = null; // reset stale rate \u2014 will be refreshed from worker below
@@ -558,6 +608,33 @@ async function fetchMarketScarabPrices() {
     } finally {
       clearTimeout(timer);
     }
+  };
+
+  const loadStoredWorkerSnapshot = () => {
+    try {
+      const raw = localStorage.getItem(WORKER_SNAPSHOT_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (String(parsed.league || '') !== String(league || '')) return null;
+      const snapshotTimeMs = Number(parsed.snapshotTimeMs);
+      if (!Number.isFinite(snapshotTimeMs) || snapshotTimeMs <= 0) return null;
+      const ageMs = Date.now() - snapshotTimeMs;
+      if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > LOCAL_FALLBACK_MAX_AGE_MS) return null;
+      if (!parsed.rawPrices || typeof parsed.rawPrices !== 'object') return null;
+      if (!parsed.rawImages || typeof parsed.rawImages !== 'object') return null;
+      return { ...parsed, snapshotTimeMs, ageMs };
+    } catch (_e) {
+      return null;
+    }
+  };
+
+  const persistWorkerSnapshot = (payload) => {
+    try {
+      const safe = payload && typeof payload === 'object' ? payload : null;
+      if (!safe) return;
+      localStorage.setItem(WORKER_SNAPSHOT_KEY, JSON.stringify(safe));
+    } catch (_e) { /* silent */ }
   };
 
   try {
@@ -584,6 +661,7 @@ async function fetchMarketScarabPrices() {
       state.ninjaPrices = rawPrices;
       state.ninjaImages = rawImages;
       state.ninjaLoaded = true;
+      try {
     // If observed weights were already fetched, recompute the calibrated rate now
     // that we have live ninja prices to pair them with
       if (state._observedWeights) {
@@ -648,6 +726,9 @@ async function fetchMarketScarabPrices() {
           })
           .catch(() => { /* silent */ });
       }
+      } catch (e) {
+        log.push(`[Client] render error after price apply: ${e?.message || String(e)}`);
+      }
       return true;
     }
 
@@ -656,11 +737,17 @@ async function fetchMarketScarabPrices() {
 
     // 1. Cloudflare Worker (new format)
     if (WORKER_URL) {
+      const workerScarabUrl = `${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`;
+      const workerAttemptStartedAt = Date.now();
       try {
         workerAttempted = true;
         status.textContent = 'Trying Cloudflare Worker...';
+        log.push(`[Worker] GET ${workerScarabUrl}`);
+        if (typeof navigator !== 'undefined') {
+          log.push(`[Client] online=${String(navigator.onLine)}`);
+        }
         const res = await fetchWithTimeout(
-          `${WORKER_URL}?league=${encodeURIComponent(league)}&type=Scarab`,
+          workerScarabUrl,
           { cache: 'no-store' },
           WORKER_FETCH_TIMEOUT_MS
         );
@@ -686,20 +773,86 @@ async function fetchMarketScarabPrices() {
               state._priceTotalChange = parsed.priceTotalChange;
             }
             workerOkParsed = true;
-            if (applyPrices(rawPrices, rawImages, 'Worker', meta)) { btn.disabled = false; return; }
+            if (applyPrices(rawPrices, rawImages, 'Worker', meta)) {
+              const lastSuccessAtRaw = meta ? String(meta.lastSuccessAt || '') : '';
+              const lastSuccessMs = lastSuccessAtRaw ? Date.parse(lastSuccessAtRaw) : NaN;
+              persistWorkerSnapshot({
+                league,
+                snapshotTimeMs: Number.isFinite(lastSuccessMs) ? lastSuccessMs : Date.now(),
+                rawPrices,
+                rawImages,
+                priceHistory: parsed.priceHistory && typeof parsed.priceHistory === 'object' ? parsed.priceHistory : {},
+                priceTotalChange: parsed.priceTotalChange && typeof parsed.priceTotalChange === 'object' ? parsed.priceTotalChange : {}
+              });
+              btn.disabled = false;
+              return;
+            }
           } catch(e) { log.push(`[Worker] parse error: ${e.message}`); }
         } else {
           let errPayload = null;
           try { errPayload = await res.json(); } catch (_) { errPayload = null; }
           if (errPayload?.error === 'stale_expired') staleExpiredSeen = true;
+          const errMeta = (errPayload && typeof errPayload === 'object' && errPayload._meta && typeof errPayload._meta === 'object')
+            ? errPayload._meta
+            : null;
           const errTag = errPayload?.error ? ` (${errPayload.error})` : '';
-          log.push(`[Worker] HTTP ${res.status}${errTag}`);
+          const metaBits = [];
+          if (errMeta?.dataState) metaBits.push(`dataState=${errMeta.dataState}`);
+          if (Number.isFinite(Number(errMeta?.ageSeconds))) metaBits.push(`age=${Math.floor(Number(errMeta.ageSeconds))}s`);
+          if (errMeta?.lastSuccessAt) metaBits.push(`lastSuccessAt=${errMeta.lastSuccessAt}`);
+          log.push(`[Worker] HTTP ${res.status}${errTag}${metaBits.length ? ` | ${metaBits.join(' | ')}` : ''}`);
         }
-      } catch(e) { log.push(`[Worker] ${e.message}`); }
+      } catch(e) {
+        const elapsedMs = Math.max(0, Date.now() - workerAttemptStartedAt);
+        const errName = e?.name || 'Error';
+        const errMsg = e?.message || String(e);
+        log.push(`[Worker] request failed after ${elapsedMs}ms: ${errName}: ${errMsg}`);
+        if (errName === 'AbortError') {
+          log.push(`[Client] timeout exceeded (${WORKER_FETCH_TIMEOUT_MS}ms)`);
+        }
+        if (typeof navigator !== 'undefined') {
+          log.push(`[Client] online=${String(navigator.onLine)}`);
+        }
+      }
+    }
+
+    const storedSnapshot = loadStoredWorkerSnapshot();
+    if (storedSnapshot) {
+      log.push(`[Client] storedWorkerSnapshotAge=${Math.max(0, Math.floor(storedSnapshot.ageMs / 1000))}s`);
+    } else {
+      log.push('[Client] no valid stored worker snapshot');
+    }
+    if (storedSnapshot && workerAttempted && !workerOkParsed) {
+      if (storedSnapshot.priceHistory && typeof storedSnapshot.priceHistory === 'object' && Object.keys(storedSnapshot.priceHistory).length > 0) {
+        state._priceHistory = storedSnapshot.priceHistory;
+      }
+      if (storedSnapshot.priceTotalChange && typeof storedSnapshot.priceTotalChange === 'object' && Object.keys(storedSnapshot.priceTotalChange).length > 0) {
+        state._priceTotalChange = storedSnapshot.priceTotalChange;
+      }
+      const staleMeta = {
+        dataState: 'stale',
+        ageSeconds: Math.max(0, Math.floor(storedSnapshot.ageMs / 1000)),
+        lastSuccessAt: new Date(storedSnapshot.snapshotTimeMs).toISOString()
+      };
+      if (applyPrices(storedSnapshot.rawPrices, storedSnapshot.rawImages, 'StoredWorkerSnapshot', staleMeta)) {
+        status.textContent = staleExpiredSeen
+          ? 'Refresh failed; showing last good worker snapshot (upstream cache expired)'
+          : 'Refresh failed; showing last good worker snapshot';
+        status.className = 'ninja-status loaded';
+        btn.disabled = false;
+        return;
+      }
+      log.push('[Client] stored worker snapshot was invalid for current table');
     }
 
     const priorAgeMs = window._ninjaPriceTime ? (Date.now() - new Date(window._ninjaPriceTime).getTime()) : Number.POSITIVE_INFINITY;
     const canUseLocalFallback = hadPriorData && Number.isFinite(priorAgeMs) && priorAgeMs <= LOCAL_FALLBACK_MAX_AGE_MS;
+    if (hadPriorData) {
+      const priorAgeSec = Math.max(0, Math.floor(priorAgeMs / 1000));
+      log.push(`[Client] priorSnapshotAge=${priorAgeSec}s`);
+    } else {
+      log.push('[Client] no prior snapshot available');
+    }
     if (canUseLocalFallback && workerAttempted && !workerOkParsed) {
       status.textContent = staleExpiredSeen
         ? 'Refresh failed; showing last good market snapshot (worker cache expired upstream)'
@@ -1135,6 +1288,8 @@ function resetSlider() {
   recalculateVendorTargets();
   renderVendorTable();
   calcEstimator();
+  if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+  else fetchAndRenderEVChart();
 }
 
 function toggleEVMode() {
@@ -1178,6 +1333,8 @@ function setEVMode(mode) {
   recalculateVendorTargets();
   renderVendorTable();
   calcEstimator();
+  if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+  else fetchAndRenderEVChart();
 }
 
 function updateSliderROI(threshold) {
@@ -1535,6 +1692,198 @@ function toggleEVChart() {
   document.getElementById('evChartPanel').classList.toggle('collapsed');
 }
 
+function toggleAtlasTrendPreview() {
+  const panel = document.getElementById('atlasTrendPreview');
+  if (!panel) return;
+  panel.classList.toggle('collapsed');
+}
+
+function colorWithAlpha(color, alpha) {
+  const ctx = document.createElement('canvas').getContext('2d');
+  if (!ctx) return color;
+  ctx.clearRect(0, 0, 1, 1);
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  const data = ctx.getImageData(0, 0, 1, 1).data;
+  const r = Number(data[0] || 0);
+  const g = Number(data[1] || 0);
+  const b = Number(data[2] || 0);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function setAtlasTrendPreviewEmpty(message) {
+  const canvas = document.getElementById('atlasTrendPreviewChart');
+  const empty = document.getElementById('atlasTrendPreviewEmpty');
+  if (state._atlasTrendPreviewChart) {
+    state._atlasTrendPreviewChart.destroy();
+    state._atlasTrendPreviewChart = null;
+  }
+  if (canvas) canvas.style.display = 'none';
+  if (empty) {
+    empty.textContent = message || 'No Atlas EV history available yet.';
+    empty.hidden = false;
+  }
+}
+
+function showAtlasTrendPreviewChart() {
+  const canvas = document.getElementById('atlasTrendPreviewChart');
+  const empty = document.getElementById('atlasTrendPreviewEmpty');
+  if (canvas) canvas.style.display = 'block';
+  if (empty) empty.hidden = true;
+}
+
+async function fetchAndRenderAtlasTrendPreview() {
+  if (!WORKER_URL) {
+    setAtlasTrendPreviewEmpty('Atlas EV history endpoint is not configured.');
+    return;
+  }
+  const league = document.getElementById('leagueSelect')?.value || 'Mirage';
+  try {
+    const res = await fetch(`${WORKER_URL}?type=AtlasEVHistory&league=${encodeURIComponent(league)}`, { cache: 'no-store' });
+    if (!res.ok) {
+      setAtlasTrendPreviewEmpty('Could not load Atlas EV history.');
+      return;
+    }
+    const data = await res.json();
+    const history = Array.isArray(data?.history) ? data.history : [];
+    state._atlasTrendHistoryRaw = history;
+    renderAtlasTrendPreview(history);
+  } catch (_e) {
+    setAtlasTrendPreviewEmpty('Could not load Atlas EV history.');
+  }
+}
+
+function renderAtlasTrendPreview(history) {
+  const canvas = document.getElementById('atlasTrendPreviewChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (state._atlasTrendPreviewChart) {
+    state._atlasTrendPreviewChart.destroy();
+    state._atlasTrendPreviewChart = null;
+  }
+
+  let series = Array.isArray(history)
+    ? history
+      .filter((h) => {
+        const d = String(h?.date || '');
+        const baseline = Number(h?.baselineEv);
+        const optimized = Number(h?.optimizedEv);
+        return !!d && Number.isFinite(baseline) && baseline > 0 && Number.isFinite(optimized) && optimized > 0;
+      })
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      .slice(-90)
+    : [];
+  if (series.length < 2) {
+    const derived = buildAtlasTrendSeriesFromPriceHistory();
+    if (derived.length >= 2) series = derived;
+  }
+  const livePoint = buildLiveAtlasTrendPoint();
+  if (livePoint) {
+    series = series.filter((h) => String(h.date) !== livePoint.date);
+    series.push(livePoint);
+    series = series.sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-90);
+  }
+  if (series.length < 2) {
+    setAtlasTrendPreviewEmpty('No Atlas EV history snapshots yet.');
+    return;
+  }
+
+  showAtlasTrendPreviewChart();
+
+  const cs = getComputedStyle(document.documentElement);
+  const baseColor = (cs.getPropertyValue('--text-2') || '#9aa4c4').trim();
+  const optColor = (cs.getPropertyValue('--chaos') || '#d4a72c').trim();
+  const borderColor = (cs.getPropertyValue('--border') || 'rgba(0,0,0,0.12)').trim();
+  const tickColor = (cs.getPropertyValue('--text-3') || '#7a85a8').trim();
+
+  const labels = series.map((h) => {
+    const d = new Date(h.date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  });
+  const baseline = series.map((h) => Number(h.baselineEv));
+  const optimized = series.map((h) => Number(h.optimizedEv));
+  const minY = Math.min(...baseline, ...optimized) - 0.08;
+  const maxY = Math.max(...baseline, ...optimized) + 0.08;
+
+  state._atlasTrendPreviewChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Baseline',
+          data: baseline,
+          borderColor: baseColor,
+          backgroundColor: colorWithAlpha(baseColor, 0.08),
+          fill: false,
+          tension: 0.3,
+          pointRadius: series.length <= 14 ? 3 : 0,
+          pointHoverRadius: 3,
+          pointBackgroundColor: baseColor,
+          borderWidth: 1.5,
+        },
+        {
+          label: 'Optimized',
+          data: optimized,
+          borderColor: optColor,
+          backgroundColor: (ctx) => {
+            const chart = ctx.chart;
+            const area = chart?.chartArea;
+            if (!area) return colorWithAlpha(optColor, 0.11);
+            const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+            gradient.addColorStop(0, colorWithAlpha(optColor, 0.16));
+            gradient.addColorStop(1, colorWithAlpha(optColor, 0.0));
+            return gradient;
+          },
+          fill: true,
+          tension: 0.3,
+          pointRadius: series.length <= 14 ? 3 : 0,
+          pointHoverRadius: 3,
+          pointBackgroundColor: optColor,
+          borderWidth: 1.5,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => items[0].label,
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}c`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: tickColor,
+            font: { size: 10 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 10,
+            callback: (_value, index) => {
+              if (index === 0) return `-${series.length}d`;
+              if (index === labels.length - 1) return 'Now';
+              return labels[index];
+            }
+          },
+          grid: { color: borderColor }
+        },
+        y: {
+          min: minY,
+          max: maxY,
+          ticks: { color: tickColor, font: { size: 10 }, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 4 },
+          grid: { color: borderColor }
+        }
+      }
+    }
+  });
+}
+
 async function fetchAndRenderEVChart() {
   const league = document.getElementById('leagueSelect')?.value || 'Mirage';
   if (!WORKER_URL) return;
@@ -1543,6 +1892,7 @@ async function fetchAndRenderEVChart() {
     if (!res.ok) return;
     const data = await res.json();
     const history = data.history || [];
+    state._evHistoryRaw = Array.isArray(history) ? history : [];
     if (!history.length) {
       const demo = [];
       const evValues = [0.44,0.43,0.42,0.44,0.45,0.43,0.41,0.40,0.42,0.41,0.39,0.38,0.40,0.41,0.42,0.43,0.41,0.40,0.39,0.41,0.42,0.40,0.39,0.38,0.40,0.41,0.39,0.38,0.37,0.39];
@@ -1559,43 +1909,346 @@ async function fetchAndRenderEVChart() {
   } catch(e) { /* silent */ }
 }
 
-function renderEVChart(history) {
-  // Sort by date
-  history.sort((a, b) => a.date.localeCompare(b.date));
+function buildWeightedThresholdHistoryFromPriceHistory() {
+  if (!state._priceHistory || !state._observedWeights) return [];
+  const dateSet = new Set();
+  const priceByNameDate = new Map();
 
-  // Inject live current EV as the final data point (always up to date)
+  for (const [name, points] of Object.entries(state._priceHistory)) {
+    if (!Array.isArray(points)) continue;
+    const byDate = new Map();
+    for (const p of points) {
+      if (!p || typeof p !== 'object') continue;
+      const date = String(p.date || '');
+      const price = Number(p.price);
+      if (!date || !Number.isFinite(price) || price <= 0) continue;
+      byDate.set(date, price);
+      dateSet.add(date);
+    }
+    if (byDate.size) priceByNameDate.set(name, byDate);
+  }
+
+  const dates = [...dateSet].sort((a, b) => a.localeCompare(b));
+  if (!dates.length) return [];
+
+  const series = [];
+  for (const date of dates) {
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const s of SCARAB_LIST) {
+      const w = Number(state._observedWeights[s.name] || 0);
+      if (!Number.isFinite(w) || w <= 0) continue;
+      const price = priceByNameDate.get(s.name)?.get(date);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      weightedSum += w * price;
+      totalWeight += w;
+    }
+    if (totalWeight <= 0) continue;
+    const ev = (weightedSum / totalWeight) / 3;
+    if (Number.isFinite(ev) && ev > 0) series.push({ date, ev: Number(ev.toFixed(4)), derived: true });
+  }
+  return series;
+}
+
+function calcAtlasEVFromPriceMap(weights, priceByName, blockedGroups, boostedGroups) {
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const scarab of SCARAB_LIST) {
+    if (blockedGroups.has(scarab.group)) continue;
+    const w = Number(weights[scarab.name] || 0);
+    if (!Number.isFinite(w) || w <= 0) continue;
+    const price = Number(priceByName.get(scarab.name));
+    if (!Number.isFinite(price) || price <= 0) continue;
+    const mult = boostedGroups.has(scarab.group) ? 2 : 1;
+    const adjustedW = w * mult;
+    weightedSum += adjustedW * price;
+    totalWeight += adjustedW;
+  }
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) return null;
+  const ev = weightedSum / totalWeight;
+  if (!Number.isFinite(ev) || ev <= 0) return null;
+  return { ev, totalWeight };
+}
+
+function optimizeAtlasBaselineAndOptimized(weights, priceByName) {
+  const base = calcAtlasEVFromPriceMap(weights, priceByName, new Set(), new Set());
+  if (!base) return null;
+
+  const blocked = new Set();
+  const boosted = new Set();
+  let currentEV = base.ev;
+
+  for (let step = 0; step < ATLAS_MAX_OPTIMIZE_STEPS; step++) {
+    let bestDelta = 0;
+    let bestType = null;
+    let bestGroup = null;
+    let bestEV = null;
+
+    for (const group of ATLAS_BLOCKABLE) {
+      if (blocked.has(group)) continue;
+      const nextBlocked = new Set(blocked);
+      nextBlocked.add(group);
+      const next = calcAtlasEVFromPriceMap(weights, priceByName, nextBlocked, boosted);
+      if (!next) continue;
+      const delta = next.ev - currentEV;
+      if (delta > bestDelta) {
+        bestDelta = delta;
+        bestType = 'block';
+        bestGroup = group;
+        bestEV = next.ev;
+      }
+    }
+
+    for (const group of ATLAS_BOOSTABLE) {
+      if (boosted.has(group)) continue;
+      const nextBoosted = new Set(boosted);
+      nextBoosted.add(group);
+      const next = calcAtlasEVFromPriceMap(weights, priceByName, blocked, nextBoosted);
+      if (!next) continue;
+      const delta = next.ev - currentEV;
+      if (delta > bestDelta) {
+        bestDelta = delta;
+        bestType = 'boost';
+        bestGroup = group;
+        bestEV = next.ev;
+      }
+    }
+
+    if (!bestType || !Number.isFinite(bestEV) || bestDelta <= 0.0000005) break;
+    if (bestType === 'block') blocked.add(bestGroup);
+    else boosted.add(bestGroup);
+    currentEV = bestEV;
+  }
+
+  return {
+    baselineEv: Number(base.ev.toFixed(4)),
+    optimizedEv: Number(currentEV.toFixed(4))
+  };
+}
+
+function buildLiveAtlasTrendPoint() {
+  if (!state.ninjaLoaded || !state._observedWeights) return null;
+  const lower = buildNinjaLookup();
+  const priceByName = new Map();
+  for (const scarab of SCARAB_LIST) {
+    const price = Number(getNinjaPrice(scarab.name, lower));
+    if (Number.isFinite(price) && price > 0) priceByName.set(scarab.name, price);
+  }
+  const point = optimizeAtlasBaselineAndOptimized(state._observedWeights, priceByName);
+  if (!point) return null;
+  return {
+    date: new Date().toISOString().slice(0, 10),
+    baselineEv: point.baselineEv,
+    optimizedEv: point.optimizedEv,
+    live: true
+  };
+}
+
+function buildAtlasTrendSeriesFromPriceHistory() {
+  if (!state._priceHistory || !state._observedWeights) return [];
+  const dateSet = new Set();
+  const priceByNameDate = new Map();
+
+  for (const [name, points] of Object.entries(state._priceHistory)) {
+    if (!Array.isArray(points)) continue;
+    const byDate = new Map();
+    for (const p of points) {
+      if (!p || typeof p !== 'object') continue;
+      const date = String(p.date || '');
+      const price = Number(p.price);
+      if (!date || !Number.isFinite(price) || price <= 0) continue;
+      byDate.set(date, price);
+      dateSet.add(date);
+    }
+    if (byDate.size) priceByNameDate.set(name, byDate);
+  }
+
+  const dates = [...dateSet].sort((a, b) => a.localeCompare(b));
+  if (!dates.length) return [];
+
+  const series = [];
+  for (const date of dates) {
+    const priceByName = new Map();
+    for (const scarab of SCARAB_LIST) {
+      const price = Number(priceByNameDate.get(scarab.name)?.get(date));
+      if (Number.isFinite(price) && price > 0) priceByName.set(scarab.name, price);
+    }
+
+    const point = optimizeAtlasBaselineAndOptimized(state._observedWeights, priceByName);
+    if (!point) continue;
+
+    series.push({
+      date,
+      baselineEv: point.baselineEv,
+      optimizedEv: point.optimizedEv,
+      derived: true
+    });
+  }
+  return series;
+}
+
+function calcLiveHarmonicThresholdFromCurrentPrices() {
+  if (!state.ninjaLoaded) return null;
+  const lower = buildNinjaLookup();
+  const prices = SCARAB_LIST
+    .map((s) => Number(getNinjaPrice(s.name, lower)))
+    .filter((p) => Number.isFinite(p) && p > 0);
+  if (prices.length < 5) return null;
+  const invSum = prices.reduce((sum, p) => sum + (1 / p), 0);
+  if (!Number.isFinite(invSum) || invSum <= 0) return null;
+  const harmonic = prices.length / invSum;
+  const threshold = Math.floor(harmonic * 100) / 100;
+  return Number.isFinite(threshold) && threshold > 0 ? Number(threshold.toFixed(4)) : null;
+}
+
+function calcLiveWeightedThresholdFromCurrentPrices() {
+  if (!state.ninjaLoaded || !state._observedWeights) return null;
+  const lower = buildNinjaLookup();
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const s of SCARAB_LIST) {
+    const w = Number(state._observedWeights[s.name] || 0);
+    if (!Number.isFinite(w) || w <= 0) continue;
+    const price = Number(getNinjaPrice(s.name, lower));
+    if (!Number.isFinite(price) || price <= 0) continue;
+    weightedSum += w * price;
+    totalWeight += w;
+  }
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) return null;
+  const threshold = (weightedSum / totalWeight) / 3;
+  return Number.isFinite(threshold) && threshold > 0 ? Number(threshold.toFixed(4)) : null;
+}
+
+function renderEVChart(history) {
+  const WINDOW_DAYS = 30;
+  const EV_HISTORY_V2_START = '2026-04-01';
+  const cutoffMs = Date.parse(`${EV_HISTORY_V2_START}T00:00:00Z`);
+  const toDateKey = (dateValue) => {
+    const s = String(dateValue || '').trim();
+    if (!s) return '';
+    const isoDay = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoDay) return `${isoDay[1]}-${isoDay[2]}-${isoDay[3]}`;
+    const ms = Date.parse(s);
+    if (!Number.isFinite(ms)) return '';
+    return new Date(ms).toISOString().slice(0, 10);
+  };
+  const isOnOrAfterCutoff = (dateValue) => {
+    const s = toDateKey(dateValue);
+    if (!s) return false;
+    const ms = Date.parse(`${s}T00:00:00Z`);
+    return Number.isFinite(ms) && ms >= cutoffMs;
+  };
+  const titleEl = document.getElementById('evChartTitle');
+  if (titleEl) titleEl.textContent = 'THRESHOLD TREND';
+  const formatDateLabel = (dateValue) => {
+    const s = toDateKey(dateValue);
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) return `${Number(isoMatch[2])}/${Number(isoMatch[3])}`;
+    return s || String(dateValue || '');
+  };
+
+  const raw = Array.isArray(history)
+    ? history
+      .map(h => ({ ...h }))
+      .filter(h => isOnOrAfterCutoff(h?.date))
+    : [];
+
+  let harmonicSeries = raw
+    .filter(h => Number.isFinite(Number(h?.harmonicEv ?? h?.ev)))
+    .map(h => ({ date: toDateKey(h.date), ev: Number(h?.harmonicEv ?? h?.ev) }))
+    .filter(h => !!h.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-WINDOW_DAYS);
+
+  const storedWeighted = raw
+    .filter(h => Number.isFinite(Number(h?.weightedEv)))
+    .map(h => ({ date: toDateKey(h.date), ev: Number(h.weightedEv) }))
+    .filter(h => !!h.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-WINDOW_DAYS);
+  const derivedWeighted = buildWeightedThresholdHistoryFromPriceHistory()
+    .filter(h => isOnOrAfterCutoff(h?.date))
+    .map(h => ({ ...h, date: toDateKey(h.date) }))
+    .filter(h => !!h.date)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .slice(-WINDOW_DAYS);
+  const weightedMergeByDate = new Map();
+  for (const h of derivedWeighted) weightedMergeByDate.set(String(h.date), Number(h.ev));
+  for (const h of storedWeighted) weightedMergeByDate.set(String(h.date), Number(h.ev)); // stored overrides derived on conflicts
+  const weightedFromDerived = storedWeighted.length < 2 && derivedWeighted.length >= 2;
+  let weightedSeries = [...weightedMergeByDate.entries()]
+    .map(([date, ev]) => ({ date, ev }))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .slice(-WINDOW_DAYS);
+  if (weightedSeries.length >= 2) {
+    state._evWeightedSeriesCache = weightedSeries.map((h) => ({ date: String(h.date), ev: Number(h.ev) }));
+  } else if (Array.isArray(state._evWeightedSeriesCache) && state._evWeightedSeriesCache.length >= 2) {
+    weightedSeries = state._evWeightedSeriesCache
+      .map((h) => ({ date: toDateKey(h.date), ev: Number(h.ev), cached: true }))
+      .filter((h) => isOnOrAfterCutoff(h.date))
+      .filter((h) => !!h.date)
+      .slice(-WINDOW_DAYS);
+  }
+
   if (state.ninjaLoaded) {
-    const lower = buildNinjaLookup();
-    const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) })).filter(e => e.chaosEa > 0);
-    const liveEV = calcEV(entries);
-    if (liveEV) {
-      const today = new Date().toISOString().slice(0, 10);
-      // Remove any existing entry for today then push live value
-      const filtered = history.filter(h => h.date !== today);
-      filtered.push({ date: today, ev: parseFloat(liveEV.toFixed(4)), live: true });
-      history = filtered;
-      history.sort((a, b) => a.date.localeCompare(b.date));
+    const today = new Date().toISOString().slice(0, 10);
+    const liveHarmonic = calcLiveHarmonicThresholdFromCurrentPrices();
+    if (liveHarmonic) {
+      harmonicSeries = harmonicSeries.filter(h => h.date !== today);
+      harmonicSeries.push({ date: today, ev: liveHarmonic, live: true });
+      harmonicSeries = harmonicSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-WINDOW_DAYS);
+    }
+    const liveWeighted = calcLiveWeightedThresholdFromCurrentPrices();
+    if (liveWeighted) {
+      weightedSeries = weightedSeries.filter(h => h.date !== today);
+      weightedSeries.push({ date: today, ev: liveWeighted, live: true });
+      weightedSeries = weightedSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-WINDOW_DAYS);
     }
   }
 
-  const labels = history.map(h => {
-    const d = new Date(h.date);
-    return `${d.getMonth()+1}/${d.getDate()}`;
-  });
-  const values = history.map(h => h.ev);
-  const latest = values[values.length - 1];
-  const earliest = values[0];
+  const dateSet = new Set([
+    ...harmonicSeries.map(h => h.date),
+    ...weightedSeries.map(h => h.date)
+  ]);
+  let dates = [...dateSet].sort((a, b) => a.localeCompare(b));
+
+  const isDemo = dates.length < 2;
+  if (isDemo) {
+    const demo = [];
+    const evValues = [0.44,0.43,0.42,0.44,0.45,0.43,0.41,0.40,0.42,0.41,0.39,0.38,0.40,0.41,0.42,0.43,0.41,0.40,0.39,0.41,0.42,0.40,0.39,0.38,0.40,0.41,0.39,0.38,0.37,0.39];
+    const now = new Date();
+    for (let i = evValues.length - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      demo.push({ date: d.toISOString().slice(0, 10), ev: evValues[evValues.length - 1 - i], demo: true });
+    }
+    dates = demo.map(d => d.date);
+    harmonicSeries = demo.map(d => ({ date: d.date, ev: d.ev }));
+    weightedSeries = demo.map(d => ({ date: d.date, ev: Number((d.ev * 1.03).toFixed(4)) }));
+  }
+
+  const labels = dates.map(date => formatDateLabel(date));
+  const harmonicByDate = new Map(harmonicSeries.map(h => [h.date, h.ev]));
+  const weightedByDate = new Map(weightedSeries.map(h => [h.date, h.ev]));
+  const harmonicValues = dates.map(date => harmonicByDate.has(date) ? Number(harmonicByDate.get(date)) : null);
+  const weightedValues = dates.map(date => weightedByDate.has(date) ? Number(weightedByDate.get(date)) : null);
+
+  const harmonicNonNull = harmonicValues.filter(v => Number.isFinite(Number(v))).map(v => Number(v));
+  const weightedNonNull = weightedValues.filter(v => Number.isFinite(Number(v))).map(v => Number(v));
+  const latest = harmonicNonNull.length ? harmonicNonNull[harmonicNonNull.length - 1] : (weightedNonNull.length ? weightedNonNull[weightedNonNull.length - 1] : 0);
+  const earliest = harmonicNonNull.length ? harmonicNonNull[0] : (weightedNonNull.length ? weightedNonNull[0] : latest);
   const trend = latest > earliest ? '&uarr;' : latest < earliest ? '&darr;' : '&rarr;';
   const trendColor = latest > earliest ? '#E24B4A' : latest < earliest ? '#1D9E75' : '#888';
 
-  const isDemo = history.some(h => h.demo);
   document.getElementById('evChartMeta').innerHTML = isDemo
-    ? `<span style="color:var(--amber)">demo data \u2014 real data starts tonight at 7PM UTC</span>`
-    : `${history.length} days \u00B7 latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
+    ? `<span style="color:var(--amber)">demo data \u2014 next real snapshot at ${getDailySnapshotLocalTimeLabel()}</span>`
+    : `${dates.length} days \u00B7 latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const textColor = isDark ? '#525c7a' : '#9aa4c4';
+  const harmonicColor = '#a03ec8';
+  const weightedColor = '#c39a00';
 
   if (state._evChartInstance) {
     state._evChartInstance.destroy();
@@ -1610,13 +2263,34 @@ function renderEVChart(history) {
     data: {
       labels,
       datasets: [{
-        data: values,
-        borderColor: '#a03ec8',
+        label: 'Harmonic',
+        data: harmonicValues,
+        borderColor: harmonicColor,
         backgroundColor: 'rgba(160,62,200,0.08)',
         fill: true,
         tension: 0.3,
-        pointRadius: history.length <= 14 ? 3 : 0,
-        pointBackgroundColor: '#a03ec8',
+        spanGaps: true,
+        pointRadius: dates.length <= 14 ? 3 : 0,
+        pointBackgroundColor: harmonicColor,
+        borderWidth: 1.5,
+      }, {
+        label: 'Weighted',
+        data: weightedValues,
+        borderColor: weightedColor,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const area = chart?.chartArea;
+          if (!area) return 'rgba(195,154,0,0.08)';
+          const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+          gradient.addColorStop(0, 'rgba(195,154,0,0.14)');
+          gradient.addColorStop(1, 'rgba(195,154,0,0)');
+          return gradient;
+        },
+        fill: true,
+        tension: 0.3,
+        spanGaps: true,
+        pointRadius: dates.length <= 14 ? 3 : 0,
+        pointBackgroundColor: weightedColor,
         borderWidth: 1.5,
       }]
     },
@@ -1624,11 +2298,14 @@ function renderEVChart(history) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          labels: { color: textColor, boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } }
+        },
         tooltip: {
           callbacks: {
             title: items => items[0].label,
-            label: ctx => ` EV: ${ctx.parsed.y.toFixed(3)}c`
+            label: ctx => ` ${ctx.dataset.label} threshold: ${ctx.parsed.y.toFixed(3)}c`
           }
         }
       },
@@ -3640,12 +4317,13 @@ function atlasGroupStats(group, isBlockable) {
     const w          = weights[s.name] || 0;
     const localShare = groupW > 0 ? w / groupW : 0;
     const price      = getNinjaPrice(s.name, lower);
+    const trendPct   = getPriceTrend(s.name);
     const evContrib  = localShare * price;
     // Live pool contribution (accounts for boosts on other groups too)
     const mult       = state._atlasBoosted.has(s.group) ? 2 : 1;
     const liveShare  = liveTotalW > 0 ? (w * mult) / liveTotalW : 0;
     const liveContrib = liveShare * price;
-    return { name: s.name, localShare, price, evContrib, liveContrib };
+    return { name: s.name, localShare, price, trendPct, evContrib, liveContrib };
   }).sort((a, b) => b.evContrib - a.evContrib);
 
   return { scarabs: scarabRows, groupShare, groupEV, contribution, toggleDelta };
@@ -3695,17 +4373,23 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   const isBlocked = state._atlasBlocked.has(group);
   const isBoosted = state._atlasBoosted.has(group);
   const isExpanded = state._atlasExpanded.has(group);
+  const baselineEV = atlasComputeEV(new Set(), new Set()) || 0;
 
   // Badge logic:
   // - blocked/boosted state badges always show
   // - ev-loss shows if current toggle is net negative (regardless of save state)
   // - suggested shows on best untoggled positive >= 1%
-  // - ev-loss takes priority over suggested
+  // - marginal-gains shows active nodes that are still positive but below 1%
+  // - ev-loss takes priority over suggested/marginal-gains
   let badgeHtml = '';
   const isActive = isBlockable ? isBlocked : isBoosted;
   const isEvLoss = isActive && stats.toggleDelta > 0;
+  const activeValueDelta = isActive ? -stats.toggleDelta : stats.toggleDelta;
+  const activeValuePct = baselineEV > 0 ? (activeValueDelta / baselineEV) : 0;
+  const isMarginalGain = isActive && !isEvLoss && activeValuePct > 0.000005 && activeValuePct < 0.01;
   if (isEvLoss) badgeHtml += '<span class="atlas-badge ev-loss">EV loss</span>';
   if (!isActive && isRecommended) badgeHtml += '<span class="atlas-badge recommended">suggested</span>';
+  if (isMarginalGain) badgeHtml += '<span class="atlas-badge marginal">marginal gains</span>';
 
   const togClass  = isBlockable ? 'block-toggle' : 'boost-toggle';
   // Both block and boost: toggle is OFF (grey) by default, ON when active.
@@ -3721,7 +4405,6 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   if (Math.abs(d) < 0.000005) {
     deltaHtml = '<span class="atlas-group-stat neutral">˜0</span>';
   } else {
-    const baselineEV = atlasComputeEV(new Set(), new Set());
     const pct = baselineEV > 0 ? d / baselineEV : 0;
     const dp   = Math.abs(d) < 0.001 ? 5 : Math.abs(d) < 0.01 ? 4 : 3;
     const sign = d > 0 ? '+' : '';
@@ -3734,7 +4417,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   const scarabBreakdown = isExpanded ? `
     <div class="atlas-scarab-rows">
       <div class="atlas-scarab-head">
-        <span>Scarab</span><span>Group share</span><span>Price</span><span>Contrib</span>
+        <span>Scarab</span><span>Group share</span><span>Price</span><span>Contrib</span><span>Trend</span>
       </div>
       ${stats.scarabs.map(sc => `
         <div class="atlas-scarab-row">
@@ -3742,6 +4425,9 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
           <span class="atlas-scarab-stat muted">${(sc.localShare * 100).toFixed(1)}%</span>
           <span class="atlas-scarab-stat chaos">${sc.price > 0 ? sc.price.toFixed(2) + 'c' : '\u2014'}</span>
           <span class="atlas-scarab-stat accent">${sc.evContrib.toFixed(4)}c</span>
+          <span class="atlas-scarab-stat ${sc.trendPct == null ? 'muted' : (sc.trendPct > 1 ? 'trend-pos' : (sc.trendPct < -1 ? 'trend-neg' : 'trend-flat'))}">
+            ${sc.trendPct == null ? '\u2014' : `${sc.trendPct > 0 ? '+' : ''}${sc.trendPct.toFixed(1)}%`}
+          </span>
         </div>`).join('')}
     </div>` : '';
 
@@ -3783,20 +4469,12 @@ function renderAtlas() {
   const _atlasBaselineEV = atlasComputeEV(new Set(), new Set());
 
   const colHeader = (title, tagClass, tagLabel, deltaLabel, rows, isBlockable) => {
-    const hasMarginal = rows.some(r => {
-      const d = atlasGroupStats(r.g, isBlockable).toggleDelta;
-      const pct = _atlasBaselineEV > 0 ? d / _atlasBaselineEV : 0;
-      return pct > 0.000005 && pct < 0.01;
-    });
-    const warning = hasMarginal
-      ? `<span style="font-size:10px;color:#c8b400;font-weight:500;margin-left:auto">marginal gains only</span>`
-      : '';
     const hasActive = isBlockable
       ? rows.some(r => state._atlasBlocked.has(r.g))
       : rows.some(r => state._atlasBoosted.has(r.g));
     const resetBtn = hasActive
       ? `<button onclick="${isBlockable ? 'atlasResetBlocks()' : 'atlasResetBoosts()'}"
-          style="font-family:inherit;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;margin-left:${warning ? '8px' : 'auto'};transition:all 0.15s"
+          style="font-family:inherit;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;margin-left:auto;transition:all 0.15s"
           onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'"
           onmouseout="this.style.color='var(--text-3)';this.style.borderColor='var(--border)'">&#8634; Reset</button>`
       : '';
@@ -3804,7 +4482,6 @@ function renderAtlas() {
     <div class="atlas-col-header">
       <span class="atlas-col-header-title">${title}</span>
       <span class="atlas-col-title-tag ${tagClass}">${tagLabel}</span>
-      ${warning}
       ${resetBtn}
     </div>
     <div class="atlas-col-subhead">
@@ -3903,18 +4580,22 @@ function renderAtlas() {
             const scarabBreak = isEx ? `
               <div class="atlas-scarab-rows">
                 <div class="atlas-scarab-head">
-                  <span>Scarab</span><span>Group share</span><span>Price</span><span>Contrib</span>
+                  <span>Scarab</span><span>Group share</span><span>Price</span><span>Contrib</span><span>Trend</span>
                 </div>
                 ${scarabs.map(sc => {
                   const w = weights2[sc.name] || 0;
                   const localShare = groupW2 > 0 ? w / groupW2 : 0;
                   const price = getNinjaPrice(sc.name, lower2);
+                  const trendPct = getPriceTrend(sc.name);
                   const evC = localShare * price;
                   return `<div class="atlas-scarab-row">
                     <span class="atlas-scarab-name scarab-name">${sc.name}</span><span class="atlas-scarab-name scarab-name-mobile">${mobileScarabName(sc.name)}</span>
                     <span class="atlas-scarab-stat muted">${(localShare * 100).toFixed(1)}%</span>
                     <span class="atlas-scarab-stat chaos">${price > 0 ? price.toFixed(2) + 'c' : '\u2014'}</span>
                     <span class="atlas-scarab-stat accent">${evC.toFixed(4)}c</span>
+                    <span class="atlas-scarab-stat ${trendPct == null ? 'muted' : (trendPct > 1 ? 'trend-pos' : (trendPct < -1 ? 'trend-neg' : 'trend-flat'))}">
+                      ${trendPct == null ? '\u2014' : `${trendPct > 0 ? '+' : ''}${trendPct.toFixed(1)}%`}
+                    </span>
                   </div>`;
                 }).join('')}
               </div>` : '';
@@ -4272,6 +4953,7 @@ function parseChangelog(md) {
 }
 
 atlasLoad();    // restore saved atlas config before any rendering
+updateDailySnapshotCopy();
 (async () => {
   await Promise.allSettled([
     initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
@@ -4280,6 +4962,7 @@ atlasLoad();    // restore saved atlas config before any rendering
   fetchMarketScarabPrices();
   fetchPriceHistory();
   fetchAndRenderEVChart();
+  fetchAndRenderAtlasTrendPreview();
 })();
 fetchObservedWeights(); // pull weight distribution from community aggregate
 updateSortArrows();
@@ -4364,6 +5047,7 @@ exposeGlobals({
   calcEstimator,
   renderEstimator,
   toggleEVChart,
+  toggleAtlasTrendPreview,
   fetchAndRenderEVChart,
   renderEVChart,
   parseSnapCSV,

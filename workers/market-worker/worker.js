@@ -1,7 +1,15 @@
+import { SCARAB_LIST, ATLAS_BLOCKABLE, ATLAS_BOOSTABLE } from "../../js/config.js";
+
 const CACHE_PREFIX = "market-cache-v2";
 const KEY_CURRENT_LEAGUE = `${CACHE_PREFIX}:current-league`;
 const BACKOFF_STEPS_MS = [2 * 60 * 1000, 5 * 60 * 1000, 10 * 60 * 1000];
 const UPSTREAM_TIMEOUT_MS = 8000;
+const AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api/aggregate";
+const ATLAS_MAX_OPTIMIZE_STEPS = 24;
+const SNAPSHOT_RETRY_KEY = `${CACHE_PREFIX}:snapshot-retry`;
+const SNAPSHOT_INLINE_ATTEMPTS = 3;
+const SNAPSHOT_RETRY_DELAY_MS = 60 * 60 * 1000;
+const SNAPSHOT_RETRY_MAX_ATTEMPTS = 3;
 
 const POLICY = {
   currentLeague: {
@@ -21,8 +29,12 @@ export default {
 
   async scheduled(event, env, ctx) {
     const cron = String(event.cron || "");
-    if (cron === "0 0 * * *") {
+    if (cron === "0 18 * * *") {
       ctx.waitUntil(runDailyEVSnapshot(env));
+      return;
+    }
+    if (cron === "0 * * * *") {
+      ctx.waitUntil(runPendingSnapshotRetry(env));
       return;
     }
     if (cron === "*/10 * * * *") {
@@ -46,6 +58,7 @@ async function handleRequest(request, env) {
 
   if (type === "EVHistory") return handleEVHistory(league, env);
   if (type === "PriceHistory") return handlePriceHistory(league, env);
+  if (type === "AtlasEVHistory") return handleAtlasEVHistory(league, env);
   if (type === "CurrentLeague") return handleCurrentLeague(env);
 
   if (type === "Scarab" || type === "Currency") {
@@ -252,62 +265,209 @@ async function handlePriceHistory(league, env) {
   return withCors(jsonResponse({ prices }));
 }
 
-async function runDailyEVSnapshot(env) {
-  if (!env.EV_HISTORY) return;
-  const leagues = [];
+async function handleAtlasEVHistory(league, env) {
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "atlas-ev-history");
+  const key = `atlas-ev-history-${league.toLowerCase()}`;
+  const stored = await env.EV_HISTORY.get(key);
+  const history = stored ? JSON.parse(stored) : [];
+  return withCors(jsonResponse({ history }));
+}
+
+async function resolveSnapshotLeagues() {
+  const leagues = new Set(["Standard"]);
   try {
     const pair = await fetchCurrentChallengeLeaguePair();
-    if (pair.softcore) leagues.push(pair.softcore);
-    if (pair.hardcore) leagues.push(pair.hardcore);
+    if (pair.softcore) leagues.add(pair.softcore);
+    if (pair.hardcore) leagues.add(pair.hardcore);
   } catch (_e) {
+    // Keep Standard snapshotting even if league lookup has a transient failure.
+  }
+  return [...leagues];
+}
+
+async function snapshotLeagueForDate(env, league, today) {
+  try {
+    const data = await fetchNinjaExchange(league, "Scarab");
+    if (!Array.isArray(data?.lines) || !data.lines.length) return { ok: false, error: "no_scarab_lines" };
+
+    const harmonicEv = calcHarmonicEV(data.lines);
+    if (!Number.isFinite(harmonicEv) || harmonicEv <= 0) return { ok: false, error: "harmonic_unavailable" };
+
+    const weights = await fetchObservedWeightsForLeague(league);
+    const weightedEv = calcWeightedThresholdEV(data.lines, weights);
+    const atlasSnapshot = calcAtlasBaselineOptimizedEV(data.lines, weights);
+
+    const evKey = `ev-history-${league.toLowerCase()}`;
+    const evStored = await env.EV_HISTORY.get(evKey);
+    const evHistory = evStored ? JSON.parse(evStored) : [];
+    const evIdx = evHistory.findIndex((e) => e.date === today);
+    const evEntry = {
+      date: today,
+      ev: Number(harmonicEv.toFixed(4)), // backward compatibility
+      harmonicEv: Number(harmonicEv.toFixed(4))
+    };
+    if (Number.isFinite(weightedEv) && weightedEv > 0) evEntry.weightedEv = Number(weightedEv.toFixed(4));
+    if (evIdx >= 0) evHistory[evIdx] = { ...evHistory[evIdx], ...evEntry };
+    else evHistory.push(evEntry);
+
+    const evCutoff = new Date();
+    evCutoff.setDate(evCutoff.getDate() - 90);
+    const evCutoffStr = evCutoff.toISOString().slice(0, 10);
+    await env.EV_HISTORY.put(evKey, JSON.stringify(evHistory.filter((e) => e.date >= evCutoffStr)));
+
+    if (atlasSnapshot && atlasSnapshot.baselineEv > 0 && atlasSnapshot.optimizedEv > 0) {
+      const atlasKey = `atlas-ev-history-${league.toLowerCase()}`;
+      const atlasStored = await env.EV_HISTORY.get(atlasKey);
+      const atlasHistory = atlasStored ? JSON.parse(atlasStored) : [];
+      const atlasIdx = atlasHistory.findIndex((e) => e.date === today);
+      const atlasEntry = {
+        date: today,
+        baselineEv: Number(atlasSnapshot.baselineEv.toFixed(4)),
+        optimizedEv: Number(atlasSnapshot.optimizedEv.toFixed(4))
+      };
+      if (atlasIdx >= 0) atlasHistory[atlasIdx] = { ...atlasHistory[atlasIdx], ...atlasEntry };
+      else atlasHistory.push(atlasEntry);
+
+      const atlasCutoff = new Date();
+      atlasCutoff.setDate(atlasCutoff.getDate() - 90);
+      const atlasCutoffStr = atlasCutoff.toISOString().slice(0, 10);
+      await env.EV_HISTORY.put(atlasKey, JSON.stringify(atlasHistory.filter((e) => e.date >= atlasCutoffStr)));
+    }
+
+    const priceKey = `price-history-${league.toLowerCase()}`;
+    const priceStored = await env.EV_HISTORY.get(priceKey);
+    const priceHistory = priceStored ? JSON.parse(priceStored) : {};
+    const priceCutoff = new Date();
+    priceCutoff.setDate(priceCutoff.getDate() - 7);
+    const priceCutoffStr = priceCutoff.toISOString().slice(0, 10);
+
+    for (const line of data.lines) {
+      const name = line.name;
+      const price = line.chaosValue ?? line.chaosEquivalent ?? line.primaryValue ?? null;
+      if (!name || !price || price <= 0) continue;
+      if (!priceHistory[name]) priceHistory[name] = [];
+      if (priceHistory[name].some((e) => e.date === today)) continue;
+      priceHistory[name].push({ date: today, price: Number(price.toFixed(4)) });
+      priceHistory[name] = priceHistory[name].filter((e) => e.date >= priceCutoffStr);
+    }
+    await env.EV_HISTORY.put(priceKey, JSON.stringify(priceHistory));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e || "snapshot_failed") };
+  }
+}
+
+async function saveSnapshotRetryState(env, date, failures, retryCount) {
+  if (!env.EV_HISTORY) return;
+  const errors = {};
+  for (const f of failures) errors[f.league] = String(f.error || "snapshot_failed");
+  if ((Number(retryCount) || 0) >= SNAPSHOT_RETRY_MAX_ATTEMPTS) {
+    await env.EV_HISTORY.put(SNAPSHOT_RETRY_KEY, JSON.stringify({
+      date,
+      status: "failed",
+      failedLeagues: failures.map((f) => f.league),
+      errors,
+      retryCount: Number(retryCount) || 0,
+      lastAttemptAt: new Date().toISOString(),
+      nextRetryAt: null
+    }));
     return;
   }
-  leagues.push("Standard");
+  await env.EV_HISTORY.put(SNAPSHOT_RETRY_KEY, JSON.stringify({
+    date,
+    status: "pending",
+    pendingLeagues: failures.map((f) => f.league),
+    errors,
+    retryCount: Number(retryCount) || 0,
+    lastAttemptAt: new Date().toISOString(),
+    nextRetryAt: Date.now() + SNAPSHOT_RETRY_DELAY_MS
+  }));
+}
 
-  for (const league of leagues) {
-    try {
-      const data = await fetchNinjaExchange(league, "Scarab");
-      if (!Array.isArray(data?.lines) || !data.lines.length) continue;
-
-      const today = new Date().toISOString().slice(0, 10);
-      const ev = calcHarmonicEV(data.lines);
-      if (ev && ev > 0) {
-        const evKey = `ev-history-${league.toLowerCase()}`;
-        const evStored = await env.EV_HISTORY.get(evKey);
-        const evHistory = evStored ? JSON.parse(evStored) : [];
-        if (!evHistory.some((e) => e.date === today)) {
-          evHistory.push({ date: today, ev: Number(ev.toFixed(4)) });
-          const cutoff = new Date();
-          cutoff.setDate(cutoff.getDate() - 90);
-          const cutoffStr = cutoff.toISOString().slice(0, 10);
-          await env.EV_HISTORY.put(
-            evKey,
-            JSON.stringify(evHistory.filter((e) => e.date >= cutoffStr))
-          );
-        }
-      }
-
-      const priceKey = `price-history-${league.toLowerCase()}`;
-      const priceStored = await env.EV_HISTORY.get(priceKey);
-      const priceHistory = priceStored ? JSON.parse(priceStored) : {};
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 7);
-      const cutoffStr = cutoff.toISOString().slice(0, 10);
-
-      for (const line of data.lines) {
-        const name = line.name;
-        const price = line.chaosValue ?? line.chaosEquivalent ?? line.primaryValue ?? null;
-        if (!name || !price || price <= 0) continue;
-        if (!priceHistory[name]) priceHistory[name] = [];
-        if (priceHistory[name].some((e) => e.date === today)) continue;
-        priceHistory[name].push({ date: today, price: Number(price.toFixed(4)) });
-        priceHistory[name] = priceHistory[name].filter((e) => e.date >= cutoffStr);
-      }
-      await env.EV_HISTORY.put(priceKey, JSON.stringify(priceHistory));
-    } catch (_e) {
-      // Keep cron resilient.
+async function clearSnapshotRetryState(env, date) {
+  if (!env.EV_HISTORY) return;
+  const raw = await env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY);
+  if (!raw) return;
+  try {
+    const state = JSON.parse(raw);
+    if (!date || String(state?.date || "") === String(date)) {
+      await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
     }
+  } catch (_e) {
+    await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
   }
+}
+
+async function runDailyEVSnapshot(env, opts = {}) {
+  if (!env.EV_HISTORY) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const leagues = Array.isArray(opts.leagues) && opts.leagues.length
+    ? [...new Set(opts.leagues.map((s) => String(s).trim()).filter(Boolean))]
+    : await resolveSnapshotLeagues();
+  if (!leagues.length) return;
+
+  const failures = [];
+  for (const league of leagues) {
+    let success = false;
+    let lastError = "snapshot_failed";
+    for (let attempt = 1; attempt <= SNAPSHOT_INLINE_ATTEMPTS; attempt++) {
+      const result = await snapshotLeagueForDate(env, league, today);
+      if (result.ok) {
+        success = true;
+        break;
+      }
+      lastError = result.error || "snapshot_failed";
+    }
+    if (!success) failures.push({ league, error: lastError });
+  }
+
+  if (failures.length) {
+    await saveSnapshotRetryState(env, today, failures, Number(opts.retryCount) || 0);
+  } else {
+    await clearSnapshotRetryState(env, today);
+  }
+}
+
+async function runPendingSnapshotRetry(env) {
+  if (!env.EV_HISTORY) return;
+  const raw = await env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY);
+  if (!raw) return;
+  let state = null;
+  try {
+    state = JSON.parse(raw);
+  } catch (_e) {
+    await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (String(state?.date || "") !== today) {
+    await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    return;
+  }
+  if (String(state?.status || "") === "failed") return;
+  const pendingLeagues = Array.isArray(state?.pendingLeagues)
+    ? [...new Set(state.pendingLeagues.map((s) => String(s).trim()).filter(Boolean))]
+    : [];
+  if (!pendingLeagues.length) {
+    await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    return;
+  }
+  const retryCount = Number(state?.retryCount || 0);
+  if (retryCount >= SNAPSHOT_RETRY_MAX_ATTEMPTS) {
+    await saveSnapshotRetryState(
+      env,
+      today,
+      pendingLeagues.map((league) => ({ league, error: (state?.errors && state.errors[league]) || "snapshot_failed" })),
+      retryCount
+    );
+    return;
+  }
+  const nextRetryAt = Number(state?.nextRetryAt || 0);
+  if (Number.isFinite(nextRetryAt) && nextRetryAt > Date.now()) return;
+  await runDailyEVSnapshot(env, {
+    leagues: pendingLeagues,
+    retryCount: (retryCount + 1)
+  });
 }
 
 async function fetchCurrentChallengeLeaguePair() {
@@ -336,6 +496,152 @@ function calcHarmonicEV(lines) {
   const sum = prices.reduce((s, p) => s + 1 / p, 0);
   const harmonic = prices.length / sum;
   return Math.floor(harmonic * 100) / 100;
+}
+
+async function fetchObservedWeightsForLeague(league) {
+  try {
+    const url = `${AGGREGATE_API_URL}?league=${encodeURIComponent(league)}`;
+    const res = await fetchWithTimeout(url, {
+      headers: {
+        "User-Agent": "ScarabEV/1.1 (market-worker weighted snapshot)",
+        Accept: "application/json"
+      }
+    }, UPSTREAM_TIMEOUT_MS);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const provided = data?.weights && typeof data.weights === "object" ? data.weights : null;
+    if (provided && Object.keys(provided).length > 0) return provided;
+
+    const received = data?.receivedByScarab && typeof data.receivedByScarab === "object"
+      ? data.receivedByScarab
+      : null;
+    if (!received) return null;
+    const total = Object.values(received).reduce((sum, n) => sum + (Number(n) || 0), 0);
+    if (!Number.isFinite(total) || total <= 0) return null;
+
+    const normalized = {};
+    for (const [name, count] of Object.entries(received)) {
+      const c = Number(count) || 0;
+      if (c > 0) normalized[name] = c / total;
+    }
+    return Object.keys(normalized).length ? normalized : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function calcWeightedThresholdEV(lines, weights) {
+  if (!weights || typeof weights !== "object") return null;
+  const byName = new Map();
+  for (const l of lines || []) {
+    const name = l?.name;
+    const price = l?.chaosValue ?? l?.chaosEquivalent ?? l?.primaryValue ?? null;
+    if (!name || !Number.isFinite(Number(price)) || Number(price) <= 0) continue;
+    byName.set(name, Number(price));
+  }
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const [name, wRaw] of Object.entries(weights)) {
+    const w = Number(wRaw);
+    const price = byName.get(name);
+    if (!Number.isFinite(w) || w <= 0) continue;
+    if (!Number.isFinite(price) || price <= 0) continue;
+    weightedSum += w * price;
+    totalWeight += w;
+  }
+
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) return null;
+  const outputEv = weightedSum / totalWeight;
+  const thresholdEv = outputEv / 3;
+  if (!Number.isFinite(thresholdEv) || thresholdEv <= 0) return null;
+  return thresholdEv;
+}
+
+function calcAtlasBaselineOptimizedEV(lines, weights) {
+  if (!weights || typeof weights !== "object") return null;
+  const priceByName = new Map();
+  for (const line of lines || []) {
+    const name = line?.name;
+    const price = Number(line?.chaosValue ?? line?.chaosEquivalent ?? line?.primaryValue ?? 0);
+    if (!name || !Number.isFinite(price) || price <= 0) continue;
+    priceByName.set(name, price);
+  }
+
+  const baselineBlocked = new Set();
+  const baselineBoosted = new Set();
+  const baselineEv = calcAtlasEVFromSets(weights, priceByName, baselineBlocked, baselineBoosted);
+  if (!Number.isFinite(baselineEv) || baselineEv <= 0) return null;
+
+  const blocked = new Set();
+  const boosted = new Set();
+  let currentEv = baselineEv;
+
+  for (let step = 0; step < ATLAS_MAX_OPTIMIZE_STEPS; step++) {
+    let bestDelta = 0;
+    let bestAction = null;
+
+    for (const group of ATLAS_BLOCKABLE) {
+      if (blocked.has(group)) continue;
+      const nextBlocked = new Set(blocked);
+      nextBlocked.add(group);
+      const nextEv = calcAtlasEVFromSets(weights, priceByName, nextBlocked, boosted);
+      if (!Number.isFinite(nextEv)) continue;
+      const delta = nextEv - currentEv;
+      if (delta > bestDelta) {
+        bestDelta = delta;
+        bestAction = { type: "block", group, nextEv };
+      }
+    }
+
+    for (const group of ATLAS_BOOSTABLE) {
+      if (boosted.has(group)) continue;
+      const nextBoosted = new Set(boosted);
+      nextBoosted.add(group);
+      const nextEv = calcAtlasEVFromSets(weights, priceByName, blocked, nextBoosted);
+      if (!Number.isFinite(nextEv)) continue;
+      const delta = nextEv - currentEv;
+      if (delta > bestDelta) {
+        bestDelta = delta;
+        bestAction = { type: "boost", group, nextEv };
+      }
+    }
+
+    if (!bestAction || bestDelta <= 0.0000005) break;
+    if (bestAction.type === "block") blocked.add(bestAction.group);
+    if (bestAction.type === "boost") boosted.add(bestAction.group);
+    currentEv = bestAction.nextEv;
+  }
+
+  return {
+    baselineEv,
+    optimizedEv: currentEv
+  };
+}
+
+function calcAtlasEVFromSets(weights, priceByName, blockedGroups, boostedGroups) {
+  const active = SCARAB_LIST.filter((s) => !blockedGroups.has(s.group));
+  if (!active.length) return null;
+
+  let totalW = 0;
+  for (const scarab of active) {
+    const weight = Number(weights[scarab.name] || 0);
+    if (!Number.isFinite(weight) || weight <= 0) continue;
+    const mult = boostedGroups.has(scarab.group) ? 2 : 1;
+    totalW += weight * mult;
+  }
+  if (!Number.isFinite(totalW) || totalW <= 0) return null;
+
+  let ev = 0;
+  for (const scarab of active) {
+    const weight = Number(weights[scarab.name] || 0);
+    if (!Number.isFinite(weight) || weight <= 0) continue;
+    const mult = boostedGroups.has(scarab.group) ? 2 : 1;
+    const w = weight * mult;
+    const price = Number(priceByName.get(scarab.name) || 0);
+    ev += (w / totalW) * (Number.isFinite(price) && price > 0 ? price : 0);
+  }
+  return Number.isFinite(ev) && ev > 0 ? ev : null;
 }
 
 async function handleNinjaProxy(league, type) {

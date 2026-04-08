@@ -39,6 +39,10 @@ export const state = {
 
   // EV history chart
   _evChartInstance: null,
+  _evHistoryRaw: null,
+  _evWeightedSeriesCache: null,
+  _atlasTrendPreviewChart: null,
+  _atlasTrendHistoryRaw: null,
 
   // Session logger
   _loggerSnapshotBefore: null,            // parsed CSV map: { scarabName -> qty }
