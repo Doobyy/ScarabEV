@@ -878,11 +878,19 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
   const endDate = periodEnd.toISOString().slice(0, 10);
   const startDateTime = periodStart.toISOString();
   const endDateTime = periodEnd.toISOString();
-  const accountTag = config.cloudflareAccountId.replace(/"/g, "");
+  const accountTagRaw = String(config.cloudflareAccountId);
+  const accountTag = accountTagRaw
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/"/g, "")
+    .trim();
+  if (!/^[a-f0-9]{32}$/i.test(accountTag)) {
+    throw new Error("cloudflare_usage_invalid_account_id_format");
+  }
+  const accountTagLiteral = JSON.stringify(accountTag);
   const query = `
     {
       viewer {
-        accounts(filter: { accountTag: "${accountTag}" }) {
+        accounts(filter: { accountTag: ${accountTagLiteral} }) {
           workersInvocationsAdaptive(
             limit: 10000
             filter: { datetime_geq: "${startDateTime}", datetime_leq: "${endDateTime}" }
