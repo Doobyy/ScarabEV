@@ -289,7 +289,7 @@ function renderHealthChecks(checks){
       return '<div class="health-check health-check-'+lv+'">'
         +'<span class="health-check-icon">'+icon+'</span>'
         +'<span class="health-check-label">'+escHtml(String((c&&c.label)||'Check'))+'</span>'
-        +'<span class="health-check-detail">'+escHtml(String((c&&c.detail)||''))+meterHtml+'</span>'
+        +'<span class="health-check-detail"><span class="health-check-detail-text">'+escHtml(String((c&&c.detail)||''))+'</span>'+meterHtml+'</span>'
       +'</div>';
     }).join('')
   +'</div>';
@@ -334,6 +334,23 @@ function tickHealthLiveMeters(){
     if(fill&&fill.style)fill.style.width=pct.toFixed(1)+'%';
     const label=node.querySelector('.health-meter-label');
     if(label)label.textContent=usedMinutes.toLocaleString()+'m / '+limitMinutes.toLocaleString()+'m';
+    const check=node.closest('.health-check');
+    const detailText=check?check.querySelector('.health-check-detail-text'):null;
+    const mode=String(node.getAttribute('data-mode')||'');
+    if(detailText){
+      if(mode==='cadence'){
+        const cadenceMinutes=Math.max(1,Math.round(limitMs/60000));
+        if(ageMs<limitMs){
+          const dueInMinutes=Math.max(0,Math.ceil((limitMs-ageMs)/60000));
+          detailText.textContent='Next '+cadenceMinutes+'-minute pull due in '+dueInMinutes+'m.';
+        }else{
+          const overdueMinutes=Math.max(0,Math.round((ageMs-limitMs)/60000));
+          detailText.textContent='Overdue by '+overdueMinutes+'m past '+cadenceMinutes+'-minute cadence.';
+        }
+      }else if(mode==='freshness'){
+        detailText.textContent='Age '+humanAge(ageMs)+' ('+usedMinutes+'m old, warn at '+limitMinutes+'m).';
+      }
+    }
     if(node.getAttribute('data-auto-refresh')==='1'&&ageMs>=limitMs){
       shouldRefresh=true;
     }
