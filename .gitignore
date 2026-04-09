@@ -17,4 +17,6 @@ backend/.wrangler/
 backend/node_modules/
 backend/.tmp-test/
 backend/.tmp-cookies.txt
+.wrangler/
+workers/market-worker/.wrangler/
 

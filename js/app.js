@@ -1773,10 +1773,6 @@ function renderAtlasTrendPreview(history) {
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
       .slice(-90)
     : [];
-  if (series.length < 2) {
-    const derived = buildAtlasTrendSeriesFromPriceHistory();
-    if (derived.length >= 2) series = derived;
-  }
   const livePoint = buildLiveAtlasTrendPoint();
   if (livePoint) {
     series = series.filter((h) => String(h.date) !== livePoint.date);
@@ -1909,47 +1905,6 @@ async function fetchAndRenderEVChart() {
   } catch(e) { /* silent */ }
 }
 
-function buildWeightedThresholdHistoryFromPriceHistory() {
-  if (!state._priceHistory || !state._observedWeights) return [];
-  const dateSet = new Set();
-  const priceByNameDate = new Map();
-
-  for (const [name, points] of Object.entries(state._priceHistory)) {
-    if (!Array.isArray(points)) continue;
-    const byDate = new Map();
-    for (const p of points) {
-      if (!p || typeof p !== 'object') continue;
-      const date = String(p.date || '');
-      const price = Number(p.price);
-      if (!date || !Number.isFinite(price) || price <= 0) continue;
-      byDate.set(date, price);
-      dateSet.add(date);
-    }
-    if (byDate.size) priceByNameDate.set(name, byDate);
-  }
-
-  const dates = [...dateSet].sort((a, b) => a.localeCompare(b));
-  if (!dates.length) return [];
-
-  const series = [];
-  for (const date of dates) {
-    let weightedSum = 0;
-    let totalWeight = 0;
-    for (const s of SCARAB_LIST) {
-      const w = Number(state._observedWeights[s.name] || 0);
-      if (!Number.isFinite(w) || w <= 0) continue;
-      const price = priceByNameDate.get(s.name)?.get(date);
-      if (!Number.isFinite(price) || price <= 0) continue;
-      weightedSum += w * price;
-      totalWeight += w;
-    }
-    if (totalWeight <= 0) continue;
-    const ev = (weightedSum / totalWeight) / 3;
-    if (Number.isFinite(ev) && ev > 0) series.push({ date, ev: Number(ev.toFixed(4)), derived: true });
-  }
-  return series;
-}
-
 function calcAtlasEVFromPriceMap(weights, priceByName, blockedGroups, boostedGroups) {
   let weightedSum = 0;
   let totalWeight = 0;
@@ -2044,49 +1999,6 @@ function buildLiveAtlasTrendPoint() {
   };
 }
 
-function buildAtlasTrendSeriesFromPriceHistory() {
-  if (!state._priceHistory || !state._observedWeights) return [];
-  const dateSet = new Set();
-  const priceByNameDate = new Map();
-
-  for (const [name, points] of Object.entries(state._priceHistory)) {
-    if (!Array.isArray(points)) continue;
-    const byDate = new Map();
-    for (const p of points) {
-      if (!p || typeof p !== 'object') continue;
-      const date = String(p.date || '');
-      const price = Number(p.price);
-      if (!date || !Number.isFinite(price) || price <= 0) continue;
-      byDate.set(date, price);
-      dateSet.add(date);
-    }
-    if (byDate.size) priceByNameDate.set(name, byDate);
-  }
-
-  const dates = [...dateSet].sort((a, b) => a.localeCompare(b));
-  if (!dates.length) return [];
-
-  const series = [];
-  for (const date of dates) {
-    const priceByName = new Map();
-    for (const scarab of SCARAB_LIST) {
-      const price = Number(priceByNameDate.get(scarab.name)?.get(date));
-      if (Number.isFinite(price) && price > 0) priceByName.set(scarab.name, price);
-    }
-
-    const point = optimizeAtlasBaselineAndOptimized(state._observedWeights, priceByName);
-    if (!point) continue;
-
-    series.push({
-      date,
-      baselineEv: point.baselineEv,
-      optimizedEv: point.optimizedEv,
-      derived: true
-    });
-  }
-  return series;
-}
-
 function calcLiveHarmonicThresholdFromCurrentPrices() {
   if (!state.ninjaLoaded) return null;
   const lower = buildNinjaLookup();
@@ -2160,25 +2072,11 @@ function renderEVChart(history) {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-WINDOW_DAYS);
 
-  const storedWeighted = raw
+  let weightedSeries = raw
     .filter(h => Number.isFinite(Number(h?.weightedEv)))
     .map(h => ({ date: toDateKey(h.date), ev: Number(h.weightedEv) }))
     .filter(h => !!h.date)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-WINDOW_DAYS);
-  const derivedWeighted = buildWeightedThresholdHistoryFromPriceHistory()
-    .filter(h => isOnOrAfterCutoff(h?.date))
-    .map(h => ({ ...h, date: toDateKey(h.date) }))
-    .filter(h => !!h.date)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .slice(-WINDOW_DAYS);
-  const weightedMergeByDate = new Map();
-  for (const h of derivedWeighted) weightedMergeByDate.set(String(h.date), Number(h.ev));
-  for (const h of storedWeighted) weightedMergeByDate.set(String(h.date), Number(h.ev)); // stored overrides derived on conflicts
-  const weightedFromDerived = storedWeighted.length < 2 && derivedWeighted.length >= 2;
-  let weightedSeries = [...weightedMergeByDate.entries()]
-    .map(([date, ev]) => ({ date, ev }))
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .slice(-WINDOW_DAYS);
   if (weightedSeries.length >= 2) {
     state._evWeightedSeriesCache = weightedSeries.map((h) => ({ date: String(h.date), ev: Number(h.ev) }));

@@ -16,9 +16,13 @@ const POLICY = {
     freshMs: 10 * 60 * 1000,
     maxStaleMs: 24 * 60 * 60 * 1000
   },
-  market: {
-    freshMs: 60 * 1000,
-    maxStaleMs: 15 * 60 * 1000
+  marketCurrent: {
+    freshMs: 5 * 60 * 1000,
+    maxStaleMs: 30 * 60 * 1000
+  },
+  marketStandard: {
+    freshMs: 60 * 60 * 1000,
+    maxStaleMs: 6 * 60 * 60 * 1000
   }
 };
 
@@ -37,12 +41,16 @@ export default {
       ctx.waitUntil(runPendingSnapshotRetry(env));
       return;
     }
-    if (cron === "*/10 * * * *") {
+    if (cron === "10 * * * *") {
       ctx.waitUntil(refreshCurrentLeagueCache(env));
       return;
     }
-    if (cron === "* * * * *") {
-      ctx.waitUntil(refreshHotMarketCaches(env));
+    if (cron === "*/5 * * * *") {
+      ctx.waitUntil(refreshCurrentLeagueMarketBundle(env));
+      return;
+    }
+    if (cron === "5 * * * *") {
+      ctx.waitUntil(refreshStandardMarketBundle(env));
     }
   }
 };
@@ -68,20 +76,135 @@ async function handleRequest(request, env) {
 }
 
 async function handleCurrentLeague(env) {
-  const fetcher = async () => {
-    const payload = await fetchCurrentLeagueData();
-    return { data: payload };
-  };
-  return handleCachedResource(env, KEY_CURRENT_LEAGUE, POLICY.currentLeague, fetcher, "current-league");
+  if (!env.EV_HISTORY) {
+    try {
+      const live = await fetchCurrentLeagueData();
+      return jsonWithMeta(live, {
+        ok: true,
+        dataState: "live",
+        stale: false,
+        source: "live-no-kv",
+        ageSeconds: 0,
+        lastSuccessAt: new Date().toISOString(),
+        cacheKind: "current-league"
+      });
+    } catch (e) {
+      return errorResponse("upstream_unavailable", String(e?.message || e), 503, "current-league");
+    }
+  }
+
+  const now = Date.now();
+  const state = await readCacheState(env.EV_HISTORY, KEY_CURRENT_LEAGUE);
+  const hasData = !!state && !!state.data && Number.isFinite(state.lastSuccessAt);
+  const ageMs = hasData ? now - state.lastSuccessAt : Infinity;
+
+  if (hasData && ageMs <= POLICY.currentLeague.freshMs) {
+    return jsonWithMeta(state.data, buildMetaFromState(state, "live", "current-league"));
+  }
+  if (hasData && ageMs <= POLICY.currentLeague.maxStaleMs) {
+    return jsonWithMeta(state.data, buildMetaFromState(state, "stale", "current-league"));
+  }
+
+  try {
+    const live = await fetchCurrentLeagueData();
+    return jsonWithMeta(live, {
+      ok: true,
+      dataState: "live",
+      stale: false,
+      source: "live-pass-through",
+      ageSeconds: 0,
+      lastSuccessAt: new Date().toISOString(),
+      cacheKind: "current-league"
+    });
+  } catch (e) {
+    if (hasData) {
+      return errorResponse(
+        "stale_expired",
+        "Cached data is too old and upstream refresh is failing.",
+        503,
+        "current-league",
+        state
+      );
+    }
+    return errorResponse("upstream_unavailable", String(e?.message || e), 503, "current-league");
+  }
 }
 
 async function handleCachedMarketProxy(league, type, env) {
-  const key = `${CACHE_PREFIX}:${type.toLowerCase()}:${league.toLowerCase()}`;
-  const fetcher = async () => {
-    const data = await fetchNinjaExchange(league, type);
-    return { data };
-  };
-  return handleCachedResource(env, key, POLICY.market, fetcher, "market");
+  const normalizedLeague = String(league || "").trim();
+  const normalizedType = String(type || "").trim().toLowerCase();
+  const policy = normalizedLeague.toLowerCase() === "standard" ? POLICY.marketStandard : POLICY.marketCurrent;
+  const key = getMarketBundleKey(normalizedLeague);
+  const now = Date.now();
+
+  if (!env.EV_HISTORY) {
+    try {
+      const bundle = await buildMarketBundleForLeague(normalizedLeague, null);
+      const selected = selectMarketTypeFromBundle(bundle, normalizedType);
+      if (!isValidMarketPayload(selected)) {
+        return errorResponse("market_type_unavailable", `No ${type} market data available.`, 503, "market");
+      }
+      return jsonWithMeta(selected, {
+        ok: true,
+        dataState: "live",
+        stale: false,
+        source: "live-no-kv",
+        ageSeconds: 0,
+        lastSuccessAt: new Date().toISOString(),
+        cacheKind: "market",
+        currencySource: bundle.currencySource || null
+      });
+    } catch (e) {
+      return errorResponse("upstream_unavailable", String(e?.message || e), 503, "market");
+    }
+  }
+
+  const state = await readCacheState(env.EV_HISTORY, key);
+  const currentSelected = selectMarketTypeFromBundle(state?.data, normalizedType);
+  const hasData = Number.isFinite(state?.lastSuccessAt) && isValidMarketPayload(currentSelected);
+  const ageMs = hasData ? (now - Number(state.lastSuccessAt)) : Infinity;
+
+  const withMarketMeta = (metaBase, bundle) => ({
+    ...metaBase,
+    currencySource: bundle?.currencySource || null
+  });
+
+  if (hasData && ageMs <= policy.freshMs) {
+    return jsonWithMeta(currentSelected, withMarketMeta(buildMetaFromState(state, "live", "market"), state?.data));
+  }
+
+  if (hasData && ageMs <= policy.maxStaleMs) {
+    return jsonWithMeta(currentSelected, withMarketMeta(buildMetaFromState(state, "stale", "market"), state?.data));
+  }
+
+  try {
+    const liveBundle = await buildMarketBundleForLeague(normalizedLeague, state?.data || null);
+    const liveSelected = selectMarketTypeFromBundle(liveBundle, normalizedType);
+    if (!isValidMarketPayload(liveSelected)) {
+      return errorResponse("market_type_unavailable", `No ${type} market data available.`, 503, "market");
+    }
+    return jsonWithMeta(liveSelected, {
+      ok: true,
+      dataState: "live",
+      stale: false,
+      source: "live-pass-through",
+      ageSeconds: 0,
+      lastSuccessAt: new Date().toISOString(),
+      cacheKind: "market",
+      currencySource: liveBundle.currencySource || null
+    });
+  } catch (e) {
+    if (hasData) {
+      return errorResponse(
+        "stale_expired",
+        "Cached data is too old and upstream refresh is failing.",
+        503,
+        "market",
+        state
+      );
+    }
+    return errorResponse("upstream_unavailable", String(e?.message || e), 503, "market");
+  }
 }
 
 async function handleCachedResource(env, key, policy, fetcher, cacheKind) {
@@ -143,7 +266,7 @@ async function tryRefreshState(kv, key, existing, fetcher, now) {
   const failCount = Number(existing?.failCount || 0);
   const lastSuccessAt = Number(existing?.lastSuccessAt || 0) || null;
   try {
-    const fresh = await fetcher();
+    const fresh = await fetcher(existing?.data || null);
     const next = {
       data: fresh.data,
       lastSuccessAt: now,
@@ -201,20 +324,36 @@ async function refreshCurrentLeagueCache(env) {
   await tryRefreshState(env.EV_HISTORY, KEY_CURRENT_LEAGUE, existing, async () => ({ data: await fetchCurrentLeagueData() }), now);
 }
 
-async function refreshHotMarketCaches(env) {
+async function refreshCurrentLeagueMarketBundle(env) {
   if (!env.EV_HISTORY) return;
   const now = Date.now();
   const leagueData = await getCachedCurrentLeagueValue(env);
-  const leagues = new Set(["Standard"]);
-  if (leagueData) leagues.add(String(leagueData.league));
+  const league = leagueData?.league ? String(leagueData.league) : null;
+  if (!league) return;
+  const key = getMarketBundleKey(league);
+  const existing = await readCacheState(env.EV_HISTORY, key);
+  await tryRefreshState(
+    env.EV_HISTORY,
+    key,
+    existing,
+    async (previousBundle) => ({ data: await buildMarketBundleForLeague(league, previousBundle) }),
+    now
+  );
+}
 
-  for (const league of leagues) {
-    for (const type of ["Scarab", "Currency"]) {
-      const key = `${CACHE_PREFIX}:${type.toLowerCase()}:${String(league).toLowerCase()}`;
-      const existing = await readCacheState(env.EV_HISTORY, key);
-      await tryRefreshState(env.EV_HISTORY, key, existing, async () => ({ data: await fetchNinjaExchange(league, type) }), now);
-    }
-  }
+async function refreshStandardMarketBundle(env) {
+  if (!env.EV_HISTORY) return;
+  const now = Date.now();
+  const league = "Standard";
+  const key = getMarketBundleKey(league);
+  const existing = await readCacheState(env.EV_HISTORY, key);
+  await tryRefreshState(
+    env.EV_HISTORY,
+    key,
+    existing,
+    async (previousBundle) => ({ data: await buildMarketBundleForLeague(league, previousBundle) }),
+    now
+  );
 }
 
 async function getCachedCurrentLeagueValue(env) {
@@ -671,6 +810,73 @@ async function fetchNinjaExchange(league, type) {
     throw new Error(`poe.ninja returned ${res.status}`);
   }
   return res.json();
+}
+
+function getMarketBundleKey(league) {
+  return `${CACHE_PREFIX}:bundle:${String(league || "").toLowerCase()}`;
+}
+
+function selectMarketTypeFromBundle(bundle, typeLower) {
+  if (!bundle || typeof bundle !== "object") return null;
+  if (typeLower === "currency") return bundle.currency || null;
+  return bundle.scarab || null;
+}
+
+function isValidMarketPayload(payload) {
+  return !!(payload && Array.isArray(payload.lines) && payload.lines.length > 0);
+}
+
+async function fetchNinjaExchangeWithRetry(league, type, attempts = 2) {
+  const maxAttempts = Math.max(1, Number(attempts) || 1);
+  let lastErr = null;
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      return await fetchNinjaExchange(league, type);
+    } catch (e) {
+      lastErr = e;
+      if (i >= maxAttempts) break;
+      await new Promise((resolve) => setTimeout(resolve, i * 300));
+    }
+  }
+  throw lastErr || new Error("upstream_unavailable");
+}
+
+async function buildMarketBundleForLeague(league, previousBundle) {
+  const prior = (previousBundle && typeof previousBundle === "object") ? previousBundle : {};
+  const scarab = await fetchNinjaExchangeWithRetry(league, "Scarab", 3);
+  if (!isValidMarketPayload(scarab)) {
+    throw new Error("scarab_unavailable");
+  }
+
+  let currency = null;
+  let currencySource = "live";
+  let currencyLastUpdatedAt = new Date().toISOString();
+  try {
+    const fetchedCurrency = await fetchNinjaExchangeWithRetry(league, "Currency", 2);
+    if (isValidMarketPayload(fetchedCurrency)) {
+      currency = fetchedCurrency;
+    } else {
+      throw new Error("currency_invalid");
+    }
+  } catch (_e) {
+    if (isValidMarketPayload(prior.currency)) {
+      currency = prior.currency;
+      currencySource = "cached";
+      currencyLastUpdatedAt = prior.currencyLastUpdatedAt || null;
+    } else {
+      currency = null;
+      currencySource = "missing";
+      currencyLastUpdatedAt = null;
+    }
+  }
+
+  return {
+    league: String(league || ""),
+    scarab,
+    currency,
+    currencySource,
+    currencyLastUpdatedAt
+  };
 }
 
 async function fetchWithTimeout(url, init = {}, timeoutMs = UPSTREAM_TIMEOUT_MS) {
