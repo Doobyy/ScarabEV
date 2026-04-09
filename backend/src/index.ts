@@ -874,13 +874,18 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
   periodStart.setUTCHours(0, 0, 0, 0);
   const periodEnd = new Date();
 
+  const startDate = periodStart.toISOString().slice(0, 10);
+  const endDate = periodEnd.toISOString().slice(0, 10);
+  const startDateTime = periodStart.toISOString();
+  const endDateTime = periodEnd.toISOString();
+  const accountTag = config.cloudflareAccountId.replace(/"/g, "");
   const query = `
-    query ScarabEvUsage($accountTag: string!, $startDate: Date!, $endDate: Date!, $startDateTime: string!, $endDateTime: string!) {
+    {
       viewer {
-        accounts(filter: { accountTag: $accountTag }) {
+        accounts(filter: { accountTag: "${accountTag}" }) {
           workersInvocationsAdaptive(
             limit: 10000
-            filter: { datetime_geq: $startDateTime, datetime_leq: $endDateTime }
+            filter: { datetime_geq: "${startDateTime}", datetime_leq: "${endDateTime}" }
           ) {
             sum {
               requests
@@ -888,7 +893,7 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
           }
           kvOperationsAdaptiveGroups(
             limit: 10000
-            filter: { date_geq: $startDate, date_leq: $endDate }
+            filter: { date_geq: "${startDate}", date_leq: "${endDate}" }
           ) {
             dimensions {
               actionType
@@ -909,14 +914,7 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
       "content-type": "application/json"
     },
     body: JSON.stringify({
-      query,
-      variables: {
-        accountTag: config.cloudflareAccountId,
-        startDate: periodStart.toISOString().slice(0, 10),
-        endDate: periodEnd.toISOString().slice(0, 10),
-        startDateTime: periodStart.toISOString(),
-        endDateTime: periodEnd.toISOString()
-      }
+      query
     })
   });
 
