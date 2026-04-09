@@ -10,6 +10,9 @@ let marketHealthCache=null;
 let marketHealthInFlight=null;
 let marketWorkerLastSuccessAt=null;
 let poePullLastSuccessAt=null;
+let healthLiveTickerId=null;
+let healthAutoRefreshRunning=false;
+let healthLastAutoRefreshAt=0;
 
 function healthBadge(level){
   const cls=level==='ok'?'ok':(level==='warn'?'warn':'danger');
@@ -137,23 +140,25 @@ function buildAgeMeter(ageMs,warnMs){
   return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
 }
 
-function buildOverdueMeter(ageMs,cadenceMs){
-  if(ageMs===null||!Number.isFinite(ageMs)||!Number.isFinite(cadenceMs)||cadenceMs<=0){
-    return null;
-  }
-  const overdueMs=Math.max(0,ageMs-cadenceMs);
-  const usedMinutes=Math.max(0,Math.round(overdueMs/60000));
-  const limitMinutes=Math.max(1,Math.round(cadenceMs/60000));
-  const pct=Math.max(0,Math.min(100,(overdueMs/cadenceMs)*100));
-  return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
-}
-
 function cadenceDriftLevel(ageMs,cadenceMs,warnMs){
   if(ageMs===null)return 'err';
-  const overdueMs=Math.max(0,ageMs-cadenceMs);
-  if(overdueMs===0)return 'ok';
-  if(overdueMs<=cadenceMs)return 'warn';
+  if(ageMs<=cadenceMs)return 'ok';
+  if(ageMs<=Math.min(warnMs,cadenceMs*2))return 'warn';
   return 'err';
+}
+
+function parseIsoMs(iso){
+  const ms=new Date(String(iso||'')).getTime();
+  return Number.isFinite(ms)?ms:null;
+}
+
+function pickOldestIso(a,b){
+  const am=parseIsoMs(a);
+  const bm=parseIsoMs(b);
+  if(am===null&&bm===null)return null;
+  if(am===null)return b;
+  if(bm===null)return a;
+  return am<=bm?a:b;
 }
 
 function withCacheSignalRows(id,checks,card){
@@ -170,17 +175,25 @@ function withCacheSignalRows(id,checks,card){
       level,
       label:'Cache freshness signal',
       detail:ageDetail,
-      meter:buildAgeMeter(ageMs,MARKET_WORKER_WARN_AGE_MS)
+      meter:(()=>{
+        const m=buildAgeMeter(ageMs,MARKET_WORKER_WARN_AGE_MS);
+        if(!m)return m;
+        m.live={mode:'freshness',lastSuccessAt:telemetry.lastSuccessAt||'',limitMs:MARKET_WORKER_WARN_AGE_MS,autoRefresh:false};
+        return m;
+      })()
     });
     rows.push({
       level:driftLevel,
       label:'Cadence drift signal',
       detail:ageMs===null
         ?'Cannot verify hourly cadence drift without last success timestamp.'
-        :((ageMs<=60*60*1000)
-          ?'On cadence. Next pull due in '+Math.max(0,60-Math.round(ageMs/60000))+'m.'
-          :'Overdue by '+Math.max(0,Math.round((ageMs-(60*60*1000))/60000))+'m past hourly cadence.'),
-      meter:buildOverdueMeter(ageMs,60*60*1000)
+        :'Next hourly pull due in '+Math.max(0,60-Math.round(ageMs/60000))+'m.',
+      meter:(()=>{
+        const m=buildAgeMeter(ageMs,60*60*1000);
+        if(!m)return m;
+        m.live={mode:'cadence',lastSuccessAt:telemetry.lastSuccessAt||'',limitMs:60*60*1000,autoRefresh:true};
+        return m;
+      })()
     });
     return rows;
   }
@@ -188,23 +201,32 @@ function withCacheSignalRows(id,checks,card){
     const scarabAgeMs=msSince(telemetry.lastScarabSuccessAt);
     const currencyAgeMs=msSince(telemetry.lastCurrencySuccessAt);
     const maxAgeMs=(scarabAgeMs===null&&currencyAgeMs===null)?null:Math.max(scarabAgeMs||0,currencyAgeMs||0);
+    const oldestSuccessIso=pickOldestIso(telemetry.lastScarabSuccessAt,telemetry.lastCurrencySuccessAt);
     rows.push({
       level:classifyPoePullAge(maxAgeMs),
       label:'Cache freshness signal',
       detail:maxAgeMs===null
         ?'Last success unknown.'
         :'Oldest cache leg is '+humanAge(maxAgeMs)+' ('+Math.round(maxAgeMs/60000)+'m old, warn at 30m).',
-      meter:buildAgeMeter(maxAgeMs,POE_PULL_WARN_AGE_MS)
+      meter:(()=>{
+        const m=buildAgeMeter(maxAgeMs,POE_PULL_WARN_AGE_MS);
+        if(!m)return m;
+        m.live={mode:'freshness',lastSuccessAt:oldestSuccessIso||'',limitMs:POE_PULL_WARN_AGE_MS,autoRefresh:false};
+        return m;
+      })()
     });
     rows.push({
       level:cadenceDriftLevel(maxAgeMs,5*60*1000,POE_PULL_WARN_AGE_MS),
       label:'Cadence drift signal',
       detail:maxAgeMs===null
         ?'Cannot verify 5-minute cadence drift without last success timestamp.'
-        :((maxAgeMs<=5*60*1000)
-          ?'On cadence. Next pull due in '+Math.max(0,5-Math.round(maxAgeMs/60000))+'m.'
-          :'Overdue by '+Math.max(0,Math.round((maxAgeMs-(5*60*1000))/60000))+'m past 5-minute cadence.'),
-      meter:buildOverdueMeter(maxAgeMs,5*60*1000)
+        :'Next 5-minute pull due in '+Math.max(0,5-Math.round(maxAgeMs/60000))+'m.',
+      meter:(()=>{
+        const m=buildAgeMeter(maxAgeMs,5*60*1000);
+        if(!m)return m;
+        m.live={mode:'cadence',lastSuccessAt:oldestSuccessIso||'',limitMs:5*60*1000,autoRefresh:true};
+        return m;
+      })()
     });
     return rows;
   }
@@ -246,7 +268,11 @@ function renderHealthChecks(checks){
       const icon=lv==='ok'?'&#10003;':(lv==='warn'?'!':'&times;');
       const meter=(c&&c.meter&&Number.isFinite(Number(c.meter.limit))&&Number(c.meter.limit)>0)?c.meter:null;
       const meterHtml=meter
-        ?('<div class="health-check-meter"><div class="health-meter-track">'
+        ?('<div class="health-check-meter"'
+          +(meter.live&&meter.live.lastSuccessAt&&Number.isFinite(Number(meter.live.limitMs))
+            ?(' data-live="1" data-mode="'+escHtml(String(meter.live.mode||''))+'" data-last-success-at="'+escHtml(String(meter.live.lastSuccessAt||''))+'" data-limit-ms="'+escHtml(String(Number(meter.live.limitMs)||0))+'" data-auto-refresh="'+(meter.live.autoRefresh?'1':'0')+'"')
+            :'')
+          +'><div class="health-meter-track">'
           +'<div class="health-meter-fill health-meter-fill-'+lv+'" style="width:'+Math.max(0,Math.min(100,Number(meter.pct)||0)).toFixed(1)+'%;"></div>'
           +'</div><div class="health-meter-label">'
           +escHtml(
@@ -273,6 +299,51 @@ function renderHealthDebug(debug){
   return '<div class="health-debug">'
     +lines.map((line)=>'<div class="health-debug-line">'+escHtml(String(line))+'</div>').join('')
   +'</div>';
+}
+
+function triggerHealthAutoRefresh(){
+  if(healthAutoRefreshRunning)return;
+  const now=Date.now();
+  if((now-healthLastAutoRefreshAt)<15000)return;
+  if(document.visibilityState==='hidden')return;
+  healthAutoRefreshRunning=true;
+  healthLastAutoRefreshAt=now;
+  loadHealthOverview({quiet:true})
+    .catch(()=>{})
+    .finally(()=>{healthAutoRefreshRunning=false;});
+}
+
+function tickHealthLiveMeters(){
+  const nodes=document.querySelectorAll('.health-check-meter[data-live="1"]');
+  if(!nodes||!nodes.length)return;
+  const now=Date.now();
+  let shouldRefresh=false;
+  nodes.forEach((node)=>{
+    const lastSuccessAt=String(node.getAttribute('data-last-success-at')||'');
+    const limitMs=Number(node.getAttribute('data-limit-ms'));
+    if(!lastSuccessAt||!Number.isFinite(limitMs)||limitMs<=0)return;
+    const lastMs=parseIsoMs(lastSuccessAt);
+    if(lastMs===null)return;
+    const ageMs=Math.max(0,now-lastMs);
+    const pct=Math.max(0,Math.min(100,(ageMs/limitMs)*100));
+    const usedMinutes=Math.max(0,Math.round(ageMs/60000));
+    const limitMinutes=Math.max(1,Math.round(limitMs/60000));
+    const fill=node.querySelector('.health-meter-fill');
+    if(fill&&fill.style)fill.style.width=pct.toFixed(1)+'%';
+    const label=node.querySelector('.health-meter-label');
+    if(label)label.textContent=usedMinutes.toLocaleString()+'m / '+limitMinutes.toLocaleString()+'m';
+    if(node.getAttribute('data-auto-refresh')==='1'&&ageMs>=limitMs){
+      shouldRefresh=true;
+    }
+  });
+  if(shouldRefresh){
+    triggerHealthAutoRefresh();
+  }
+}
+
+function ensureHealthLiveTicker(){
+  if(healthLiveTickerId!==null)return;
+  healthLiveTickerId=setInterval(tickHealthLiveMeters,1000);
 }
 
 function toggleHealthCard(evt,id){
@@ -916,6 +987,8 @@ function renderHealthCards(results){
     +'<div class="health-col">'+cols[0].join('')+'</div>'
     +'<div class="health-col">'+cols[1].join('')+'</div>'
     +'<div class="health-col">'+cols[2].join('')+'</div>';
+  ensureHealthLiveTicker();
+  tickHealthLiveMeters();
 }
 
 async function loadHealthOverview(opts){
