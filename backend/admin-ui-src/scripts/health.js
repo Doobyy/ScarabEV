@@ -137,10 +137,22 @@ function buildAgeMeter(ageMs,warnMs){
   return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
 }
 
+function buildOverdueMeter(ageMs,cadenceMs){
+  if(ageMs===null||!Number.isFinite(ageMs)||!Number.isFinite(cadenceMs)||cadenceMs<=0){
+    return null;
+  }
+  const overdueMs=Math.max(0,ageMs-cadenceMs);
+  const usedMinutes=Math.max(0,Math.round(overdueMs/60000));
+  const limitMinutes=Math.max(1,Math.round(cadenceMs/60000));
+  const pct=Math.max(0,Math.min(100,(overdueMs/cadenceMs)*100));
+  return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
+}
+
 function cadenceDriftLevel(ageMs,cadenceMs,warnMs){
   if(ageMs===null)return 'err';
-  if(ageMs<=cadenceMs)return 'ok';
-  if(ageMs<=Math.min(warnMs,cadenceMs*2))return 'warn';
+  const overdueMs=Math.max(0,ageMs-cadenceMs);
+  if(overdueMs===0)return 'ok';
+  if(overdueMs<=cadenceMs)return 'warn';
   return 'err';
 }
 
@@ -165,8 +177,10 @@ function withCacheSignalRows(id,checks,card){
       label:'Cadence drift signal',
       detail:ageMs===null
         ?'Cannot verify hourly cadence drift without last success timestamp.'
-        :'Expected hourly pull; currently '+Math.round(ageMs/60000)+'m since last success.',
-      meter:buildAgeMeter(ageMs,60*60*1000)
+        :((ageMs<=60*60*1000)
+          ?'On cadence. Next pull due in '+Math.max(0,60-Math.round(ageMs/60000))+'m.'
+          :'Overdue by '+Math.max(0,Math.round((ageMs-(60*60*1000))/60000))+'m past hourly cadence.'),
+      meter:buildOverdueMeter(ageMs,60*60*1000)
     });
     return rows;
   }
@@ -187,8 +201,10 @@ function withCacheSignalRows(id,checks,card){
       label:'Cadence drift signal',
       detail:maxAgeMs===null
         ?'Cannot verify 5-minute cadence drift without last success timestamp.'
-        :'Expected every 5m; currently '+Math.round(maxAgeMs/60000)+'m since oldest successful leg.',
-      meter:buildAgeMeter(maxAgeMs,5*60*1000)
+        :((maxAgeMs<=5*60*1000)
+          ?'On cadence. Next pull due in '+Math.max(0,5-Math.round(maxAgeMs/60000))+'m.'
+          :'Overdue by '+Math.max(0,Math.round((maxAgeMs-(5*60*1000))/60000))+'m past 5-minute cadence.'),
+      meter:buildOverdueMeter(maxAgeMs,5*60*1000)
     });
     return rows;
   }
