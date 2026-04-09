@@ -740,6 +740,42 @@ interface BackupStorageUsageSummary {
   truncated: boolean;
 }
 
+interface UsageMetricSummary {
+  used: number;
+  limit: number;
+  remaining: number;
+  percent: number;
+}
+
+interface CloudflareUsageSummary {
+  periodStart: string;
+  periodEnd: string;
+  metrics: {
+    workersRequests: UsageMetricSummary;
+    kvRead: UsageMetricSummary;
+    kvWrite: UsageMetricSummary;
+    kvDelete: UsageMetricSummary;
+    kvList: UsageMetricSummary;
+  };
+}
+
+interface CloudflareUsageGraphqlResponse {
+  data?: {
+    viewer?: {
+      accounts?: Array<{
+        workersInvocationsAdaptive?: Array<{
+          sum?: { requests?: number | null };
+        }>;
+        kvOperationsAdaptiveGroups?: Array<{
+          dimensions?: { actionType?: string | null };
+          sum?: { requests?: number | null };
+        }>;
+      }>;
+    };
+  };
+  errors?: Array<{ message?: string }>;
+}
+
 async function listBackupSnapshots(db: D1Database, limit = 10): Promise<BackupSnapshotSummary[]> {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 10;
   const rows = await db
@@ -814,6 +850,118 @@ async function computeBackupStorageUsage(
     objectCount,
     totalBytes,
     truncated
+  };
+}
+
+function buildUsageMetric(usedRaw: number, limit: number): UsageMetricSummary {
+  const used = Math.max(0, Math.floor(Number.isFinite(usedRaw) ? usedRaw : 0));
+  const remaining = Math.max(0, limit - used);
+  const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  return {
+    used,
+    limit,
+    remaining,
+    percent
+  };
+}
+
+async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<CloudflareUsageSummary | null> {
+  if (!config.cloudflareApiToken || !config.cloudflareAccountId) {
+    return null;
+  }
+
+  const periodStart = new Date();
+  periodStart.setUTCHours(0, 0, 0, 0);
+  const periodEnd = new Date();
+
+  const query = `
+    query ScarabEvUsage($accountTag: string!, $startDate: Date!, $endDate: Date!, $startDateTime: Time!, $endDateTime: Time!) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          workersInvocationsAdaptive(
+            limit: 10000
+            filter: { datetime_geq: $startDateTime, datetime_leq: $endDateTime }
+          ) {
+            sum {
+              requests
+            }
+          }
+          kvOperationsAdaptiveGroups(
+            limit: 10000
+            filter: { date_geq: $startDate, date_leq: $endDate }
+          ) {
+            dimensions {
+              actionType
+            }
+            sum {
+              requests
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const graphqlResponse = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${config.cloudflareApiToken}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      query,
+      variables: {
+        accountTag: config.cloudflareAccountId,
+        startDate: periodStart.toISOString().slice(0, 10),
+        endDate: periodEnd.toISOString().slice(0, 10),
+        startDateTime: periodStart.toISOString(),
+        endDateTime: periodEnd.toISOString()
+      }
+    })
+  });
+
+  if (!graphqlResponse.ok) {
+    throw new Error(`cloudflare_usage_request_failed:${graphqlResponse.status}`);
+  }
+
+  const payload = (await graphqlResponse.json()) as CloudflareUsageGraphqlResponse;
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    const message = payload.errors[0]?.message || "unknown_graphql_error";
+    throw new Error(`cloudflare_usage_graphql_error:${message}`);
+  }
+
+  const account = payload.data?.viewer?.accounts?.[0];
+  if (!account) {
+    throw new Error("cloudflare_usage_missing_account_data");
+  }
+
+  const workersRequestsUsed = (account.workersInvocationsAdaptive || []).reduce((acc, row) => {
+    return acc + Math.max(0, Number(row?.sum?.requests) || 0);
+  }, 0);
+
+  let kvReadUsed = 0;
+  let kvWriteUsed = 0;
+  let kvDeleteUsed = 0;
+  let kvListUsed = 0;
+  for (const row of account.kvOperationsAdaptiveGroups || []) {
+    const action = String(row?.dimensions?.actionType || "").toLowerCase();
+    const requests = Math.max(0, Number(row?.sum?.requests) || 0);
+    if (action === "read") kvReadUsed += requests;
+    else if (action === "write") kvWriteUsed += requests;
+    else if (action === "delete") kvDeleteUsed += requests;
+    else if (action === "list") kvListUsed += requests;
+  }
+
+  return {
+    periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd.toISOString(),
+    metrics: {
+      workersRequests: buildUsageMetric(workersRequestsUsed, 100000),
+      kvRead: buildUsageMetric(kvReadUsed, 100000),
+      kvWrite: buildUsageMetric(kvWriteUsed, 1000),
+      kvDelete: buildUsageMetric(kvDeleteUsed, 1000),
+      kvList: buildUsageMetric(kvListUsed, 1000)
+    }
   };
 }
 
@@ -1057,6 +1205,7 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     listBackupSnapshots,
     computeBackupStorageUsage,
     runBackupSnapshot,
+    getCloudflareUsageSummary,
     jsonResponse,
     withBaseHeaders,
     parseNullableString,

@@ -22,6 +22,8 @@ export interface Env {
   BACKUP_RETENTION_DAYS?: string;
   BACKUP_REQUIRE_EXTERNAL?: string;
   BACKUP_OBJECT_PREFIX?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
   DB?: D1Database;
   BACKUP_R2?: R2Bucket;
 }
@@ -47,6 +49,8 @@ export interface RuntimeConfig {
   backupRetentionDays: number;
   backupRequireExternal: boolean;
   backupObjectPrefix: string;
+  cloudflareApiToken?: string;
+  cloudflareAccountId?: string;
 }
 
 const VALID_ENV: ReadonlySet<string> = new Set(["dev", "staging", "production"]);
@@ -157,6 +161,8 @@ export function loadConfig(env: Env): RuntimeConfig {
     backupEnabled,
     backupRetentionDays,
     backupRequireExternal,
-    backupObjectPrefix
+    backupObjectPrefix,
+    cloudflareApiToken: env.CLOUDFLARE_API_TOKEN?.trim() || undefined,
+    cloudflareAccountId: env.CLOUDFLARE_ACCOUNT_ID?.trim() || undefined
   };
 }

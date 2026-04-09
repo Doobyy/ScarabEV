@@ -15,6 +15,7 @@ export async function handleOpsRoutes(
     listBackupSnapshots,
     computeBackupStorageUsage,
     runBackupSnapshot,
+    getCloudflareUsageSummary,
     jsonResponse,
     withBaseHeaders,
     parseNullableString
@@ -146,6 +147,50 @@ export async function handleOpsRoutes(
         snapshot
       },
       { status: statusCode }
+    );
+    return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+  }
+
+  if (request.method === "GET" && url.pathname === "/admin/ops/cloudflare-usage") {
+    const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
+    if (auth instanceof Response) {
+      return auth;
+    }
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
+    if (ownerOnly) {
+      await writeAudit(deps.securityRepo, context, request, "admin.cloudflare_usage", 403, auth.session.user.id);
+      return ownerOnly;
+    }
+
+    const usage = await getCloudflareUsageSummary(deps.config);
+    if (!usage) {
+      await writeAudit(deps.securityRepo, context, request, "admin.cloudflare_usage", 503, auth.session.user.id, {
+        reason: "cloudflare_usage_unavailable"
+      });
+      const response = jsonResponse(
+        {
+          ok: false,
+          error: "cloudflare_usage_unavailable",
+          requestId: context.requestId
+        },
+        { status: 503 }
+      );
+      return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+    }
+
+    await writeAudit(deps.securityRepo, context, request, "admin.cloudflare_usage", 200, auth.session.user.id, {
+      workersRequestsUsed: usage.metrics.workersRequests.used,
+      kvWriteUsed: usage.metrics.kvWrite.used,
+      kvReadUsed: usage.metrics.kvRead.used
+    });
+
+    const response = jsonResponse(
+      {
+        ok: true,
+        requestId: context.requestId,
+        usage
+      },
+      { status: 200 }
     );
     return withBaseHeaders(response, context.requestId, responseCookieHeaders);
   }

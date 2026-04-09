@@ -40,6 +40,10 @@ function deriveHealthHints(id,card){
     if(/failed|error|stale/i.test(detail)){
       hints.push('If intermittent: inspect worker logs for upstream fetch timeouts or CORS/client blockers.');
     }
+  }else if(id==='healthCloudflare'){
+    hints.push('Checks performed: Cloudflare GraphQL account analytics query.');
+    hints.push('Validation: today usage for Workers requests and KV operation buckets.');
+    hints.push('Limits shown are Free-tier defaults (Workers requests 100k/day, KV writes/lists/deletes 1k/day, KV reads 100k/day).');
   }else{
     hints.push('Check completed via admin health probe.');
     hints.push('Use refresh to rerun and compare latency/status changes.');
@@ -82,12 +86,42 @@ function buildPoePullChecks(card){
   return rows;
 }
 
+function buildCloudflareUsageChecks(card){
+  const detail=String((card&&card.detail)||'-');
+  const usage=(card&&card.usage&&card.usage.metrics)?card.usage.metrics:null;
+  const rows=[{level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail}];
+  if(!usage)return rows;
+  const order=[
+    ['workersRequests','Workers requests'],
+    ['kvRead','KV reads'],
+    ['kvWrite','KV writes'],
+    ['kvDelete','KV deletes'],
+    ['kvList','KV lists']
+  ];
+  order.forEach(([key,label])=>{
+    const m=usage[key]||null;
+    if(!m)return;
+    const used=Number(m.used)||0;
+    const limit=Number(m.limit)||0;
+    const pct=Number(m.percent)||0;
+    const remaining=Number(m.remaining)||0;
+    const level=pct>=95?'err':(pct>=75?'warn':'ok');
+    rows.push({
+      level,
+      label,
+      detail:used.toLocaleString()+' / '+limit.toLocaleString()+' ('+pct.toFixed(1)+'%) | Remaining '+remaining.toLocaleString()
+    });
+  });
+  return rows;
+}
+
 function enrichHealthCard(id,title,card){
   const level=normalizeCheckLevel(card&&card.level);
   let checks=Array.isArray(card&&card.checks)&&card.checks.length?card.checks:null;
   if(!checks){
     if(id==='healthWorker')checks=buildWorkerChecks(card);
     else if(id==='healthPoeNinja')checks=buildPoePullChecks(card);
+    else if(id==='healthCloudflare')checks=buildCloudflareUsageChecks(card);
     else{
       checks=[];
       checks.push({level,label:'Overall result',detail:String((card&&card.detail)||'-')});
@@ -99,6 +133,7 @@ function enrichHealthCard(id,title,card){
     level,
     detail:String((card&&card.detail)||'-'),
     meta:String((card&&card.meta)||'-'),
+    usage:card&&card.usage?card.usage:null,
     checks,
     debug
   };
@@ -283,6 +318,40 @@ async function checkHealthTokenHistory(){
   return {level:'ok',detail:'Token set history available.',meta:'Latest '+formatAdminTime(first.createdAt)+' | '+st+' | '+n+' items | '+took+'ms'};
 }
 
+async function checkHealthCloudflareUsage(){
+  const started=performance.now();
+  const r=await api('/admin/ops/cloudflare-usage');
+  const took=Math.round(performance.now()-started);
+  if(r.res.status!==200||!r.json||!r.json.usage){
+    if(r.res.status===503){
+      return {
+        level:'warn',
+        detail:'Cloudflare usage telemetry unavailable (token/account id missing or query failed).',
+        meta:'Status '+r.res.status+' | '+took+'ms'
+      };
+    }
+    return {
+      level:'warn',
+      detail:'Cloudflare usage check unavailable.',
+      meta:'Status '+r.res.status+' | '+took+'ms'
+    };
+  }
+  const usage=r.json.usage;
+  const metrics=usage&&usage.metrics?usage.metrics:{};
+  const kvWrite=metrics.kvWrite||{used:0,limit:1000,percent:0};
+  const workers=metrics.workersRequests||{used:0,limit:100000,percent:0};
+  const topPct=Math.max(Number(kvWrite.percent)||0,Number(workers.percent)||0);
+  const level=topPct>=95?'err':(topPct>=75?'warn':'ok');
+  return {
+    level,
+    detail:'Cloudflare free-tier usage today.',
+    meta:'KV writes '+(Number(kvWrite.used)||0).toLocaleString()+'/'+(Number(kvWrite.limit)||0).toLocaleString()
+      +' | Workers '+(Number(workers.used)||0).toLocaleString()+'/'+(Number(workers.limit)||0).toLocaleString()
+      +' | '+took+'ms',
+    usage
+  };
+}
+
 async function checkHealthMarketWorker(){
   const bundle=await getMarketHealthBundle();
   return bundle.marketWorker;
@@ -446,6 +515,7 @@ function renderHealthCards(results){
   const sessionApi=enrichHealthCard('healthSessionApi','Session API',results.sessionApi||{});
   const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
+  const cloudflareUsage=enrichHealthCard('healthCloudflare','Cloudflare Usage',results.cloudflareUsage||{});
   wrap.innerHTML=''
     +healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug)
     +healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug)
@@ -453,23 +523,25 @@ function renderHealthCards(results){
     +healthCard('healthPoeNinja','PoE.ninja Price Pull',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug)
     +healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug)
     +healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug)
-    +healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug);
+    +healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug)
+    +healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug);
 }
 
 async function loadHealthOverview(opts){
   const quiet=!!(opts&&opts.quiet);
   busy('healthRefreshBtn',true);
   try{
-    const [backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory]=await Promise.all([
+    const [backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage]=await Promise.all([
       checkHealthBackend(),
       checkHealthPublicTokens(),
       checkHealthMarketWorker(),
       checkHealthPoeNinjaPull(),
       checkHealthSessionApi(),
       checkHealthBackups(),
-      checkHealthTokenHistory()
+      checkHealthTokenHistory(),
+      checkHealthCloudflareUsage()
     ]);
-    renderHealthCards({backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory});
+    renderHealthCards({backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage});
     state.healthAutoLoaded=true;
     const now=formatAdminTime(new Date().toISOString());
     status('healthStatus','Health overview refreshed at '+now+'.','ok');

@@ -134,6 +134,19 @@ export interface OpsRouteHelpers extends BaseRouteHelpers {
     triggerType: "manual" | "scheduled",
     initiatedByUserId: string | null
   ) => Promise<{ id: string; status: "ok" | "failed"; itemCount: number } | null>;
+  getCloudflareUsageSummary: (
+    config: RuntimeConfig
+  ) => Promise<{
+    periodStart: string;
+    periodEnd: string;
+    metrics: {
+      workersRequests: { used: number; limit: number; remaining: number; percent: number };
+      kvRead: { used: number; limit: number; remaining: number; percent: number };
+      kvWrite: { used: number; limit: number; remaining: number; percent: number };
+      kvDelete: { used: number; limit: number; remaining: number; percent: number };
+      kvList: { used: number; limit: number; remaining: number; percent: number };
+    };
+  } | null>;
 }
 
 export type OperationalAlertType = "auth_failure" | "publish_failure" | "api_error";

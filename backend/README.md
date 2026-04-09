@@ -86,6 +86,8 @@ Optional:
 - `BACKUP_RETENTION_DAYS`: defaults to `14`.
 - `BACKUP_REQUIRE_EXTERNAL`: defaults to `false` (set `true` to fail backup if no external target is configured).
 - `BACKUP_OBJECT_PREFIX`: defaults to `snapshots`.
+- `CLOUDFLARE_API_TOKEN`: optional token for Cloudflare usage telemetry in admin health.
+- `CLOUDFLARE_ACCOUNT_ID`: optional account id paired with `CLOUDFLARE_API_TOKEN`.
 - `ALERT_WEBHOOK_URL`: optional webhook for operational alerts.
 
 Optional binding:
@@ -139,6 +141,7 @@ Optional binding:
 ## Block 8 routes
 - `GET /admin/ops/backups` (owner-only backup snapshot list)
 - `POST /admin/ops/backups/run` (owner-only manual backup snapshot)
+- `GET /admin/ops/cloudflare-usage` (owner-only Cloudflare usage summary for health dashboard)
 
 ## Admin credential note
 - Password hashes use PBKDF2-SHA256.
