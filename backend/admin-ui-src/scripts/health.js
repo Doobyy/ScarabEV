@@ -181,7 +181,9 @@ function toggleHealthCard(evt,id){
   if(!wrap)return;
   const card=wrap.querySelector('#'+id);
   if(!card)return;
-  card.classList.toggle('open');
+  const opened=card.classList.toggle('open');
+  state.healthOpenCards=state.healthOpenCards||{};
+  state.healthOpenCards[id]=!!opened;
 }
 
 function buildDefaultHealthLayout(defaultIds){
@@ -335,7 +337,8 @@ function bindHealthDnD(){
 function healthCard(id,title,level,detail,meta,checks,debug){
   const hasMore=(Array.isArray(checks)&&checks.length)||(Array.isArray(debug)&&debug.length);
   const moreId=id+'-more';
-  return '<div class="health-card" id="'+id+'" data-health-id="'+id+'" draggable="true">'
+  const isOpen=!!(state.healthOpenCards&&state.healthOpenCards[id]);
+  return '<div class="health-card'+(isOpen?' open':'')+'" id="'+id+'" data-health-id="'+id+'" draggable="true">'
     +'<div class="health-head">'
       +'<div class="h">'+title+'</div>'
       +'<div class="health-head-right">'
@@ -752,6 +755,11 @@ function renderHealthCards(results){
   const wrap=$('healthGrid');
   if(!wrap)return;
   bindHealthDnD();
+  state.healthOpenCards=state.healthOpenCards||{};
+  wrap.querySelectorAll('.health-card.open').forEach((el)=>{
+    const id=String(el.getAttribute('data-health-id')||el.id||'');
+    if(id)state.healthOpenCards[id]=true;
+  });
   const backend=enrichHealthCard('healthBackend','Admin API',results.backend||{});
   const publicTokens=enrichHealthCard('healthPublic','Public Token Endpoint',results.publicTokens||{});
   const marketWorker=enrichHealthCard('healthWorker','League Cache',results.marketWorker||{});
