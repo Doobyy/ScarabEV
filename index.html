@@ -830,12 +830,14 @@ body.graph-palette-ruby {
 .analysis-tooltip { position: fixed; z-index: 10000; padding: 6px 10px; background: var(--header-bg); color: #fff; font-size: 11px; border-radius: 4px; box-shadow: var(--shadow-md); pointer-events: none; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; opacity: 0; visibility: hidden; transition: none; }
 .analysis-tooltip.show { opacity: 1; visibility: visible; }
 .scarab-meta-tooltip {
-  white-space: pre-line;
-  max-width: 420px;
+  white-space: pre-wrap;
+  width: fit-content;
+  max-width: min(92vw, 760px);
+  text-align: center;
   overflow: visible;
   text-overflow: clip;
-  line-height: 1.35;
-  padding: 8px 10px;
+  line-height: 1.25;
+  padding: 8px 12px;
 }
 .logger-history-grid { display: grid; gap: 10px; align-items: center; }
 .logger-history-grid .cell-left { text-align: left; }
