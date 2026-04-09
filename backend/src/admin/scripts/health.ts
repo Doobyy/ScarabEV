@@ -46,7 +46,7 @@ function deriveHealthHints(id,card){
   }else if(id==='healthCloudflare'){
     hints.push('Checks performed: Cloudflare GraphQL account analytics query.');
     hints.push('Validation: today usage for Workers requests and KV operation buckets.');
-    hints.push('Limits shown are Free-tier defaults (Workers requests 100k/day, KV writes/lists/deletes 1k/day, KV reads 100k/day).');
+    hints.push('Limits shown are Free-tier defaults (Workers requests 100k/day, KV writes/lists/deletes 1k/day, KV reads 100k/day, R2 storage 10 GB-month).');
   }else{
     hints.push('Check completed via admin health probe.');
     hints.push('Use refresh to rerun and compare latency/status changes.');
@@ -133,11 +133,18 @@ function buildCloudflareUsageChecks(card){
   if(r2Storage&&Number.isFinite(Number(r2Storage.totalBytes))){
     const totalBytes=Math.max(0,Number(r2Storage.totalBytes)||0);
     const objectCount=Math.max(0,Number(r2Storage.objectCount)||0);
+    const limitBytes=10*1024*1024*1024;
     const gb=totalBytes/(1024*1024*1024);
+    const usedGb=Math.max(0,gb);
+    const limitGb=10;
+    const remainingGb=Math.max(0,limitGb-usedGb);
+    const pct=Math.max(0,Math.min(100,(totalBytes/limitBytes)*100));
+    const level=pct>=95?'err':(pct>=75?'warn':'ok');
     rows.push({
-      level:'ok',
+      level,
       label:'R2 storage',
-      detail:gb.toFixed(3)+' GB stored | '+objectCount.toLocaleString()+' objects'
+      detail:usedGb.toFixed(3)+' / '+limitGb.toFixed(3)+' GB ('+pct.toFixed(1)+'%) | Remaining '+remainingGb.toFixed(3)+' GB | '+objectCount.toLocaleString()+' objects',
+      meter:{used:Math.round(usedGb*1000)/1000,limit:limitGb,pct,suffix:' GB'}
     });
   }else{
     rows.push({
