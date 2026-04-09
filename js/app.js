@@ -1876,7 +1876,7 @@ function renderAtlasTrendPreview(history) {
         y: {
           min: minY,
           max: maxY,
-          ticks: { color: tickColor, font: { size: 10 }, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 5 },
+          ticks: { color: tickColor, font: { size: 10 }, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 6 },
           grid: { color: borderColor }
         }
       }
