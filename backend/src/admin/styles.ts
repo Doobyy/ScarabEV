@@ -158,6 +158,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .health-card.open .health-more{display:grid}
 .health-checks{display:grid;gap:4px}
 .health-check{display:grid;grid-template-columns:14px 170px minmax(0,1fr);gap:6px;align-items:start;font-size:11px}
+.health-card#healthCloudflare .health-check{grid-template-columns:14px 112px minmax(0,1fr)}
 .health-check-icon{display:inline-flex;align-items:center;justify-content:center;font-weight:700}
 .health-check-label{color:var(--heading);font-weight:600;display:block}
 .health-check-detail{color:var(--muted);display:block;width:100%}
@@ -225,6 +226,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
   .token-set-list table,.ops-list table{min-width:640px}
   .syntax-op{grid-template-columns:120px 1fr;gap:6px}
   .health-check{grid-template-columns:14px 132px minmax(0,1fr)}
+  .health-card#healthCloudflare .health-check{grid-template-columns:14px 100px minmax(0,1fr)}
   .syntax-op.syntax-head span:nth-child(3),.syntax-op.syntax-head span:nth-child(4){display:none}
   .syntax-op:not(.syntax-head) span:nth-child(3),.syntax-op:not(.syntax-head) span:nth-child(4){grid-column:2}
 }
