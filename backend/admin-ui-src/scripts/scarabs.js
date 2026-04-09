@@ -57,7 +57,44 @@ function setEditorMode(){const mode=$('editorMode');const retire=$('retireBtn');
 function openEditorCreate(){state.creating=true;state.selected=null;state.selectedId=null;$('name').value='';$('desc').value='';$('mods').value='';$('flavor').value='';$('status').value='active';$('league').value='';$('season').value='';$('meta').textContent='New scarab (not saved yet).';$('tokenPreview').textContent='-';setEditorMode();openModal();$('name').focus();}
 function openEditorById(id){const s=state.scarabs.find((x)=>x.id===id)||null;if(!s)return;state.creating=false;state.selected=s;state.selectedId=id;fillEditorFromScarab(s);setEditorMode();renderRows();openModal();}
 function editorPayload(){let season=$('season').value.trim()||null;if(!season&&currentScope().seasonId)season=currentScope().seasonId;return{status:$('status').value,name:$('name').value.trim(),description:$('desc').value.trim()||null,modifiers:modArr($('mods').value),flavorText:$('flavor').value.trim()||null,leagueId:$('league').value.trim()||null,seasonId:season};}
-function parseAdvanced(raw){const text=String(raw||'').replace(/\u0000/g,'').trim();if(!text)return{ok:false,error:'No text.'};const lines=text.split(/\r\n|\n|\r/).map((l)=>l.trim());const non=lines.filter(Boolean);if(!non.length)return{ok:false,error:'No text.'};const sections=[];let sec=[];for(const line of lines){if(/^[-]{4,}$/.test(line)){if(sec.length)sections.push(sec);sec=[];continue;}if(line)sec.push(line);}if(sec.length)sections.push(sec);if(!sections.length)return{ok:false,error:'No text.'};const headerIdx=sections.findIndex((s)=>s.some((l)=>/^Item\s*Class\s*:/i.test(l)||/^Rarity\s*:/i.test(l)));const usageIdx=sections.findIndex((s)=>s.some((l)=>/Can be used in a personal Map Device/i.test(l)));const headerSection=headerIdx>=0?sections[headerIdx]:sections[0];const rarityInHeader=headerSection.findIndex((l)=>/^Rarity\s*:/i.test(l));let name=rarityInHeader>=0&&headerSection[rarityInHeader+1]?headerSection[rarityInHeader+1].trim():'';if(!name){const candidates=non.filter((l)=>!/^((Item\s*Class|Rarity|Stack\s*Size|Limit)\s*:|[-]{4,})/i.test(l));name=candidates[0]||'';}if(!name)return{ok:false,error:'Could not parse name.'};const normalize=(section)=>{const m=[];for(const line of section){if(!m.length){m.push(line);continue;}const prev=m[m.length-1];if(/[a-z]$/.test(prev)&&/^[A-Z]/.test(line))m[m.length-1]=prev+' '+line;else m.push(line);}return m;};const description=usageIdx>=0?normalize(sections[usageIdx]).join(' '):null;const flavorIdx=usageIdx>0?usageIdx-1:sections.findIndex((s)=>s.some((l)=>l.includes('...')));const flavor=flavorIdx>=0?normalize(sections[flavorIdx]).join(' '):null;const mods=[];const skip=/^(Item\s*Class:|Rarity:|Stack\s*Size:|Limit:)/i;for(const section of sections){for(const line of normalize(section)){if(!line||skip.test(line)||line===name||line===description||line===flavor)continue;if(/Can be used in a personal Map Device/i.test(line))continue;mods.push(line);}}return{ok:true,parsed:{name,description:description||null,flavorText:flavor||null,modifiers:[...new Set(mods)]}};}
+function parseAdvanced(raw){
+const text=String(raw||'').replace(/\u0000/g,'').trim();
+if(!text)return{ok:false,error:'No text.'};
+const rawLines=text.split(/\r\n|\n|\r/);
+const lines=rawLines.map((l)=>l.trim());
+const non=lines.filter(Boolean);
+if(!non.length)return{ok:false,error:'No text.'};
+const sections=[];let sec=[];
+for(let i=0;i<rawLines.length;i++){
+  const line=String(rawLines[i]||'').trim();
+  if(/^[-]{4,}$/.test(line)){if(sec.length)sections.push(sec);sec=[];continue;}
+  if(line)sec.push(line);
+}
+if(sec.length)sections.push(sec);
+if(!sections.length)return{ok:false,error:'No text.'};
+const headerIdx=sections.findIndex((s)=>s.some((l)=>/^Item\s*Class\s*:/i.test(l)||/^Rarity\s*:/i.test(l)));
+const usageIdx=sections.findIndex((s)=>s.some((l)=>/Can be used in a personal Map Device/i.test(l)));
+const headerSection=headerIdx>=0?sections[headerIdx]:sections[0];
+const rarityInHeader=headerSection.findIndex((l)=>/^Rarity\s*:/i.test(l));
+let name=rarityInHeader>=0&&headerSection[rarityInHeader+1]?headerSection[rarityInHeader+1].trim():'';
+if(!name){
+  const candidates=non.filter((l)=>!/^((Item\s*Class|Rarity|Stack\s*Size|Limit)\s*:|[-]{4,})/i.test(l));
+  name=candidates[0]||'';
+}
+if(!name)return{ok:false,error:'Could not parse name.'};
+
+const skip=/^(Item\s*Class:|Rarity:|Stack\s*Size:|Limit:)/i;
+const usageSection=usageIdx>=0?sections[usageIdx]:[];
+const flavorSection=usageIdx>0?sections[usageIdx-1]:[];
+const modifierSection=usageIdx>1?sections[usageIdx-2]:[];
+const description=usageSection.length?usageSection.join(' '):null;
+const flavor=flavorSection.length?flavorSection.join(' '):null;
+const modifiers=modifierSection
+  .map((l)=>String(l||'').trim())
+  .filter((l)=>l&&!skip.test(l)&&!/^Can be used in a personal Map Device/i.test(l));
+
+return{ok:true,parsed:{name,description:description||null,flavorText:flavor||null,modifiers:[...new Set(modifiers)]}};
+}
 function parseIntoForm(){const p=parseAdvanced($('paste').value);if(!p.ok){status('pasteStatus','Parse failed: '+p.error,'err');return;}$('name').value=p.parsed.name||'';$('desc').value=p.parsed.description||'';$('mods').value=(p.parsed.modifiers||[]).join('\n');$('flavor').value=p.parsed.flavorText||'';const match=scarabByName(p.parsed.name||'');if(match){state.creating=false;state.selected=match;state.selectedId=match.id;fillEditorFromScarab(match);$('name').value=p.parsed.name||'';$('desc').value=p.parsed.description||'';$('mods').value=(p.parsed.modifiers||[]).join('\n');$('flavor').value=p.parsed.flavorText||'';setEditorMode();status('pasteStatus','Parsed and matched existing scarab. Save will update it.','ok');}else{state.creating=true;state.selected=null;state.selectedId=null;setEditorMode();status('pasteStatus','Parsed with no name match. Save will create new scarab.','warn');}}
 async function saveEditor(){const p=editorPayload();if(!p.name){status('editStatus','Name required.','err');return;}busy('saveBtn',true);try{if(state.creating||!state.selected){const r=await api('/admin/scarabs',{method:'POST',body:JSON.stringify(p)});if(r.res.status!==201||!r.json){status('editStatus','Create failed ('+r.res.status+').','err');return;}toast('Created');closeModal();}else{const r=await api('/admin/scarabs/'+encodeURIComponent(state.selected.id),{method:'PUT',body:JSON.stringify(p)});if(r.res.status!==200||!r.json){status('editStatus','Update failed ('+r.res.status+').','err');return;}toast('Saved');closeModal();}await loadAll();}finally{busy('saveBtn',false);}}
 async function retireCurrent(){if(!state.selected){status('editStatus','Select a scarab first.','warn');return;}busy('retireBtn',true);try{const r=await api('/admin/scarabs/'+encodeURIComponent(state.selected.id)+'/retire',{method:'POST',body:JSON.stringify({retiredLeagueId:$('league').value.trim()||null,retiredSeasonId:$('season').value.trim()||null,retirementNote:'retired via admin ui'})});if(r.res.status!==200){status('editStatus','Retire failed ('+r.res.status+').','err');return;}toast('Retired');closeModal();await loadAll();}finally{busy('retireBtn',false);}}
