@@ -186,6 +186,7 @@ function toggleHealthCard(evt,id){
   const opened=card.classList.toggle('open');
   state.healthOpenCards=state.healthOpenCards||{};
   state.healthOpenCards[id]=!!opened;
+  saveHealthOpenCards();
 }
 
 function buildDefaultHealthLayout(defaultIds){
@@ -233,6 +234,26 @@ function loadHealthCardLayout(defaultIds){
 function saveHealthCardLayout(layout){
   try{
     localStorage.setItem(HEALTH_CARD_LAYOUT_KEY,JSON.stringify(Array.isArray(layout)?layout:[[],[],[]]));
+  }catch(e){}
+}
+
+function loadHealthOpenCards(){
+  try{
+    const raw=localStorage.getItem(HEALTH_OPEN_CARDS_KEY);
+    if(!raw)return {};
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return {};
+    const out={};
+    Object.keys(parsed).forEach((id)=>{out[id]=!!parsed[id];});
+    return out;
+  }catch(e){
+    return {};
+  }
+}
+
+function saveHealthOpenCards(){
+  try{
+    localStorage.setItem(HEALTH_OPEN_CARDS_KEY,JSON.stringify(state.healthOpenCards||{}));
   }catch(e){}
 }
 
@@ -493,17 +514,18 @@ async function checkHealthCloudflareUsage(){
   const r=await api('/admin/ops/cloudflare-usage');
   const took=Math.round(performance.now()-started);
   if(r.res.status!==200||!r.json||!r.json.usage){
+    const detail=(r.json&&r.json.errorDetail)?String(r.json.errorDetail):'';
     if(r.res.status===503){
       return {
         level:'warn',
         detail:'Cloudflare usage telemetry unavailable (token/account id missing or query failed).',
-        meta:'Status '+r.res.status+' | '+took+'ms'
+        meta:'Status '+r.res.status+' | '+took+'ms'+(detail?(' | '+detail):'')
       };
     }
     return {
       level:'warn',
       detail:'Cloudflare usage check unavailable.',
-      meta:'Status '+r.res.status+' | '+took+'ms'
+      meta:'Status '+r.res.status+' | '+took+'ms'+(detail?(' | '+detail):'')
     };
   }
   const usage=r.json.usage;
@@ -760,7 +782,9 @@ function renderHealthCards(results){
   const wrap=$('healthGrid');
   if(!wrap)return;
   bindHealthDnD();
-  state.healthOpenCards=state.healthOpenCards||{};
+  if(!state.healthOpenCards||typeof state.healthOpenCards!=='object'||Array.isArray(state.healthOpenCards)){
+    state.healthOpenCards=loadHealthOpenCards();
+  }
   wrap.querySelectorAll('.health-card.open').forEach((el)=>{
     const id=String(el.getAttribute('data-health-id')||el.id||'');
     if(id)state.healthOpenCards[id]=true;

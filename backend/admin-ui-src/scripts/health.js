@@ -512,17 +512,18 @@ async function checkHealthCloudflareUsage(){
   const r=await api('/admin/ops/cloudflare-usage');
   const took=Math.round(performance.now()-started);
   if(r.res.status!==200||!r.json||!r.json.usage){
+    const detail=(r.json&&r.json.errorDetail)?String(r.json.errorDetail):'';
     if(r.res.status===503){
       return {
         level:'warn',
         detail:'Cloudflare usage telemetry unavailable (token/account id missing or query failed).',
-        meta:'Status '+r.res.status+' | '+took+'ms'
+        meta:'Status '+r.res.status+' | '+took+'ms'+(detail?(' | '+detail):'')
       };
     }
     return {
       level:'warn',
       detail:'Cloudflare usage check unavailable.',
-      meta:'Status '+r.res.status+' | '+took+'ms'
+      meta:'Status '+r.res.status+' | '+took+'ms'+(detail?(' | '+detail):'')
     };
   }
   const usage=r.json.usage;

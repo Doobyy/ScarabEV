@@ -162,15 +162,23 @@ export async function handleOpsRoutes(
       return ownerOnly;
     }
 
-    const usage = await getCloudflareUsageSummary(deps.config);
+    let usage = null;
+    let usageError: string | null = null;
+    try {
+      usage = await getCloudflareUsageSummary(deps.config);
+    } catch (error) {
+      usageError = error instanceof Error ? error.message : String(error);
+    }
     if (!usage) {
       await writeAudit(deps.securityRepo, context, request, "admin.cloudflare_usage", 503, auth.session.user.id, {
-        reason: "cloudflare_usage_unavailable"
+        reason: "cloudflare_usage_unavailable",
+        errorDetail: usageError
       });
       const response = jsonResponse(
         {
           ok: false,
           error: "cloudflare_usage_unavailable",
+          errorDetail: usageError,
           requestId: context.requestId
         },
         { status: 503 }
