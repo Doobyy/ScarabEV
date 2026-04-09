@@ -893,6 +893,11 @@ body.graph-palette-ruby {
 .ev-chart-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--bg-table-head); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
 .ev-chart-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
 .ev-chart-meta { font-size: 11px; color: var(--text-3); flex: 1; }
+.ev-chart-legend { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; font-size: 11px; color: var(--text-3); }
+.ev-chart-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.ev-chart-legend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.ev-chart-legend-dot.harmonic { background: var(--chaos); }
+.ev-chart-legend-dot.weighted { background: var(--text-2); }
 .ev-chart-body { padding: 12px 16px; }
 .ev-chart-panel.collapsed .ev-chart-body { display: none; }
 .ev-chart-panel.collapsed .estimator-chevron { transform: rotate(-90deg); }
@@ -2063,24 +2068,28 @@ body.graph-palette-ruby {
 
 .atlas-trend-preview {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
-  padding: 10px 12px 12px; box-shadow: var(--shadow-sm); margin-bottom: 14px;
+  box-shadow: var(--shadow-sm); margin-bottom: 14px; overflow: hidden;
 }
 .atlas-trend-preview-head {
-  display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
+  padding: 9px 14px;
+  background: var(--bg-table-head);
+  border-bottom: 1px solid var(--border);
   cursor: pointer; user-select: none;
 }
+.atlas-trend-preview-body { padding: 12px 16px; }
 .atlas-trend-preview-title {
-  font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.07em; text-transform: uppercase;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2);
 }
-[data-theme="dark"] .atlas-trend-preview-title { color: #7faedc; }
 .atlas-trend-preview-legend { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 .atlas-trend-preview-legend-item { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-3); }
 .atlas-trend-preview-legend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
 .atlas-trend-preview-legend-dot.base { background: var(--text-2); }
 .atlas-trend-preview-legend-dot.opt { background: var(--chaos); }
 .atlas-trend-preview-chart {
-  width: 100%; height: 132px; border: 1px solid var(--border);
-  border-radius: 6px; background: var(--bg-card); position: relative;
+  width: 100%;
+  height: 140px;
+  position: relative;
 }
 .atlas-trend-preview-axis { font-size: 9px; fill: var(--text-3); }
 .atlas-trend-preview-grid { stroke: var(--border); stroke-width: 1; }
@@ -2136,10 +2145,8 @@ body.graph-palette-ruby {
   background: var(--bg-table-head); border-bottom: 1px solid var(--border);
 }
 .atlas-col-header-title {
-  font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.07em; text-transform: uppercase;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2);
 }
-[data-theme="dark"] .atlas-col-header-title { color: #7faedc; }
-:root:not([data-theme="dark"]) .atlas-col-header-title { font-weight: 900; }
 .atlas-col-title-tag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
   padding: 1px 5px; border-radius: 3px;
@@ -2234,7 +2241,7 @@ body.graph-palette-ruby {
 [data-theme="dark"] .atlas-badge.ev-loss     { background: rgba(214,58,44,0.14); color: var(--red); border-color: rgba(214,58,44,0.34); }
 
 .atlas-chevron { font-size: 20px; font-weight: 700; color: var(--text-3); transition: transform 0.15s; text-align: right; line-height: 1; opacity: 0.72; }
-.atlas-chevron.open { transform: rotate(90deg); }
+.atlas-chevron.open { transform: rotate(-90deg); }
 .atlas-chevron-btn {
   display: flex; align-items: center; justify-content: center;
   width: 32px; height: 100%;
@@ -2288,7 +2295,13 @@ body.graph-palette-ruby {
   cursor: pointer; user-select: none; transition: background 0.1s;
 }
 .atlas-leftovers-header:hover { background: var(--bg-row-alt); }
-.atlas-leftovers-title { font-size: 11px; font-weight: 600; color: var(--text-2); }
+.atlas-leftovers-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
 .atlas-leftovers-body {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 0 0 7px 7px; overflow: hidden;
@@ -2809,6 +2822,10 @@ body.graph-palette-ruby {
       <div class="ev-chart-header" onclick="toggleEVChart()">
         <span class="ev-chart-title" id="evChartTitle">HARMONIC THRESHOLD TREND</span>
         <span class="ev-chart-meta" id="evChartMeta"></span>
+        <span class="ev-chart-legend" id="evChartLegend">
+          <span class="ev-chart-legend-item"><span class="ev-chart-legend-dot weighted"></span>Weighted</span>
+          <span class="ev-chart-legend-item"><span class="ev-chart-legend-dot harmonic"></span>Harmonic</span>
+        </span>
         <span class="estimator-chevron" id="evChartChevron">&#9656;</span>
       </div>
       <div class="ev-chart-body" id="evChartBody">

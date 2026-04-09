@@ -369,6 +369,8 @@ function toggleTheme() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
   localStorage.setItem('poepool-theme', isDark ? 'light' : 'dark');
+  if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+  else fetchAndRenderEVChart();
   if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
   else fetchAndRenderAtlasTrendPreview();
 }
@@ -1819,8 +1821,16 @@ function renderAtlasTrendPreview(history) {
           label: 'Baseline',
           data: baseline,
           borderColor: baseColor,
-          backgroundColor: colorWithAlpha(baseColor, 0.08),
-          fill: false,
+          backgroundColor: (ctx) => {
+            const chart = ctx.chart;
+            const area = chart?.chartArea;
+            if (!area) return colorWithAlpha(baseColor, 0.11);
+            const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+            gradient.addColorStop(0, colorWithAlpha(baseColor, 0.16));
+            gradient.addColorStop(1, colorWithAlpha(baseColor, 0.0));
+            return gradient;
+          },
+          fill: true,
           tension: 0.3,
           pointRadius: series.length <= 14 ? 3 : 0,
           pointHoverRadius: 3,
@@ -2140,17 +2150,22 @@ function renderEVChart(history) {
   const latest = harmonicNonNull.length ? harmonicNonNull[harmonicNonNull.length - 1] : (weightedNonNull.length ? weightedNonNull[weightedNonNull.length - 1] : 0);
   const earliest = harmonicNonNull.length ? harmonicNonNull[0] : (weightedNonNull.length ? weightedNonNull[0] : latest);
   const trend = latest > earliest ? '&uarr;' : latest < earliest ? '&darr;' : '&rarr;';
-  const trendColor = latest > earliest ? '#E24B4A' : latest < earliest ? '#1D9E75' : '#888';
+  const trendColor = latest > earliest ? '#1D9E75' : latest < earliest ? '#E24B4A' : '#888';
 
   document.getElementById('evChartMeta').innerHTML = isDemo
     ? `<span style="color:var(--amber)">demo data \u2014 next real snapshot at ${getDailySnapshotLocalTimeLabel()}</span>`
     : `${dates.length} days \u00B7 latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
 
+  const cs = getComputedStyle(document.documentElement);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const textColor = isDark ? '#525c7a' : '#9aa4c4';
-  const harmonicColor = '#a03ec8';
-  const weightedColor = '#c39a00';
+  const gridColor = (cs.getPropertyValue('--border') || 'rgba(0,0,0,0.12)').trim();
+  const textColor = (cs.getPropertyValue('--text-3') || '#7a85a8').trim();
+  const harmonicColor = (cs.getPropertyValue('--chaos') || '#a03ec8').trim();
+  const weightedColor = (cs.getPropertyValue('--text-2') || '#9aa4c4').trim();
+  const harmonicFillTopAlpha = isDark ? 0.16 : 0.15;
+  const harmonicFillFallbackAlpha = isDark ? 0.11 : 0.09;
+  const weightedFillTopAlpha = isDark ? 0.16 : 0.15;
+  const weightedFillFallbackAlpha = isDark ? 0.11 : 0.09;
 
   if (state._evChartInstance) {
     state._evChartInstance.destroy();
@@ -2168,11 +2183,20 @@ function renderEVChart(history) {
         label: 'Harmonic',
         data: harmonicValues,
         borderColor: harmonicColor,
-        backgroundColor: 'rgba(160,62,200,0.08)',
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const area = chart?.chartArea;
+          if (!area) return colorWithAlpha(harmonicColor, harmonicFillFallbackAlpha);
+          const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+          gradient.addColorStop(0, colorWithAlpha(harmonicColor, harmonicFillTopAlpha));
+          gradient.addColorStop(1, colorWithAlpha(harmonicColor, 0.0));
+          return gradient;
+        },
         fill: true,
         tension: 0.3,
         spanGaps: true,
         pointRadius: dates.length <= 14 ? 3 : 0,
+        pointHoverRadius: 3,
         pointBackgroundColor: harmonicColor,
         borderWidth: 1.5,
       }, {
@@ -2182,16 +2206,17 @@ function renderEVChart(history) {
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const area = chart?.chartArea;
-          if (!area) return 'rgba(195,154,0,0.08)';
+          if (!area) return colorWithAlpha(weightedColor, weightedFillFallbackAlpha);
           const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-          gradient.addColorStop(0, 'rgba(195,154,0,0.14)');
-          gradient.addColorStop(1, 'rgba(195,154,0,0)');
+          gradient.addColorStop(0, colorWithAlpha(weightedColor, weightedFillTopAlpha));
+          gradient.addColorStop(1, colorWithAlpha(weightedColor, 0.0));
           return gradient;
         },
         fill: true,
         tension: 0.3,
         spanGaps: true,
         pointRadius: dates.length <= 14 ? 3 : 0,
+        pointHoverRadius: 3,
         pointBackgroundColor: weightedColor,
         borderWidth: 1.5,
       }]
@@ -2199,11 +2224,9 @@ function renderEVChart(history) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       plugins: {
-        legend: {
-          display: true,
-          labels: { color: textColor, boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } }
-        },
+        legend: { display: false },
         tooltip: {
           callbacks: {
             title: items => items[0].label,
@@ -2213,11 +2236,13 @@ function renderEVChart(history) {
       },
       scales: {
         x: {
-          ticks: { font: { size: 10 }, color: textColor, maxTicksLimit: 10, maxRotation: 0 },
+          ticks: { font: { size: 10 }, color: textColor, maxTicksLimit: 10, maxRotation: 0, autoSkip: true },
           grid: { color: gridColor }
         },
         y: {
-          ticks: { font: { size: 10 }, color: textColor, callback: v => v.toFixed(2) + 'c' },
+          min: Math.min(...harmonicNonNull, ...weightedNonNull) - 0.08,
+          max: Math.max(...harmonicNonNull, ...weightedNonNull) + 0.08,
+          ticks: { font: { size: 10 }, color: textColor, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 6 },
           grid: { color: gridColor }
         }
       }
@@ -4345,7 +4370,7 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
         <span class="atlas-group-stat muted">${stats.contribution.toFixed(4)}c</span>
         ${deltaHtml}
         <div class="atlas-chevron-btn" onclick="event.stopPropagation(); atlasToggleExpand('${group}')" title="Show scarabs">
-          <span class="atlas-chevron${isExpanded ? ' open' : ''}">&#9656;</span>
+          <span class="atlas-chevron${!isExpanded ? ' open' : ''}">&#9656;</span>
         </div>
       </div>
       ${scarabBreakdown}
@@ -4462,8 +4487,8 @@ function renderAtlas() {
     leftoverEl.innerHTML = `
       <div class="atlas-leftovers-wrap">
         <div class="atlas-leftovers-header" onclick="atlasToggleLeftovers()">
-          <span class="atlas-chevron${isOpen ? ' open' : ''}">&#9656;</span>
-          <span class="atlas-leftovers-title">Fixed pool</span>
+          <span class="atlas-leftovers-title">Fixed Pool</span>
+          <span class="atlas-chevron${!isOpen ? ' open' : ''}" style="margin-left:auto">&#9656;</span>
         </div>
         ${isOpen ? `
         <div class="atlas-leftovers-body">
@@ -4508,7 +4533,7 @@ function renderAtlas() {
                   <span class="atlas-leftover-stat chaos">${r.groupEV.toFixed(3)}c</span>
                   <span class="atlas-leftover-stat muted">${(r.liveShare * 100).toFixed(1)}%</span>
                   <span class="atlas-leftover-stat muted">${r.contribution.toFixed(4)}c</span>
-                  <span class="atlas-chevron${isEx ? ' open' : ''}">&#9656;</span>
+                  <span class="atlas-chevron${!isEx ? ' open' : ''}">&#9656;</span>
                 </div>
                 ${scarabBreak}
               </div>`;
