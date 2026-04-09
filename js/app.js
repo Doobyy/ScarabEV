@@ -705,6 +705,7 @@ async function fetchMarketScarabPrices() {
         status.textContent = `Prices loaded from poe.ninja \u00B7 ${timeStr}`;
       }
       if (state.currentTab === 'atlas') renderAtlas();
+      if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
       if (state.currentTab === 'analysis') renderAnalysis();
       status.className = 'ninja-status loaded';
       clearInterval(window._ninjaAgeTicker);
@@ -1804,7 +1805,11 @@ function renderAtlasTrendPreview(history) {
   const tickColor = (cs.getPropertyValue('--text-3') || '#7a85a8').trim();
 
   const labels = series.map((h) => {
-    const d = new Date(h.date);
+    const raw = String(h?.date || '').trim();
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return `${Number(iso[2])}/${Number(iso[3])}`;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
     return `${d.getMonth() + 1}/${d.getDate()}`;
   });
   const baseline = series.map((h) => Number(h.baselineEv));
