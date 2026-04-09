@@ -70,15 +70,9 @@ function getScarabTooltipText(name) {
   const key = normalizeScarabNameKey(name);
   const meta = state._scarabMetaByName && state._scarabMetaByName[key] ? state._scarabMetaByName[key] : null;
   if (!meta) return '';
-  const lines = [];
   const mods = Array.isArray(meta.modifiers) ? meta.modifiers.filter(Boolean) : [];
-  if (mods.length) {
-    lines.push(...mods.map((m) => `• ${String(m)}`));
-  } else if (meta.description) {
-    lines.push(String(meta.description));
-  }
-  if (meta.flavorText) lines.push(String(meta.flavorText));
-  return lines.map((x) => String(x || '').trim()).filter(Boolean).join('\n');
+  if (!mods.length) return '';
+  return mods.map((m) => `• ${String(m)}`).map((x) => String(x || '').trim()).filter(Boolean).join('\n');
 }
 
 function applyScarabModifierTooltips(scopeEl) {
