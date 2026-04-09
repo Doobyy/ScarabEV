@@ -160,8 +160,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .health-check{display:grid;grid-template-columns:14px auto 1fr;gap:6px;align-items:start;font-size:11px}
 .health-check-icon{display:inline-flex;align-items:center;justify-content:center;font-weight:700}
 .health-check-label{color:var(--heading);font-weight:600}
-.health-check-detail{color:var(--muted)}
-.health-check-meter{display:grid;gap:3px;margin-top:4px}
+.health-check-detail{color:var(--muted);display:block;width:100%}
+.health-check-meter{display:grid;gap:3px;margin-top:4px;width:100%}
 .health-meter-track{height:6px;border:1px solid var(--line-soft);border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--surface) 80%,var(--panel))}
 .health-meter-fill{height:100%;transition:width .2s ease}
 .health-meter-fill-ok{background:linear-gradient(90deg,color-mix(in srgb,var(--ok) 80%,#fff),var(--ok))}
