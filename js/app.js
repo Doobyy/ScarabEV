@@ -2042,7 +2042,7 @@ function calcLiveWeightedThresholdFromCurrentPrices() {
 
 function renderEVChart(history) {
   const WINDOW_DAYS = 30;
-  const EV_HISTORY_V2_START = '2026-04-01';
+  const EV_HISTORY_V2_START = '2026-04-02';
   const cutoffMs = Date.parse(`${EV_HISTORY_V2_START}T00:00:00Z`);
   const toDateKey = (dateValue) => {
     const s = String(dateValue || '').trim();
