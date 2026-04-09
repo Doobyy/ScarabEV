@@ -45,17 +45,58 @@ function deriveHealthHints(id,card){
   return hints;
 }
 
+function extractLastSuccessText(meta){
+  const s=String(meta||'');
+  const m=s.match(/Last success\s+([^|]+)/i);
+  return m&&m[1]?m[1].trim():null;
+}
+
+function buildWorkerChecks(card){
+  const detail=String((card&&card.detail)||'-');
+  const meta=String((card&&card.meta)||'-');
+  const ageText=extractLastSuccessText(meta)||'unknown';
+  const rows=[
+    {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
+    {level:/stale/i.test(detail)?'warn':'ok',label:'League cache freshness',detail:'Last success '+ageText+' (healthy <= 75m, warn <= 6h)'},
+    {level:'ok',label:'Refresh cadence',detail:'Current league cache refresh target: hourly (minute 10).'},
+    {level:'ok',label:'Market bundle cadence',detail:'Scarab + Currency refresh target: every 5 minutes.'}
+  ];
+  if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
+  return rows;
+}
+
+function buildPoePullChecks(card){
+  const detail=String((card&&card.detail)||'-');
+  const meta=String((card&&card.meta)||'-');
+  const ageText=extractLastSuccessText(meta)||'unknown';
+  const rows=[
+    {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
+    {level:/stale|failed|error/i.test(detail)?'warn':'ok',label:'Market freshness window',detail:'Last success '+ageText+' (healthy <= 10m, warn <= 30m)'},
+    {level:'ok',label:'Checks performed',detail:'Scarab pull, Currency pull, cache state, scarab lines, and Divine Orb rate.'}
+  ];
+  if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
+  return rows;
+}
+
 function enrichHealthCard(id,title,card){
-  const checks=[];
   const level=normalizeCheckLevel(card&&card.level);
-  checks.push({level,label:'Overall result',detail:String((card&&card.detail)||'-')});
-  if(card&&card.meta)checks.push({level:'ok',label:'Telemetry',detail:String(card.meta)});
+  let checks=Array.isArray(card&&card.checks)&&card.checks.length?card.checks:null;
+  if(!checks){
+    if(id==='healthWorker')checks=buildWorkerChecks(card);
+    else if(id==='healthPoeNinja')checks=buildPoePullChecks(card);
+    else{
+      checks=[];
+      checks.push({level,label:'Overall result',detail:String((card&&card.detail)||'-')});
+      if(card&&card.meta)checks.push({level:'ok',label:'Telemetry',detail:String(card.meta)});
+    }
+  }
+  const debug=Array.isArray(card&&card.debug)&&card.debug.length?card.debug:deriveHealthHints(id,card);
   return {
     level,
     detail:String((card&&card.detail)||'-'),
     meta:String((card&&card.meta)||'-'),
     checks,
-    debug:deriveHealthHints(id,card)
+    debug
   };
 }
 
@@ -65,7 +106,7 @@ function renderHealthChecks(checks){
   return '<div class="health-checks">'
     +rows.map((c)=>{
       const lv=normalizeCheckLevel(c&&c.level);
-      const icon=lv==='ok'?'✓':(lv==='warn'?'!':'×');
+      const icon=lv==='ok'?'&#10003;':(lv==='warn'?'!':'&times;');
       return '<div class="health-check health-check-'+lv+'">'
         +'<span class="health-check-icon">'+icon+'</span>'
         +'<span class="health-check-label">'+escHtml(String((c&&c.label)||'Check'))+'</span>'
@@ -98,7 +139,7 @@ function healthCard(id,title,level,detail,meta,checks,debug){
       +'<div class="h">'+title+'</div>'
       +'<div class="health-head-right">'
         +healthBadge(level)
-        +(hasMore?'<button class="health-expand-btn" type="button" onclick="toggleHealthCard(event,\''+id+'\')" aria-controls="'+moreId+'" aria-label="Toggle details">▶</button>':'')
+        +(hasMore?'<button class="health-expand-btn" type="button" onclick="toggleHealthCard(event,\''+id+'\')" aria-controls="'+moreId+'" aria-label="Toggle details">&#9656;</button>':'')
       +'</div>'
     +'</div>'
     +'<div class="health-detail">'+escHtml(detail||'-')+'</div>'
@@ -330,7 +371,7 @@ async function getMarketHealthBundle(){
     }
     if(leagueState==='stale'){
       return {
-        marketWorker:{level:classifyMarketWorkerAge(leagueAgeMs),detail:'Market worker serving stale league cache.',meta:'Last success '+humanAge(leagueAgeMs)+' | League '+league+' | '+took+'ms'},
+        marketWorker:{level:'warn',detail:'Market worker serving stale league cache.',meta:'Last success '+humanAge(leagueAgeMs)+' | League '+league+' | '+took+'ms'},
         poePull:{level:'warn',detail:'Market worker is stale; freshness should recover after refresh.',meta:'League '+league}
       };
     }
@@ -434,3 +475,4 @@ async function loadHealthOverview(opts){
     busy('healthRefreshBtn',false);
   }
 }
+
