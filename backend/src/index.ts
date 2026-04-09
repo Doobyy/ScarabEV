@@ -875,7 +875,7 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
   const periodEnd = new Date();
 
   const query = `
-    query ScarabEvUsage($accountTag: string!, $startDate: Date!, $endDate: Date!, $startDateTime: DateTime!, $endDateTime: DateTime!) {
+    query ScarabEvUsage($accountTag: string!, $startDate: Date!, $endDate: Date!, $startDateTime: Time!, $endDateTime: Time!) {
       viewer {
         accounts(filter: { accountTag: $accountTag }) {
           workersInvocationsAdaptive(
