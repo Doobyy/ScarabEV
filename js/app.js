@@ -1869,19 +1869,14 @@ function renderAtlasTrendPreview(history) {
             font: { size: 10 },
             maxRotation: 0,
             autoSkip: true,
-            maxTicksLimit: 10,
-            callback: (_value, index) => {
-              if (index === 0) return `-${series.length}d`;
-              if (index === labels.length - 1) return 'Now';
-              return labels[index];
-            }
+            maxTicksLimit: 10
           },
           grid: { color: borderColor }
         },
         y: {
           min: minY,
           max: maxY,
-          ticks: { color: tickColor, font: { size: 10 }, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 4 },
+          ticks: { color: tickColor, font: { size: 10 }, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 5 },
           grid: { color: borderColor }
         }
       }
