@@ -875,7 +875,7 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
   const periodEnd = new Date();
 
   const query = `
-    query ScarabEvUsage($accountTag: string!, $startDate: Date!, $endDate: Date!, $startDateTime: Time!, $endDateTime: Time!) {
+    query ScarabEvUsage($accountTag: string!, $startDate: Date!, $endDate: Date!, $startDateTime: string!, $endDateTime: string!) {
       viewer {
         accounts(filter: { accountTag: $accountTag }) {
           workersInvocationsAdaptive(
@@ -921,7 +921,16 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
   });
 
   if (!graphqlResponse.ok) {
-    throw new Error(`cloudflare_usage_request_failed:${graphqlResponse.status}`);
+    let bodySnippet = "";
+    try {
+      const body = await graphqlResponse.text();
+      bodySnippet = body.slice(0, 240).replace(/\s+/g, " ").trim();
+    } catch {
+      bodySnippet = "";
+    }
+    throw new Error(
+      `cloudflare_usage_request_failed:${graphqlResponse.status}${bodySnippet ? `:${bodySnippet}` : ""}`
+    );
   }
 
   const payload = (await graphqlResponse.json()) as CloudflareUsageGraphqlResponse;
