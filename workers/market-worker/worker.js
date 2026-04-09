@@ -33,24 +33,18 @@ export default {
 
   async scheduled(event, env, ctx) {
     const cron = String(event.cron || "");
+    const now = new Date(event?.scheduledTime || Date.now());
+    const utcMinute = now.getUTCMinutes();
     if (cron === "0 18 * * *") {
       ctx.waitUntil(runDailyEVSnapshot(env));
       return;
     }
-    if (cron === "0 * * * *") {
-      ctx.waitUntil(runPendingSnapshotRetry(env));
-      return;
-    }
-    if (cron === "10 * * * *") {
-      ctx.waitUntil(refreshCurrentLeagueCache(env));
-      return;
-    }
     if (cron === "*/5 * * * *") {
       ctx.waitUntil(refreshCurrentLeagueMarketBundle(env));
+      if (utcMinute === 5) ctx.waitUntil(refreshStandardMarketBundle(env));
+      if (utcMinute === 10) ctx.waitUntil(refreshCurrentLeagueCache(env));
+      if (utcMinute === 0) ctx.waitUntil(runPendingSnapshotRetry(env));
       return;
-    }
-    if (cron === "5 * * * *") {
-      ctx.waitUntil(refreshStandardMarketBundle(env));
     }
   }
 };
