@@ -613,15 +613,27 @@ function renderHealthCards(results){
   const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
   const cloudflareUsage=enrichHealthCard('healthCloudflare','Cloudflare Usage',results.cloudflareUsage||{});
+  const cards=[
+    healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug),
+    healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug),
+    healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug),
+    healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug),
+    healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug),
+    healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug),
+    healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug),
+    healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug)
+  ];
+  const c0=[],c1=[],c2=[];
+  cards.forEach((card,i)=>{
+    const bucket=i%3;
+    if(bucket===0)c0.push(card);
+    else if(bucket===1)c1.push(card);
+    else c2.push(card);
+  });
   wrap.innerHTML=''
-    +healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug)
-    +healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug)
-    +healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug)
-    +healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug)
-    +healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug)
-    +healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug)
-    +healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug)
-    +healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug);
+    +'<div class="health-col">'+c0.join('')+'</div>'
+    +'<div class="health-col">'+c1.join('')+'</div>'
+    +'<div class="health-col">'+c2.join('')+'</div>';
 }
 
 async function loadHealthOverview(opts){

@@ -129,8 +129,9 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list th,.session-list td{padding:6px}
 .session-list .session-detail-row td{white-space:normal;overflow:visible}
 .session-main-id .mono,.session-main-id{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.health-grid{column-count:3;column-gap:8px}
-.health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:inline-grid;gap:6px;width:100%;margin:0 0 8px;break-inside:avoid}
+.health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.health-col{display:grid;gap:8px;align-content:start}
+.health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
 .health-expand-btn{
@@ -163,7 +164,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
   .nav-backdrop{position:fixed;inset:57px 0 0;z-index:40;background:rgba(1,6,14,.5)}
   .shell.nav-open .nav-backdrop{display:block}
   .grid2,.grid3,.regex-controls,.session-detail-grid,.session-meta,.session-scarab-split{grid-template-columns:1fr}
-  .health-grid{column-count:1}
+  .health-grid{grid-template-columns:1fr}
   .mgr-filetabs,.sess-filetabs{overflow:auto;flex-wrap:nowrap;padding-bottom:2px;scrollbar-width:thin}
   .mgr-tab,.sess-tab{flex:0 0 auto}
   #panel-scarab .card,#panel-sessions .card{padding:8px}
