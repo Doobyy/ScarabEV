@@ -177,28 +177,48 @@ function renderHealthDebug(debug){
   +'</div>';
 }
 
-function toggleHealthCard(evt,id){
-  if(evt&&typeof evt.stopPropagation==='function')evt.stopPropagation();
-  const card=document.getElementById(id);
-  if(!card)return;
-  card.classList.toggle('open');
+function selectHealthCard(id){
+  state.healthSelectedCardId=id;
+  const cards=state.healthCardsById||{};
+  renderHealthDetails(cards[id]||null);
+  const wrap=$('healthGrid');
+  if(!wrap)return;
+  wrap.querySelectorAll('.health-card').forEach((el)=>el.classList.toggle('active',el.id===id));
 }
 
 function healthCard(id,title,level,detail,meta,checks,debug){
   const hasMore=(Array.isArray(checks)&&checks.length)||(Array.isArray(debug)&&debug.length);
-  const moreId=id+'-more';
   return '<div class="health-card" id="'+id+'">'
     +'<div class="health-head">'
       +'<div class="h">'+title+'</div>'
       +'<div class="health-head-right">'
         +healthBadge(level)
-        +(hasMore?'<button class="health-expand-btn" type="button" onclick="toggleHealthCard(event,\''+id+'\')" aria-controls="'+moreId+'" aria-label="Toggle details">&#9656;</button>':'')
+        +(hasMore?'<button class="health-expand-btn" type="button" onclick="selectHealthCard(\''+id+'\')" aria-label="Show details">Details</button>':'')
       +'</div>'
     +'</div>'
     +'<div class="health-detail">'+escHtml(detail||'-')+'</div>'
     +'<div class="sub mono">'+escHtml(meta||'-')+'</div>'
-    +(hasMore?'<div class="health-more" id="'+moreId+'">'+renderHealthChecks(checks)+renderHealthDebug(debug)+'</div>':'')
   +'</div>';
+}
+
+function renderHealthDetails(card){
+  const host=$('healthDetailsPanel');
+  if(!host)return;
+  if(!card){
+    host.innerHTML='<div class="health-details-empty sub">Select a card to view full checks and diagnostics.</div>';
+    return;
+  }
+  const checks=Array.isArray(card.checks)?card.checks:[];
+  const debug=Array.isArray(card.debug)?card.debug:[];
+  host.innerHTML=''
+    +'<div class="health-details-head">'
+      +'<div class="h">'+escHtml(String(card.title||'Details'))+'</div>'
+      +healthBadge(normalizeCheckLevel(card.level))
+    +'</div>'
+    +'<div class="health-detail">'+escHtml(String(card.detail||'-'))+'</div>'
+    +'<div class="sub mono">'+escHtml(String(card.meta||'-'))+'</div>'
+    +renderHealthChecks(checks)
+    +renderHealthDebug(debug);
 }
 
 function msSince(iso){
@@ -611,15 +631,29 @@ function renderHealthCards(results){
   const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
   const cloudflareUsage=enrichHealthCard('healthCloudflare','Cloudflare Usage',results.cloudflareUsage||{});
+  const cards=[
+    {id:'healthBackend',title:'Admin API',...backend},
+    {id:'healthPublic',title:'Public Token Endpoint',...publicTokens},
+    {id:'healthWorker',title:'League Cache',...marketWorker},
+    {id:'healthPoeNinja',title:'Market Price Cache',...poePull},
+    {id:'healthSessionApi',title:'Session API',...sessionApi},
+    {id:'healthBackups',title:'Backup Snapshot',...backups},
+    {id:'healthTokenSets',title:'Token History',...tokenHistory},
+    {id:'healthCloudflare',title:'Cloudflare Usage',...cloudflareUsage}
+  ];
+  const byId={};
+  cards.forEach((c)=>{byId[c.id]=c;});
+  state.healthCardsById=byId;
+  if(!state.healthSelectedCardId||!byId[state.healthSelectedCardId]){
+    state.healthSelectedCardId=cards[0]?.id||null;
+  }
   wrap.innerHTML=''
-    +healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug)
-    +healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug)
-    +healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug)
-    +healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug)
-    +healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug)
-    +healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug)
-    +healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug)
-    +healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug);
+    +cards.map((c)=>healthCard(c.id,c.title,c.level,c.detail,c.meta,c.checks,c.debug)).join('');
+  const detailHost=$('healthDetailsPanel');
+  if(detailHost){
+    renderHealthDetails(byId[state.healthSelectedCardId]||null);
+  }
+  wrap.querySelectorAll('.health-card').forEach((el)=>el.classList.toggle('active',el.id===state.healthSelectedCardId));
 }
 
 async function loadHealthOverview(opts){

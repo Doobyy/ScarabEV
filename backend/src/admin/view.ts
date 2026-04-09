@@ -138,6 +138,7 @@ export function buildAdminMarkup(): string {
         <div class="sub">Quick signal checks across admin API, token pipeline, session API integration, and backups.</div>
         <div class="toolbar"><button id="healthRefreshBtn" class="btn ghost" type="button">Refresh Health</button></div>
         <div id="healthGrid" class="health-grid"></div>
+        <div id="healthDetailsPanel" class="health-details-panel"></div>
         <div id="healthStatus" class="status">Health checks run automatically on sign-in.</div>
       </div>
     </section>

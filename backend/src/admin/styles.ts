@@ -131,19 +131,20 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-main-id .mono,.session-main-id{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start;grid-auto-rows:min-content}
 .health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px;align-self:start}
+.health-card.active{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 42%,transparent) inset}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
 .health-expand-btn{
   border:1px solid var(--line-soft);background:var(--panel);color:var(--muted);
-  width:20px;height:20px;border-radius:4px;cursor:pointer;line-height:1;
-  display:inline-flex;align-items:center;justify-content:center;font-size:10px;
-  transition:transform .12s ease,color .12s ease,border-color .12s ease
+  min-width:56px;height:24px;padding:0 8px;border-radius:6px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
+  transition:color .12s ease,border-color .12s ease,background .12s ease
 }
-.health-expand-btn:hover{color:var(--heading);border-color:var(--line)}
-.health-card.open .health-expand-btn{transform:rotate(90deg);color:var(--heading)}
+.health-expand-btn:hover{color:var(--heading);border-color:var(--line);background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
 .health-detail{font-size:12px;color:var(--text)}
-.health-more{display:none;border-top:1px solid var(--line-soft);padding-top:6px;margin-top:2px;gap:6px}
-.health-card.open .health-more{display:grid}
+.health-details-panel{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;display:grid;gap:8px}
+.health-details-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.health-details-empty{padding:2px 0}
 .health-checks{display:grid;gap:4px}
 .health-check{display:grid;grid-template-columns:14px auto 1fr;gap:6px;align-items:start;font-size:11px}
 .health-check-icon{display:inline-flex;align-items:center;justify-content:center;font-weight:700}
