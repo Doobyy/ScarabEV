@@ -2152,14 +2152,9 @@ function renderEVChart(history) {
 
   const harmonicNonNull = harmonicValues.filter(v => Number.isFinite(Number(v))).map(v => Number(v));
   const weightedNonNull = weightedValues.filter(v => Number.isFinite(Number(v))).map(v => Number(v));
-  const latest = harmonicNonNull.length ? harmonicNonNull[harmonicNonNull.length - 1] : (weightedNonNull.length ? weightedNonNull[weightedNonNull.length - 1] : 0);
-  const earliest = harmonicNonNull.length ? harmonicNonNull[0] : (weightedNonNull.length ? weightedNonNull[0] : latest);
-  const trend = latest > earliest ? '&uarr;' : latest < earliest ? '&darr;' : '&rarr;';
-  const trendColor = latest > earliest ? '#1D9E75' : latest < earliest ? '#E24B4A' : '#888';
-
   document.getElementById('evChartMeta').innerHTML = isDemo
     ? `<span style="color:var(--amber)">demo data \u2014 next real snapshot at ${getDailySnapshotLocalTimeLabel()}</span>`
-    : `${dates.length} days \u00B7 latest <strong style="color:var(--chaos)">${latest.toFixed(3)}c</strong> <span style="color:${trendColor}">${trend}</span>`;
+    : '';
 
   const cs = getComputedStyle(document.documentElement);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
