@@ -134,6 +134,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px}
 .health-card.dragging{opacity:.55}
 .health-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 48%,transparent) inset}
+.health-card.drag-placeholder{background:transparent;border:1px dashed color-mix(in srgb,var(--accent) 70%,var(--line));box-shadow:none}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
 .health-expand-btn{

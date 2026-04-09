@@ -184,39 +184,60 @@ function toggleHealthCard(evt,id){
   card.classList.toggle('open');
 }
 
-function loadHealthCardOrder(defaultIds){
-  const fallback=Array.isArray(defaultIds)?defaultIds.slice():[];
+function buildDefaultHealthLayout(defaultIds){
+  const ids=Array.isArray(defaultIds)?defaultIds.slice():[];
+  const col0=[],col1=[],col2=[];
+  ids.forEach((id,i)=>{
+    const bucket=i%3;
+    if(bucket===0)col0.push(id);
+    else if(bucket===1)col1.push(id);
+    else col2.push(id);
+  });
+  return [col0,col1,col2];
+}
+
+function loadHealthCardLayout(defaultIds){
+  const fallback=buildDefaultHealthLayout(defaultIds);
   try{
-    const raw=localStorage.getItem(HEALTH_CARD_ORDER_KEY);
+    const raw=localStorage.getItem(HEALTH_CARD_LAYOUT_KEY);
     if(!raw)return fallback;
     const parsed=JSON.parse(raw);
-    if(!Array.isArray(parsed))return fallback;
-    const wanted=parsed.map((v)=>String(v||'')).filter(Boolean);
-    const out=[];
+    if(!Array.isArray(parsed)||parsed.length!==3)return fallback;
+    const allowed={};
+    (Array.isArray(defaultIds)?defaultIds:[]).forEach((id)=>{allowed[id]=true;});
     const seen={};
-    wanted.forEach((id)=>{if(!seen[id]){seen[id]=true;out.push(id);}});
-    fallback.forEach((id)=>{if(!seen[id]){seen[id]=true;out.push(id);}});
-    return out;
+    const cols=[0,1,2].map((i)=>{
+      const list=Array.isArray(parsed[i])?parsed[i]:[];
+      return list
+        .map((v)=>String(v||''))
+        .filter((id)=>allowed[id]&&!seen[id]&&(seen[id]=true));
+    });
+    (Array.isArray(defaultIds)?defaultIds:[]).forEach((id)=>{
+      if(!seen[id]){
+        let minIndex=0;
+        if(cols[1].length<cols[minIndex].length)minIndex=1;
+        if(cols[2].length<cols[minIndex].length)minIndex=2;
+        cols[minIndex].push(id);
+      }
+    });
+    return cols;
   }catch(e){
     return fallback;
   }
 }
 
-function saveHealthCardOrder(order){
+function saveHealthCardLayout(layout){
   try{
-    localStorage.setItem(HEALTH_CARD_ORDER_KEY,JSON.stringify(Array.isArray(order)?order:[]));
+    localStorage.setItem(HEALTH_CARD_LAYOUT_KEY,JSON.stringify(Array.isArray(layout)?layout:[[],[],[]]));
   }catch(e){}
 }
 
-function moveHealthCardInOrder(fromId,toId){
-  const ids=Array.isArray(state.healthCardOrder)?state.healthCardOrder.slice():[];
-  const from=ids.indexOf(fromId);
-  const to=ids.indexOf(toId);
-  if(from<0||to<0||from===to)return;
-  const [item]=ids.splice(from,1);
-  ids.splice(to,0,item);
-  state.healthCardOrder=ids;
-  saveHealthCardOrder(ids);
+function captureHealthLayoutFromDom(){
+  const wrap=$('healthGrid');
+  if(!wrap)return null;
+  const cols=Array.from(wrap.querySelectorAll('.health-col')).slice(0,3);
+  if(!cols.length)return null;
+  return cols.map((col)=>Array.from(col.querySelectorAll('.health-card[data-health-id]')).map((el)=>String(el.getAttribute('data-health-id')||'')).filter(Boolean));
 }
 
 function clearHealthDragClasses(){
@@ -226,6 +247,13 @@ function clearHealthDragClasses(){
     el.classList.remove('dragging');
     el.classList.remove('drag-over');
   });
+}
+
+function clearHealthDragPlaceholder(){
+  if(state.healthDragPlaceholder&&state.healthDragPlaceholder.parentNode){
+    state.healthDragPlaceholder.parentNode.removeChild(state.healthDragPlaceholder);
+  }
+  state.healthDragPlaceholder=null;
 }
 
 function bindHealthDnD(){
@@ -240,6 +268,11 @@ function bindHealthDnD(){
     if(!id)return;
     state.healthDragId=id;
     card.classList.add('dragging');
+    const placeholder=document.createElement('div');
+    placeholder.className='health-card drag-placeholder';
+    placeholder.style.height=Math.max(48,card.offsetHeight)+'px';
+    state.healthDragPlaceholder=placeholder;
+    if(card.parentNode)card.parentNode.insertBefore(placeholder,card.nextSibling);
     if(ev.dataTransfer){
       ev.dataTransfer.effectAllowed='move';
       try{ev.dataTransfer.setData('text/plain',id);}catch(e){}
@@ -251,10 +284,21 @@ function bindHealthDnD(){
     if(!dragged)return;
     ev.preventDefault();
     const card=ev.target&&ev.target.closest?ev.target.closest('.health-card'):null;
+    const col=ev.target&&ev.target.closest?ev.target.closest('.health-col'):null;
+    const placeholder=state.healthDragPlaceholder;
+    if(!placeholder)return;
     clearHealthDragClasses();
-    if(card){
+    if(card&&card!==placeholder){
       const id=String(card.getAttribute('data-health-id')||'');
-      if(id&&id!==dragged)card.classList.add('drag-over');
+      if(id&&id!==dragged){
+        card.classList.add('drag-over');
+        const rect=card.getBoundingClientRect();
+        const before=ev.clientY<rect.top+(rect.height/2);
+        if(before&&card.parentNode)card.parentNode.insertBefore(placeholder,card);
+        else if(card.parentNode)card.parentNode.insertBefore(placeholder,card.nextSibling);
+      }
+    }else if(col&&placeholder.parentNode!==col){
+      col.appendChild(placeholder);
     }
     const source=wrap.querySelector('.health-card[data-health-id="'+dragged+'"]');
     if(source)source.classList.add('dragging');
@@ -263,18 +307,27 @@ function bindHealthDnD(){
   wrap.addEventListener('drop',(ev)=>{
     ev.preventDefault();
     const fromId=String(state.healthDragId||'');
-    const card=ev.target&&ev.target.closest?ev.target.closest('.health-card'):null;
-    const toId=card?String(card.getAttribute('data-health-id')||''):'';
-    if(fromId&&toId&&fromId!==toId){
-      moveHealthCardInOrder(fromId,toId);
+    const placeholder=state.healthDragPlaceholder;
+    if(fromId&&placeholder){
+      const source=wrap.querySelector('.health-card[data-health-id="'+fromId+'"]');
+      if(source&&placeholder.parentNode){
+        placeholder.parentNode.insertBefore(source,placeholder);
+      }
+      const layout=captureHealthLayoutFromDom();
+      if(layout){
+        state.healthCardLayout=layout;
+        saveHealthCardLayout(layout);
+      }
       if(state.healthLastResults)renderHealthCards(state.healthLastResults);
     }
     state.healthDragId=null;
+    clearHealthDragPlaceholder();
     clearHealthDragClasses();
   });
 
   wrap.addEventListener('dragend',()=>{
     state.healthDragId=null;
+    clearHealthDragPlaceholder();
     clearHealthDragClasses();
   });
 }
@@ -718,23 +771,15 @@ function renderHealthCards(results){
     healthCloudflare:healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug)
   };
   const defaultIds=Object.keys(cardById);
-  if(!Array.isArray(state.healthCardOrder)||!state.healthCardOrder.length){
-    state.healthCardOrder=loadHealthCardOrder(defaultIds);
-  }else{
-    state.healthCardOrder=loadHealthCardOrder(state.healthCardOrder.length?state.healthCardOrder:defaultIds);
+  if(!Array.isArray(state.healthCardLayout)||state.healthCardLayout.length!==3){
+    state.healthCardLayout=loadHealthCardLayout(defaultIds);
   }
-  const cards=state.healthCardOrder.map((id)=>cardById[id]).filter(Boolean);
-  const c0=[],c1=[],c2=[];
-  cards.forEach((card,i)=>{
-    const bucket=i%3;
-    if(bucket===0)c0.push(card);
-    else if(bucket===1)c1.push(card);
-    else c2.push(card);
-  });
+  const cols=(state.healthCardLayout||[[],[],[]]).map((ids)=>ids.map((id)=>cardById[id]).filter(Boolean));
+  while(cols.length<3)cols.push([]);
   wrap.innerHTML=''
-    +'<div class="health-col">'+c0.join('')+'</div>'
-    +'<div class="health-col">'+c1.join('')+'</div>'
-    +'<div class="health-col">'+c2.join('')+'</div>';
+    +'<div class="health-col">'+cols[0].join('')+'</div>'
+    +'<div class="health-col">'+cols[1].join('')+'</div>'
+    +'<div class="health-col">'+cols[2].join('')+'</div>';
 }
 
 async function loadHealthOverview(opts){
