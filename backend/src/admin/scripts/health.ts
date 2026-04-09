@@ -56,7 +56,8 @@ function extractLastSuccessText(meta){
 function buildWorkerChecks(card){
   const detail=String((card&&card.detail)||'-');
   const meta=String((card&&card.meta)||'-');
-  const ageText=extractLastSuccessText(meta)||'unknown';
+  const parsedAge=extractLastSuccessText(meta);
+  const ageText=parsedAge||(/reachable and returning current league/i.test(detail)?'just now (live check)':'not reported');
   const rows=[
     {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
     {level:/stale/i.test(detail)?'warn':'ok',label:'League cache freshness',detail:'Last success '+ageText+' (healthy <= 75m, warn <= 6h)'},
@@ -70,7 +71,8 @@ function buildWorkerChecks(card){
 function buildPoePullChecks(card){
   const detail=String((card&&card.detail)||'-');
   const meta=String((card&&card.meta)||'-');
-  const ageText=extractLastSuccessText(meta)||'unknown';
+  const parsedAge=extractLastSuccessText(meta);
+  const ageText=parsedAge||(/healthy/i.test(detail)?'just now (live check)':'not reported');
   const rows=[
     {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
     {level:/stale|failed|error/i.test(detail)?'warn':'ok',label:'Market freshness window',detail:'Last success '+ageText+' (healthy <= 10m, warn <= 30m)'},
