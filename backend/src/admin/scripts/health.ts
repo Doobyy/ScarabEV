@@ -136,7 +136,7 @@ function buildAgeMeter(ageMs,warnMs){
   if(ageMs===null||!Number.isFinite(ageMs)||!Number.isFinite(warnMs)||warnMs<=0){
     return null;
   }
-  const usedMinutes=Math.max(0,Math.round(ageMs/60000));
+  const usedMinutes=Math.max(0,Math.floor(ageMs/60000));
   const limitMinutes=Math.max(1,Math.round(warnMs/60000));
   const pct=Math.max(0,Math.min(100,(ageMs/warnMs)*100));
   return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
@@ -189,7 +189,7 @@ function withCacheSignalRows(id,checks,card){
       label:'Cadence drift signal',
       detail:ageMs===null
         ?'Cannot verify hourly cadence drift without last success timestamp.'
-        :'Next hourly pull due in '+Math.max(0,60-Math.round(ageMs/60000))+'m.',
+        :'Cadence meter shows elapsed / target for hourly pulls.',
       meter:(()=>{
         const m=buildAgeMeter(ageMs,60*60*1000);
         if(!m)return m;
@@ -222,7 +222,7 @@ function withCacheSignalRows(id,checks,card){
       label:'Cadence drift signal',
       detail:maxAgeMs===null
         ?'Cannot verify 5-minute cadence drift without last success timestamp.'
-        :'Next 5-minute pull due in '+Math.max(0,5-Math.round(maxAgeMs/60000))+'m.',
+        :'Cadence meter shows elapsed / target for 5-minute pulls.',
       meter:(()=>{
         const m=buildAgeMeter(maxAgeMs,5*60*1000);
         if(!m)return m;
@@ -328,7 +328,7 @@ function tickHealthLiveMeters(){
     if(lastMs===null)return;
     const ageMs=Math.max(0,now-lastMs);
     const pct=Math.max(0,Math.min(100,(ageMs/limitMs)*100));
-    const usedMinutes=Math.max(0,Math.round(ageMs/60000));
+    const usedMinutes=Math.max(0,Math.floor(ageMs/60000));
     const limitMinutes=Math.max(1,Math.round(limitMs/60000));
     const fill=node.querySelector('.health-meter-fill');
     if(fill&&fill.style)fill.style.width=pct.toFixed(1)+'%';
@@ -340,12 +340,10 @@ function tickHealthLiveMeters(){
     if(detailText){
       if(mode==='cadence'){
         const cadenceMinutes=Math.max(1,Math.round(limitMs/60000));
-        if(ageMs<limitMs){
-          const dueInMinutes=Math.max(0,Math.ceil((limitMs-ageMs)/60000));
-          detailText.textContent='Next '+cadenceMinutes+'-minute pull due in '+dueInMinutes+'m.';
-        }else{
-          const overdueMinutes=Math.max(0,Math.round((ageMs-limitMs)/60000));
-          detailText.textContent='Overdue by '+overdueMinutes+'m past '+cadenceMinutes+'-minute cadence.';
+        if(ageMs<limitMs) detailText.textContent='Cadence meter shows elapsed / target for '+cadenceMinutes+'-minute pulls.';
+        else{
+          const overdueMinutes=Math.max(0,Math.floor((ageMs-limitMs)/60000));
+          detailText.textContent='Over cadence by '+overdueMinutes+'m.';
         }
       }else if(mode==='freshness'){
         detailText.textContent='Age '+humanAge(ageMs)+' ('+usedMinutes+'m old, warn at '+limitMinutes+'m).';
