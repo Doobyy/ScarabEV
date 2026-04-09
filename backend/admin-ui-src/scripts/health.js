@@ -137,7 +137,7 @@ function buildAgeMeter(ageMs,warnMs){
   const usedMinutes=Math.max(0,Math.floor(ageMs/60000));
   const limitMinutes=Math.max(1,Math.round(warnMs/60000));
   const pct=Math.max(0,Math.min(100,(ageMs/warnMs)*100));
-  return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
+  return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m',usedMs:Math.max(0,Math.round(ageMs)),limitMs:Math.max(1,Math.round(warnMs)),timeFmt:'mmss'};
 }
 
 function cadenceDriftLevel(ageMs,cadenceMs,warnMs){
@@ -150,6 +150,14 @@ function cadenceDriftLevel(ageMs,cadenceMs,warnMs){
 function parseIsoMs(iso){
   const ms=new Date(String(iso||'')).getTime();
   return Number.isFinite(ms)?ms:null;
+}
+
+function formatMmSs(ms){
+  const safe=Math.max(0,Math.round(Number(ms)||0));
+  const totalSec=Math.floor(safe/1000);
+  const mins=Math.floor(totalSec/60);
+  const secs=totalSec%60;
+  return String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
 }
 
 function pickOldestIso(a,b){
@@ -276,11 +284,13 @@ function renderHealthChecks(checks){
           +'<div class="health-meter-fill health-meter-fill-'+lv+'" style="width:'+Math.max(0,Math.min(100,Number(meter.pct)||0)).toFixed(1)+'%;"></div>'
           +'</div><div class="health-meter-label">'
           +escHtml(
-            (Number(meter.used)||0).toLocaleString()
-            +(meter.suffix||'')
-            +' / '
-            +(Number(meter.limit)||0).toLocaleString()
-            +(meter.suffix||'')
+            (meter.timeFmt==='mmss'&&Number.isFinite(Number(meter.usedMs))&&Number.isFinite(Number(meter.limitMs)))
+              ?(formatMmSs(Number(meter.usedMs)||0)+' / '+formatMmSs(Number(meter.limitMs)||0))
+              :((Number(meter.used)||0).toLocaleString()
+                +(meter.suffix||'')
+                +' / '
+                +(Number(meter.limit)||0).toLocaleString()
+                +(meter.suffix||''))
           )
           +'</div></div>')
         :'';
@@ -331,7 +341,7 @@ function tickHealthLiveMeters(){
     const fill=node.querySelector('.health-meter-fill');
     if(fill&&fill.style)fill.style.width=pct.toFixed(1)+'%';
     const label=node.querySelector('.health-meter-label');
-    if(label)label.textContent=usedMinutes.toLocaleString()+'m / '+limitMinutes.toLocaleString()+'m';
+    if(label)label.textContent=formatMmSs(ageMs)+' / '+formatMmSs(limitMs);
     const check=node.closest('.health-check');
     const detailText=check?check.querySelector('.health-check-detail-text'):null;
     const mode=String(node.getAttribute('data-mode')||'');
