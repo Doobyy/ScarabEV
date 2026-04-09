@@ -414,6 +414,9 @@ const IS_STAGING_FRONTEND = /(^localhost$)|(^127\.0\.0\.1$)|staging|dev/.test(FR
 export const BACKEND_TOKEN_SET_URL = IS_STAGING_FRONTEND
   ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/token-set/latest'
   : 'https://scarabev-backend-production.paperpandastacks.workers.dev/public/token-set/latest';
+export const BACKEND_SCARAB_METADATA_URL = IS_STAGING_FRONTEND
+  ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/scarabs/metadata'
+  : 'https://scarabev-backend-production.paperpandastacks.workers.dev/public/scarabs/metadata';
 export const BACKEND_ADMIN_UI_URL = IS_STAGING_FRONTEND
   ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/admin/ui'
   : 'https://scarabev-backend-production.paperpandastacks.workers.dev/admin/ui';

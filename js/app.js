@@ -24,6 +24,7 @@ import {
   ATLAS_BOOSTABLE,
   ATLAS_SAVE_KEY,
   BACKEND_TOKEN_SET_URL,
+  BACKEND_SCARAB_METADATA_URL,
   BACKEND_ADMIN_UI_URL
 } from './config.js';
 
@@ -59,6 +60,74 @@ function mobileScarabName(fullName) {
   const meaningful = words.filter(w => !_SCARAB_STOP.has(w.toLowerCase()));
   if (meaningful.length >= 2) return meaningful.slice(-2).join(' ');
   return meaningful[meaningful.length - 1] || words[words.length - 1];
+}
+
+function normalizeScarabNameKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function getScarabTooltipText(name) {
+  const key = normalizeScarabNameKey(name);
+  const meta = state._scarabMetaByName && state._scarabMetaByName[key] ? state._scarabMetaByName[key] : null;
+  if (!meta) return '';
+  const lines = [];
+  const mods = Array.isArray(meta.modifiers) ? meta.modifiers.filter(Boolean) : [];
+  if (mods.length) {
+    lines.push(...mods.map((m) => `• ${String(m)}`));
+  } else if (meta.description) {
+    lines.push(String(meta.description));
+  }
+  if (meta.flavorText) lines.push(String(meta.flavorText));
+  return lines.map((x) => String(x || '').trim()).filter(Boolean).join('\n');
+}
+
+function applyScarabModifierTooltips(scopeEl) {
+  if (!state._scarabMetaByName) return;
+  const root = scopeEl && scopeEl.querySelectorAll ? scopeEl : document;
+  const nodes = root.querySelectorAll('.scarab-name, .scarab-name-mobile');
+  nodes.forEach((el) => {
+    const baseName = el.classList.contains('scarab-name-mobile')
+      ? (el.parentElement && el.parentElement.querySelector('.scarab-name')
+          ? el.parentElement.querySelector('.scarab-name').textContent
+          : el.textContent)
+      : el.textContent;
+    const tooltip = getScarabTooltipText(baseName || '');
+    if (!tooltip) return;
+    el.setAttribute('title', tooltip);
+    el.setAttribute('aria-label', tooltip);
+  });
+}
+
+function applyScarabModifierTooltipsForTabs() {
+  ['tab-ninja', 'tab-atlas', 'tab-analysis'].forEach((id) => {
+    const tab = document.getElementById(id);
+    if (tab) applyScarabModifierTooltips(tab);
+  });
+}
+
+async function fetchScarabMetadata() {
+  if (!BACKEND_SCARAB_METADATA_URL) return;
+  try {
+    const res = await fetch(BACKEND_SCARAB_METADATA_URL, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const map = {};
+    for (const item of items) {
+      const name = String(item?.name || '').trim();
+      if (!name) continue;
+      map[normalizeScarabNameKey(name)] = {
+        description: item?.description || null,
+        modifiers: Array.isArray(item?.modifiers) ? item.modifiers : [],
+        flavorText: item?.flavorText || null
+      };
+    }
+    state._scarabMetaByName = map;
+    state._scarabMetaLoaded = true;
+    applyScarabModifierTooltipsForTabs();
+  } catch (_e) {
+    // No fallback: if metadata endpoint fails, we simply do not show modifier tooltips.
+  }
 }
 
 
@@ -1026,6 +1095,7 @@ function renderVendorTable() {
     for (const s of items) {
       tbody.appendChild(buildVendorTableRow(s, ev));
     }
+    applyScarabModifierTooltips(document.getElementById('tab-ninja'));
     return;
   }
 
@@ -1055,6 +1125,7 @@ function renderVendorTable() {
       tbody.appendChild(buildVendorTableRow(s, ev));
     }
   }
+  applyScarabModifierTooltips(document.getElementById('tab-ninja'));
 }
 
 function buildVendorTableRow(s, ev) {
@@ -3079,6 +3150,7 @@ function renderAnalysisWeightTable() {
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--chaos)">${d.evContrib.toFixed(2)}c</span>
     </div>`).join('');
   el.innerHTML = rows;
+  applyScarabModifierTooltips(document.getElementById('tab-analysis'));
 }
 
 // BULK BUY ANALYZER (CSV from Gemini)
@@ -4541,6 +4613,7 @@ function renderAtlas() {
         </div>` : ''}
       </div>`;
   }
+  applyScarabModifierTooltips(document.getElementById('tab-atlas'));
 }
 
 function atlasToggleBlock(group) {
@@ -4884,6 +4957,7 @@ updateDailySnapshotCopy();
 (async () => {
   await Promise.allSettled([
     initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
+    fetchScarabMetadata(),
     fetchCurrentLeague()
   ]);
   fetchMarketScarabPrices();

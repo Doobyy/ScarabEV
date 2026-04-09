@@ -1180,7 +1180,8 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     requireRoleOrResponse,
     normalizePublishToken,
     validateTokenAgainstPoeRegexProfile,
-    POE_REGEX_PROFILE_NAME
+    POE_REGEX_PROFILE_NAME,
+    withPublicCorsHeaders
   });
   if (scarabRouteResponse) return scarabRouteResponse;
 

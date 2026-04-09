@@ -43,6 +43,8 @@ export const state = {
   _evWeightedSeriesCache: null,
   _atlasTrendPreviewChart: null,
   _atlasTrendHistoryRaw: null,
+  _scarabMetaByName: null,
+  _scarabMetaLoaded: false,
 
   // Session logger
   _loggerSnapshotBefore: null,            // parsed CSV map: { scarabName -> qty }

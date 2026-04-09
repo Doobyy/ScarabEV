@@ -28,8 +28,35 @@ export async function handleScarabRoutes(
     requireRoleOrResponse,
     normalizePublishToken,
     validateTokenAgainstPoeRegexProfile,
-    POE_REGEX_PROFILE_NAME
+    POE_REGEX_PROFILE_NAME,
+    withPublicCorsHeaders
   } = helpers;
+
+  if (request.method === "OPTIONS" && url.pathname === "/public/scarabs/metadata") {
+    return withPublicCorsHeaders(new Response(null, { status: 204 }));
+  }
+
+  if (request.method === "GET" && url.pathname === "/public/scarabs/metadata") {
+    const scarabs = await deps.securityRepo.listScarabs({ statuses: ["active"], orderBy: "name" });
+    const items = scarabs.map((scarab) => ({
+      id: scarab.id,
+      name: scarab.currentText.name,
+      description: scarab.currentText.description,
+      modifiers: scarab.currentText.modifiers || [],
+      flavorText: scarab.currentText.flavorText
+    }));
+    return withPublicCorsHeaders(
+      jsonResponse(
+        {
+          ok: true,
+          requestId: context.requestId,
+          itemCount: items.length,
+          items
+        },
+        { status: 200 }
+      )
+    );
+  }
 
   if (request.method === "GET" && url.pathname === "/admin/scarabs/token-inputs") {
     const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);

@@ -96,6 +96,7 @@ export interface ScarabRouteHelpers extends BaseRouteHelpers {
   normalizePublishToken: (token: string) => string;
   validateTokenAgainstPoeRegexProfile: (token: string) => PoeRegexViolation | null;
   POE_REGEX_PROFILE_NAME: string;
+  withPublicCorsHeaders: (response: Response) => Response;
 }
 
 export interface TokenRouteHelpers extends BaseRouteHelpers {
