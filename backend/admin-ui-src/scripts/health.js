@@ -308,7 +308,7 @@ function triggerHealthAutoRefresh(){
   if(document.visibilityState==='hidden')return;
   healthAutoRefreshRunning=true;
   healthLastAutoRefreshAt=now;
-  loadHealthOverview({quiet:true})
+  loadHealthOverview({quiet:true,background:true})
     .catch(()=>{})
     .finally(()=>{healthAutoRefreshRunning=false;});
 }
@@ -1008,7 +1008,8 @@ function renderHealthCards(results){
 
 async function loadHealthOverview(opts){
   const quiet=!!(opts&&opts.quiet);
-  busy('healthRefreshBtn',true);
+  const background=!!(opts&&opts.background);
+  if(!background)busy('healthRefreshBtn',true);
   try{
     const [backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage]=await Promise.all([
       checkHealthBackend(),
@@ -1028,7 +1029,7 @@ async function loadHealthOverview(opts){
   }catch(e){
     status('healthStatus','Health refresh failed: '+String((e&&e.message)||e||'error'),'err');
   }finally{
-    busy('healthRefreshBtn',false);
+    if(!background)busy('healthRefreshBtn',false);
   }
 }
 
