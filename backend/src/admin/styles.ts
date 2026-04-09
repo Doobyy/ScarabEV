@@ -129,22 +129,21 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list th,.session-list td{padding:6px}
 .session-list .session-detail-row td{white-space:normal;overflow:visible}
 .session-main-id .mono,.session-main-id{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start;grid-auto-rows:min-content}
-.health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px;align-self:start}
-.health-card.active{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 42%,transparent) inset}
+.health-grid{column-count:3;column-gap:8px}
+.health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:inline-grid;gap:6px;width:100%;margin:0 0 8px;break-inside:avoid}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
 .health-expand-btn{
   border:1px solid var(--line-soft);background:var(--panel);color:var(--muted);
-  min-width:56px;height:24px;padding:0 8px;border-radius:6px;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
-  transition:color .12s ease,border-color .12s ease,background .12s ease
+  width:20px;height:20px;border-radius:4px;cursor:pointer;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;
+  transition:transform .12s ease,color .12s ease,border-color .12s ease
 }
-.health-expand-btn:hover{color:var(--heading);border-color:var(--line);background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.health-expand-btn:hover{color:var(--heading);border-color:var(--line)}
+.health-card.open .health-expand-btn{transform:rotate(90deg);color:var(--heading)}
 .health-detail{font-size:12px;color:var(--text)}
-.health-details-panel{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;display:grid;gap:8px}
-.health-details-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.health-details-empty{padding:2px 0}
+.health-more{display:none;border-top:1px solid var(--line-soft);padding-top:6px;margin-top:2px;gap:6px}
+.health-card.open .health-more{display:grid}
 .health-checks{display:grid;gap:4px}
 .health-check{display:grid;grid-template-columns:14px auto 1fr;gap:6px;align-items:start;font-size:11px}
 .health-check-icon{display:inline-flex;align-items:center;justify-content:center;font-weight:700}
@@ -163,7 +162,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
   .shell.nav-open .sidebar{transform:translateY(0);opacity:1;pointer-events:auto}
   .nav-backdrop{position:fixed;inset:57px 0 0;z-index:40;background:rgba(1,6,14,.5)}
   .shell.nav-open .nav-backdrop{display:block}
-  .grid2,.grid3,.regex-controls,.session-detail-grid,.session-meta,.session-scarab-split,.health-grid{grid-template-columns:1fr}
+  .grid2,.grid3,.regex-controls,.session-detail-grid,.session-meta,.session-scarab-split{grid-template-columns:1fr}
+  .health-grid{column-count:1}
   .mgr-filetabs,.sess-filetabs{overflow:auto;flex-wrap:nowrap;padding-bottom:2px;scrollbar-width:thin}
   .mgr-tab,.sess-tab{flex:0 0 auto}
   #panel-scarab .card,#panel-sessions .card{padding:8px}
