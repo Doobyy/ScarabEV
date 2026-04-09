@@ -186,10 +186,105 @@ function toggleHealthCard(evt,id){
   card.classList.toggle('open');
 }
 
+function loadHealthCardOrder(defaultIds){
+  const fallback=Array.isArray(defaultIds)?defaultIds.slice():[];
+  try{
+    const raw=localStorage.getItem(HEALTH_CARD_ORDER_KEY);
+    if(!raw)return fallback;
+    const parsed=JSON.parse(raw);
+    if(!Array.isArray(parsed))return fallback;
+    const wanted=parsed.map((v)=>String(v||'')).filter(Boolean);
+    const out=[];
+    const seen={};
+    wanted.forEach((id)=>{if(!seen[id]){seen[id]=true;out.push(id);}});
+    fallback.forEach((id)=>{if(!seen[id]){seen[id]=true;out.push(id);}});
+    return out;
+  }catch(e){
+    return fallback;
+  }
+}
+
+function saveHealthCardOrder(order){
+  try{
+    localStorage.setItem(HEALTH_CARD_ORDER_KEY,JSON.stringify(Array.isArray(order)?order:[]));
+  }catch(e){}
+}
+
+function moveHealthCardInOrder(fromId,toId){
+  const ids=Array.isArray(state.healthCardOrder)?state.healthCardOrder.slice():[];
+  const from=ids.indexOf(fromId);
+  const to=ids.indexOf(toId);
+  if(from<0||to<0||from===to)return;
+  const [item]=ids.splice(from,1);
+  ids.splice(to,0,item);
+  state.healthCardOrder=ids;
+  saveHealthCardOrder(ids);
+}
+
+function clearHealthDragClasses(){
+  const wrap=$('healthGrid');
+  if(!wrap)return;
+  wrap.querySelectorAll('.health-card').forEach((el)=>{
+    el.classList.remove('dragging');
+    el.classList.remove('drag-over');
+  });
+}
+
+function bindHealthDnD(){
+  const wrap=$('healthGrid');
+  if(!wrap||wrap.dataset.dndBound==='1')return;
+  wrap.dataset.dndBound='1';
+
+  wrap.addEventListener('dragstart',(ev)=>{
+    const card=ev.target&&ev.target.closest?ev.target.closest('.health-card'):null;
+    if(!card)return;
+    const id=String(card.getAttribute('data-health-id')||'');
+    if(!id)return;
+    state.healthDragId=id;
+    card.classList.add('dragging');
+    if(ev.dataTransfer){
+      ev.dataTransfer.effectAllowed='move';
+      try{ev.dataTransfer.setData('text/plain',id);}catch(e){}
+    }
+  });
+
+  wrap.addEventListener('dragover',(ev)=>{
+    const dragged=state.healthDragId;
+    if(!dragged)return;
+    ev.preventDefault();
+    const card=ev.target&&ev.target.closest?ev.target.closest('.health-card'):null;
+    clearHealthDragClasses();
+    if(card){
+      const id=String(card.getAttribute('data-health-id')||'');
+      if(id&&id!==dragged)card.classList.add('drag-over');
+    }
+    const source=wrap.querySelector('.health-card[data-health-id="'+dragged+'"]');
+    if(source)source.classList.add('dragging');
+  });
+
+  wrap.addEventListener('drop',(ev)=>{
+    ev.preventDefault();
+    const fromId=String(state.healthDragId||'');
+    const card=ev.target&&ev.target.closest?ev.target.closest('.health-card'):null;
+    const toId=card?String(card.getAttribute('data-health-id')||''):'';
+    if(fromId&&toId&&fromId!==toId){
+      moveHealthCardInOrder(fromId,toId);
+      if(state.healthLastResults)renderHealthCards(state.healthLastResults);
+    }
+    state.healthDragId=null;
+    clearHealthDragClasses();
+  });
+
+  wrap.addEventListener('dragend',()=>{
+    state.healthDragId=null;
+    clearHealthDragClasses();
+  });
+}
+
 function healthCard(id,title,level,detail,meta,checks,debug){
   const hasMore=(Array.isArray(checks)&&checks.length)||(Array.isArray(debug)&&debug.length);
   const moreId=id+'-more';
-  return '<div class="health-card" id="'+id+'">'
+  return '<div class="health-card" id="'+id+'" data-health-id="'+id+'" draggable="true">'
     +'<div class="health-head">'
       +'<div class="h">'+title+'</div>'
       +'<div class="health-head-right">'
@@ -605,6 +700,7 @@ async function getMarketHealthBundle(){
 function renderHealthCards(results){
   const wrap=$('healthGrid');
   if(!wrap)return;
+  bindHealthDnD();
   const backend=enrichHealthCard('healthBackend','Admin API',results.backend||{});
   const publicTokens=enrichHealthCard('healthPublic','Public Token Endpoint',results.publicTokens||{});
   const marketWorker=enrichHealthCard('healthWorker','League Cache',results.marketWorker||{});
@@ -613,16 +709,23 @@ function renderHealthCards(results){
   const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
   const cloudflareUsage=enrichHealthCard('healthCloudflare','Cloudflare Usage',results.cloudflareUsage||{});
-  const cards=[
-    healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug),
-    healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug),
-    healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug),
-    healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug),
-    healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug),
-    healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug),
-    healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug),
-    healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug)
-  ];
+  const cardById={
+    healthBackend:healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug),
+    healthPublic:healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug),
+    healthWorker:healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug),
+    healthPoeNinja:healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug),
+    healthSessionApi:healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug),
+    healthBackups:healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug),
+    healthTokenSets:healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug),
+    healthCloudflare:healthCard('healthCloudflare','Cloudflare Usage',cloudflareUsage.level,cloudflareUsage.detail,cloudflareUsage.meta,cloudflareUsage.checks,cloudflareUsage.debug)
+  };
+  const defaultIds=Object.keys(cardById);
+  if(!Array.isArray(state.healthCardOrder)||!state.healthCardOrder.length){
+    state.healthCardOrder=loadHealthCardOrder(defaultIds);
+  }else{
+    state.healthCardOrder=loadHealthCardOrder(state.healthCardOrder.length?state.healthCardOrder:defaultIds);
+  }
+  const cards=state.healthCardOrder.map((id)=>cardById[id]).filter(Boolean);
   const c0=[],c1=[],c2=[];
   cards.forEach((card,i)=>{
     const bucket=i%3;
@@ -650,7 +753,8 @@ async function loadHealthOverview(opts){
       checkHealthTokenHistory(),
       checkHealthCloudflareUsage()
     ]);
-    renderHealthCards({backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage});
+    state.healthLastResults={backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage};
+    renderHealthCards(state.healthLastResults);
     state.healthAutoLoaded=true;
     const now=formatAdminTime(new Date().toISOString());
     status('healthStatus','Health overview refreshed at '+now+'.','ok');

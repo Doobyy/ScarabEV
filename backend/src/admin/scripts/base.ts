@@ -7,13 +7,14 @@ const WS_PROFILES_KEY='scarabev-admin-workspace-profiles-v2';
 const WS_ACTIVE_KEY='scarabev-admin-workspace-active-v2';
 const WS_SELECTED_KEY='scarabev-admin-workspace-selected-v2';
 const SESS_CFG_KEY='scarabev-admin-session-manager-v1';
+const HEALTH_CARD_ORDER_KEY='scarabev-admin-health-card-order-v1';
 
 const state={
   user:null,scarabs:[],filtered:[],selected:null,selectedId:null,creating:false,
   tokensByName:{},draftTokensByScarabId:{},latestDraftEntries:[],sets:[],selectedIds:new Set(),
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
   captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,
-  sessionDupes:[],sessionSignals:[]
+  sessionDupes:[],sessionSignals:[],healthCardOrder:[],healthLastResults:null,healthDragId:null
 };
 
 const $=(id)=>document.getElementById(id);

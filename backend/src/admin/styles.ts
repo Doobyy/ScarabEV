@@ -132,6 +132,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
 .health-col{display:grid;gap:8px;align-content:start}
 .health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px}
+.health-card.dragging{opacity:.55}
+.health-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 48%,transparent) inset}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
 .health-expand-btn{
