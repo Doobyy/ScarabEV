@@ -6,6 +6,7 @@ const WS_ACTIVE_KEY='scarabev-admin-workspace-active-v2';
 const WS_SELECTED_KEY='scarabev-admin-workspace-selected-v2';
 const SESS_CFG_KEY='scarabev-admin-session-manager-v1';
 const HEALTH_CARD_LAYOUT_KEY='scarabev-admin-health-card-layout-v1';
+const HEALTH_OPEN_CARDS_KEY='scarabev-admin-health-open-cards-v1';
 
 const state={
   user:null,scarabs:[],filtered:[],selected:null,selectedId:null,creating:false,
