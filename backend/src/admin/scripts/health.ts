@@ -122,9 +122,78 @@ function buildCloudflareUsageChecks(card){
     rows.push({
       level,
       label,
-      detail:used.toLocaleString()+' / '+limit.toLocaleString()+' ('+pct.toFixed(1)+'%) | Remaining '+remaining.toLocaleString()
+      detail:used.toLocaleString()+' / '+limit.toLocaleString()+' ('+pct.toFixed(1)+'%) | Remaining '+remaining.toLocaleString(),
+      meter:{used,limit,pct}
     });
   });
+  return rows;
+}
+
+function buildAgeMeter(ageMs,warnMs){
+  if(ageMs===null||!Number.isFinite(ageMs)||!Number.isFinite(warnMs)||warnMs<=0){
+    return null;
+  }
+  const usedMinutes=Math.max(0,Math.round(ageMs/60000));
+  const limitMinutes=Math.max(1,Math.round(warnMs/60000));
+  const pct=Math.max(0,Math.min(100,(ageMs/warnMs)*100));
+  return {used:usedMinutes,limit:limitMinutes,pct,suffix:'m'};
+}
+
+function cadenceDriftLevel(ageMs,cadenceMs,warnMs){
+  if(ageMs===null)return 'err';
+  if(ageMs<=cadenceMs)return 'ok';
+  if(ageMs<=Math.min(warnMs,cadenceMs*2))return 'warn';
+  return 'err';
+}
+
+function withCacheSignalRows(id,checks,card){
+  const rows=Array.isArray(checks)?checks.slice():[];
+  const telemetry=card&&card.telemetry?card.telemetry:{};
+  if(id==='healthWorker'){
+    const ageMs=msSince(telemetry.lastSuccessAt);
+    const level=classifyMarketWorkerAge(ageMs);
+    const driftLevel=cadenceDriftLevel(ageMs,60*60*1000,MARKET_WORKER_WARN_AGE_MS);
+    const ageDetail=ageMs===null
+      ?'Last success unknown.'
+      :'Age '+humanAge(ageMs)+' ('+Math.round(ageMs/60000)+'m old, warn at 360m).';
+    rows.push({
+      level,
+      label:'Cache freshness signal',
+      detail:ageDetail,
+      meter:buildAgeMeter(ageMs,MARKET_WORKER_WARN_AGE_MS)
+    });
+    rows.push({
+      level:driftLevel,
+      label:'Cadence drift signal',
+      detail:ageMs===null
+        ?'Cannot verify hourly cadence drift without last success timestamp.'
+        :'Expected hourly pull; currently '+Math.round(ageMs/60000)+'m since last success.',
+      meter:buildAgeMeter(ageMs,60*60*1000)
+    });
+    return rows;
+  }
+  if(id==='healthPoeNinja'){
+    const scarabAgeMs=msSince(telemetry.lastScarabSuccessAt);
+    const currencyAgeMs=msSince(telemetry.lastCurrencySuccessAt);
+    const maxAgeMs=(scarabAgeMs===null&&currencyAgeMs===null)?null:Math.max(scarabAgeMs||0,currencyAgeMs||0);
+    rows.push({
+      level:classifyPoePullAge(maxAgeMs),
+      label:'Cache freshness signal',
+      detail:maxAgeMs===null
+        ?'Last success unknown.'
+        :'Oldest cache leg is '+humanAge(maxAgeMs)+' ('+Math.round(maxAgeMs/60000)+'m old, warn at 30m).',
+      meter:buildAgeMeter(maxAgeMs,POE_PULL_WARN_AGE_MS)
+    });
+    rows.push({
+      level:cadenceDriftLevel(maxAgeMs,5*60*1000,POE_PULL_WARN_AGE_MS),
+      label:'Cadence drift signal',
+      detail:maxAgeMs===null
+        ?'Cannot verify 5-minute cadence drift without last success timestamp.'
+        :'Expected every 5m; currently '+Math.round(maxAgeMs/60000)+'m since oldest successful leg.',
+      meter:buildAgeMeter(maxAgeMs,5*60*1000)
+    });
+    return rows;
+  }
   return rows;
 }
 
@@ -141,6 +210,7 @@ function enrichHealthCard(id,title,card){
       if(card&&card.meta)checks.push({level:'ok',label:'Telemetry',detail:String(card.meta)});
     }
   }
+  checks=withCacheSignalRows(id,checks,card);
   const debug=Array.isArray(card&&card.debug)&&card.debug.length?card.debug:deriveHealthHints(id,card);
   return {
     level,
@@ -160,10 +230,24 @@ function renderHealthChecks(checks){
     +rows.map((c)=>{
       const lv=normalizeCheckLevel(c&&c.level);
       const icon=lv==='ok'?'&#10003;':(lv==='warn'?'!':'&times;');
+      const meter=(c&&c.meter&&Number.isFinite(Number(c.meter.limit))&&Number(c.meter.limit)>0)?c.meter:null;
+      const meterHtml=meter
+        ?('<div class="health-check-meter"><div class="health-meter-track">'
+          +'<div class="health-meter-fill health-meter-fill-'+lv+'" style="width:'+Math.max(0,Math.min(100,Number(meter.pct)||0)).toFixed(1)+'%;"></div>'
+          +'</div><div class="health-meter-label">'
+          +escHtml(
+            (Number(meter.used)||0).toLocaleString()
+            +(meter.suffix||'')
+            +' / '
+            +(Number(meter.limit)||0).toLocaleString()
+            +(meter.suffix||'')
+          )
+          +'</div></div>')
+        :'';
       return '<div class="health-check health-check-'+lv+'">'
         +'<span class="health-check-icon">'+icon+'</span>'
         +'<span class="health-check-label">'+escHtml(String((c&&c.label)||'Check'))+'</span>'
-        +'<span class="health-check-detail">'+escHtml(String((c&&c.detail)||''))+'</span>'
+        +'<span class="health-check-detail">'+escHtml(String((c&&c.detail)||''))+meterHtml+'</span>'
       +'</div>';
     }).join('')
   +'</div>';
