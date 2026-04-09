@@ -72,7 +72,7 @@ function getScarabTooltipText(name) {
   if (!meta) return '';
   const mods = Array.isArray(meta.modifiers) ? meta.modifiers.filter(Boolean) : [];
   if (!mods.length) return '';
-  return mods.map((m) => `• ${String(m)}`).map((x) => String(x || '').trim()).filter(Boolean).join('\n');
+  return mods.map((m) => String(m || '').trim()).filter(Boolean).join('\n');
 }
 
 function applyScarabModifierTooltips(scopeEl) {
