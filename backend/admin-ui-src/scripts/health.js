@@ -1,8 +1,10 @@
 
 const MARKET_WORKER_URL='https://scarabev-market-worker.paperpandastacks.workers.dev';
 const MARKET_HEALTH_CACHE_MS=15000;
-const MARKET_HEALTHY_AGE_MS=120000;
-const MARKET_WARN_AGE_MS=900000;
+const MARKET_WORKER_HEALTHY_AGE_MS=75*60*1000;
+const MARKET_WORKER_WARN_AGE_MS=6*60*60*1000;
+const POE_PULL_HEALTHY_AGE_MS=10*60*1000;
+const POE_PULL_WARN_AGE_MS=30*60*1000;
 let marketHealthCacheAt=0;
 let marketHealthCache=null;
 let marketHealthInFlight=null;
@@ -15,11 +17,93 @@ function healthBadge(level){
   return '<span class="badge '+cls+'">'+label+'</span>';
 }
 
-function healthCard(id,title,level,detail,meta){
+function normalizeCheckLevel(level){
+  if(level==='ok'||level==='warn'||level==='err')return level;
+  return 'err';
+}
+
+function deriveHealthHints(id,card){
+  const detail=String((card&&card.detail)||'');
+  const hints=[];
+  if(id==='healthWorker'){
+    hints.push('Check performed: GET market worker CurrentLeague endpoint.');
+    hints.push('Validation: worker response, league presence, cache age/state metadata.');
+    if(/stale league cache/i.test(detail)){
+      hints.push('League cache can appear stale when refresh cadence is hourly by design.');
+      hints.push('If this persists unexpectedly, verify scheduled events and KV write quota headroom.');
+    }
+  }else if(id==='healthPoeNinja'){
+    hints.push('Checks performed: worker Scarab and Currency pulls for current league.');
+    hints.push('Validation: response status, cache state, scarab lines, and Divine Orb rate.');
+    if(/failed|error|stale/i.test(detail)){
+      hints.push('If intermittent: inspect worker logs for upstream fetch timeouts or CORS/client blockers.');
+    }
+  }else{
+    hints.push('Check completed via admin health probe.');
+    hints.push('Use refresh to rerun and compare latency/status changes.');
+  }
+  return hints;
+}
+
+function enrichHealthCard(id,title,card){
+  const checks=[];
+  const level=normalizeCheckLevel(card&&card.level);
+  checks.push({level,label:'Overall result',detail:String((card&&card.detail)||'-')});
+  if(card&&card.meta)checks.push({level:'ok',label:'Telemetry',detail:String(card.meta)});
+  return {
+    level,
+    detail:String((card&&card.detail)||'-'),
+    meta:String((card&&card.meta)||'-'),
+    checks,
+    debug:deriveHealthHints(id,card)
+  };
+}
+
+function renderHealthChecks(checks){
+  const rows=Array.isArray(checks)?checks:[];
+  if(!rows.length)return '';
+  return '<div class="health-checks">'
+    +rows.map((c)=>{
+      const lv=normalizeCheckLevel(c&&c.level);
+      const icon=lv==='ok'?'✓':(lv==='warn'?'!':'×');
+      return '<div class="health-check health-check-'+lv+'">'
+        +'<span class="health-check-icon">'+icon+'</span>'
+        +'<span class="health-check-label">'+escHtml(String((c&&c.label)||'Check'))+'</span>'
+        +'<span class="health-check-detail">'+escHtml(String((c&&c.detail)||''))+'</span>'
+      +'</div>';
+    }).join('')
+  +'</div>';
+}
+
+function renderHealthDebug(debug){
+  const lines=Array.isArray(debug)?debug.filter(Boolean):[];
+  if(!lines.length)return '';
+  return '<div class="health-debug">'
+    +lines.map((line)=>'<div class="health-debug-line">'+escHtml(String(line))+'</div>').join('')
+  +'</div>';
+}
+
+function toggleHealthCard(evt,id){
+  if(evt&&typeof evt.stopPropagation==='function')evt.stopPropagation();
+  const card=document.getElementById(id);
+  if(!card)return;
+  card.classList.toggle('open');
+}
+
+function healthCard(id,title,level,detail,meta,checks,debug){
+  const hasMore=(Array.isArray(checks)&&checks.length)||(Array.isArray(debug)&&debug.length);
+  const moreId=id+'-more';
   return '<div class="health-card" id="'+id+'">'
-    +'<div class="health-head"><div class="h">'+title+'</div>'+healthBadge(level)+'</div>'
+    +'<div class="health-head">'
+      +'<div class="h">'+title+'</div>'
+      +'<div class="health-head-right">'
+        +healthBadge(level)
+        +(hasMore?'<button class="health-expand-btn" type="button" onclick="toggleHealthCard(event,\''+id+'\')" aria-controls="'+moreId+'" aria-label="Toggle details">▶</button>':'')
+      +'</div>'
+    +'</div>'
     +'<div class="health-detail">'+escHtml(detail||'-')+'</div>'
     +'<div class="sub mono">'+escHtml(meta||'-')+'</div>'
+    +(hasMore?'<div class="health-more" id="'+moreId+'">'+renderHealthChecks(checks)+renderHealthDebug(debug)+'</div>':'')
   +'</div>';
 }
 
@@ -40,11 +124,17 @@ function humanAge(ms){
   return d+'d ago';
 }
 
-function classifyMarketAge(ms){
+function classifyAge(ms,healthyMs,warnMs){
   if(ms===null)return 'err';
-  if(ms<=MARKET_HEALTHY_AGE_MS)return 'ok';
-  if(ms<=MARKET_WARN_AGE_MS)return 'warn';
+  if(ms<=healthyMs)return 'ok';
+  if(ms<=warnMs)return 'warn';
   return 'err';
+}
+function classifyMarketWorkerAge(ms){
+  return classifyAge(ms,MARKET_WORKER_HEALTHY_AGE_MS,MARKET_WORKER_WARN_AGE_MS);
+}
+function classifyPoePullAge(ms){
+  return classifyAge(ms,POE_PULL_HEALTHY_AGE_MS,POE_PULL_WARN_AGE_MS);
 }
 
 function parseMetaAgeMs(meta){
@@ -174,7 +264,7 @@ async function getMarketHealthBundle(){
     if(!res.ok){
       const ageMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
       const ageTxt=humanAge(ageMs);
-      const ageLevel=classifyMarketAge(ageMs);
+      const ageLevel=classifyMarketWorkerAge(ageMs);
       return {
         marketWorker:{level:ageLevel,detail:'Market worker request failed; using last known health window.',meta:'Last success '+ageTxt+' | Status '+res.status+' | '+took+'ms'},
         poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker league lookup failed ('+res.status+').'}
@@ -191,7 +281,7 @@ async function getMarketHealthBundle(){
     if(!league){
       const ageMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
       const ageTxt=humanAge(ageMs);
-      const ageLevel=classifyMarketAge(ageMs);
+      const ageLevel=classifyMarketWorkerAge(ageMs);
       return {
         marketWorker:{level:ageLevel,detail:'Market worker responded but current league was missing.',meta:'Last success '+ageTxt+' | Status '+res.status+' | '+took+'ms'},
         poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Current league missing from market worker response.'}
@@ -210,7 +300,7 @@ async function getMarketHealthBundle(){
     if(!scarabRes.ok||!currencyRes.ok){
       const ageMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
       const ageTxt=humanAge(ageMs);
-      const ageLevel=classifyMarketAge(ageMs);
+      const ageLevel=classifyPoePullAge(ageMs);
       return {
         marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
         poePull:{level:ageLevel,detail:'Worker could not fetch fresh PoE.ninja data.',meta:'Last success '+ageTxt+' | Scarab '+scarabRes.status+' | Currency '+currencyRes.status+' | '+pullTook+'ms'}
@@ -240,7 +330,7 @@ async function getMarketHealthBundle(){
     }
     if(leagueState==='stale'){
       return {
-        marketWorker:{level:classifyMarketAge(leagueAgeMs),detail:'Market worker serving stale league cache.',meta:'Last success '+humanAge(leagueAgeMs)+' | League '+league+' | '+took+'ms'},
+        marketWorker:{level:classifyMarketWorkerAge(leagueAgeMs),detail:'Market worker serving stale league cache.',meta:'Last success '+humanAge(leagueAgeMs)+' | League '+league+' | '+took+'ms'},
         poePull:{level:'warn',detail:'Market worker is stale; freshness should recover after refresh.',meta:'League '+league}
       };
     }
@@ -254,7 +344,7 @@ async function getMarketHealthBundle(){
     if(pullState==='stale'){
       return {
         marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
-        poePull:{level:classifyMarketAge(pullAgeMs),detail:'Serving stale market data cache.',meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms'}
+        poePull:{level:classifyPoePullAge(pullAgeMs),detail:'Serving stale market data cache.',meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms'}
       };
     }
 
@@ -268,7 +358,7 @@ async function getMarketHealthBundle(){
     if(!scarabLines.length){
       const ageMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
       const ageTxt=humanAge(ageMs);
-      const ageLevel=classifyMarketAge(ageMs);
+      const ageLevel=classifyPoePullAge(ageMs);
       return {
         marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
         poePull:{level:ageLevel,detail:'No scarab lines returned from latest PoE.ninja pull.',meta:'Last success '+ageTxt+' | League '+league+' | '+pullTook+'ms'}
@@ -292,8 +382,8 @@ async function getMarketHealthBundle(){
     const marketAgeMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
     const pullAgeMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
     return {
-      marketWorker:{level:classifyMarketAge(marketAgeMs),detail:'Market worker request failed.',meta:'Last success '+humanAge(marketAgeMs)+' | '+String((e&&e.message)||e||'error')},
-      poePull:{level:classifyMarketAge(pullAgeMs),detail:'PoE.ninja pull validation failed.',meta:'Last success '+humanAge(pullAgeMs)+' | '+String((e&&e.message)||e||'error')}
+      marketWorker:{level:classifyMarketWorkerAge(marketAgeMs),detail:'Market worker request failed.',meta:'Last success '+humanAge(marketAgeMs)+' | '+String((e&&e.message)||e||'error')},
+      poePull:{level:classifyPoePullAge(pullAgeMs),detail:'PoE.ninja pull validation failed.',meta:'Last success '+humanAge(pullAgeMs)+' | '+String((e&&e.message)||e||'error')}
     };
   }})()
     .then((bundle)=>{marketHealthCache=bundle;marketHealthCacheAt=Date.now();return bundle;})
@@ -304,14 +394,21 @@ async function getMarketHealthBundle(){
 function renderHealthCards(results){
   const wrap=$('healthGrid');
   if(!wrap)return;
+  const backend=enrichHealthCard('healthBackend','Admin API',results.backend||{});
+  const publicTokens=enrichHealthCard('healthPublic','Public Token Endpoint',results.publicTokens||{});
+  const marketWorker=enrichHealthCard('healthWorker','Market Worker',results.marketWorker||{});
+  const poePull=enrichHealthCard('healthPoeNinja','PoE.ninja Price Pull',results.poePull||{});
+  const sessionApi=enrichHealthCard('healthSessionApi','Session API',results.sessionApi||{});
+  const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
+  const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
   wrap.innerHTML=''
-    +healthCard('healthBackend','Admin API',results.backend.level,results.backend.detail,results.backend.meta)
-    +healthCard('healthPublic','Public Token Endpoint',results.publicTokens.level,results.publicTokens.detail,results.publicTokens.meta)
-    +healthCard('healthWorker','Market Worker',results.marketWorker.level,results.marketWorker.detail,results.marketWorker.meta)
-    +healthCard('healthPoeNinja','PoE.ninja Price Pull',results.poePull.level,results.poePull.detail,results.poePull.meta)
-    +healthCard('healthSessionApi','Session API',results.sessionApi.level,results.sessionApi.detail,results.sessionApi.meta)
-    +healthCard('healthBackups','Backup Snapshot',results.backups.level,results.backups.detail,results.backups.meta)
-    +healthCard('healthTokenSets','Token History',results.tokenHistory.level,results.tokenHistory.detail,results.tokenHistory.meta);
+    +healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug)
+    +healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug)
+    +healthCard('healthWorker','Market Worker',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug)
+    +healthCard('healthPoeNinja','PoE.ninja Price Pull',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug)
+    +healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug)
+    +healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug)
+    +healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug);
 }
 
 async function loadHealthOverview(opts){
