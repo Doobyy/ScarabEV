@@ -2165,8 +2165,8 @@ function renderEVChart(history) {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const gridColor = (cs.getPropertyValue('--border') || 'rgba(0,0,0,0.12)').trim();
   const textColor = (cs.getPropertyValue('--text-3') || '#7a85a8').trim();
-  const harmonicColor = (cs.getPropertyValue('--chaos') || '#a03ec8').trim();
-  const weightedColor = (cs.getPropertyValue('--text-2') || '#9aa4c4').trim();
+  const harmonicColor = (cs.getPropertyValue('--text-2') || '#9aa4c4').trim();
+  const weightedColor = (cs.getPropertyValue('--chaos') || '#a03ec8').trim();
   const harmonicFillTopAlpha = isDark ? 0.16 : 0.15;
   const harmonicFillFallbackAlpha = isDark ? 0.11 : 0.09;
   const weightedFillTopAlpha = isDark ? 0.16 : 0.15;
