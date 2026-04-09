@@ -157,9 +157,9 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .health-more{display:none;border-top:1px solid var(--line-soft);padding-top:6px;margin-top:2px;gap:6px}
 .health-card.open .health-more{display:grid}
 .health-checks{display:grid;gap:4px}
-.health-check{display:grid;grid-template-columns:14px auto 1fr;gap:6px;align-items:start;font-size:11px}
+.health-check{display:grid;grid-template-columns:14px 170px minmax(0,1fr);gap:6px;align-items:start;font-size:11px}
 .health-check-icon{display:inline-flex;align-items:center;justify-content:center;font-weight:700}
-.health-check-label{color:var(--heading);font-weight:600}
+.health-check-label{color:var(--heading);font-weight:600;display:block}
 .health-check-detail{color:var(--muted);display:block;width:100%}
 .health-check-meter{display:grid;gap:3px;margin-top:4px;width:100%}
 .health-meter-track{height:6px;border:1px solid var(--line-soft);border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--surface) 80%,var(--panel))}
@@ -224,6 +224,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
   .scarab-list table{min-width:620px}
   .token-set-list table,.ops-list table{min-width:640px}
   .syntax-op{grid-template-columns:120px 1fr;gap:6px}
+  .health-check{grid-template-columns:14px 132px minmax(0,1fr)}
   .syntax-op.syntax-head span:nth-child(3),.syntax-op.syntax-head span:nth-child(4){display:none}
   .syntax-op:not(.syntax-head) span:nth-child(3),.syntax-op:not(.syntax-head) span:nth-child(4){grid-column:2}
 }
