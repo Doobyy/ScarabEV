@@ -323,7 +323,7 @@ function renderHealthChecks(checks){
       return '<div class="health-check health-check-'+lv+'">'
         +'<span class="health-check-icon">'+icon+'</span>'
         +'<span class="health-check-label">'+escHtml(String((c&&c.label)||'Check'))+'</span>'
-        +'<span class="health-check-detail"><span class="health-check-detail-text">'+escHtml(String((c&&c.detail)||''))+'</span>'+meterHtml+'</span>'
+        +'<div class="health-check-detail"><span class="health-check-detail-text">'+escHtml(String((c&&c.detail)||''))+'</span>'+meterHtml+'</div>'
       +'</div>';
     }).join('')
   +'</div>';
