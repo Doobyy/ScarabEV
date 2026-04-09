@@ -164,8 +164,16 @@ export async function handleOpsRoutes(
 
     let usage = null;
     let usageError: string | null = null;
+    if (!deps.config.cloudflareApiToken || !deps.config.cloudflareAccountId) {
+      const missing: string[] = [];
+      if (!deps.config.cloudflareApiToken) missing.push("CLOUDFLARE_API_TOKEN");
+      if (!deps.config.cloudflareAccountId) missing.push("CLOUDFLARE_ACCOUNT_ID");
+      usageError = `missing_env:${missing.join(",")}`;
+    }
     try {
-      usage = await getCloudflareUsageSummary(deps.config);
+      if (!usageError) {
+        usage = await getCloudflareUsageSummary(deps.config);
+      }
     } catch (error) {
       usageError = error instanceof Error ? error.message : String(error);
     }

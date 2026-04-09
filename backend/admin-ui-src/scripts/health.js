@@ -780,8 +780,9 @@ function renderHealthCards(results){
   const wrap=$('healthGrid');
   if(!wrap)return;
   bindHealthDnD();
-  if(!state.healthOpenCards||typeof state.healthOpenCards!=='object'||Array.isArray(state.healthOpenCards)){
+  if(!state.healthOpenLoaded){
     state.healthOpenCards=loadHealthOpenCards();
+    state.healthOpenLoaded=true;
   }
   wrap.querySelectorAll('.health-card.open').forEach((el)=>{
     const id=String(el.getAttribute('data-health-id')||el.id||'');
