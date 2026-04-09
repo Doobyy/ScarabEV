@@ -43,6 +43,8 @@ import {
 const _SCARAB_STOP = new Set(['scarab','of','the','a','an']);
 const DAILY_SNAPSHOT_UTC_HOUR = 18;
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
+let _scarabMetaTooltipBound = false;
+let _scarabMetaTooltipEl = null;
 const _AMBIGUOUS_LAST = (() => {
   const counts = {};
   for (const s of SCARAB_LIST) {
@@ -72,11 +74,79 @@ function getScarabTooltipText(name) {
   if (!meta) return '';
   const mods = Array.isArray(meta.modifiers) ? meta.modifiers.filter(Boolean) : [];
   if (!mods.length) return '';
-  return mods.map((m) => String(m || '').trim()).filter(Boolean).join('\n');
+  return mods.map((m) => `- ${String(m || '').trim()}`).filter(Boolean).join('\n');
+}
+
+function ensureScarabMetaTooltipEl() {
+  if (_scarabMetaTooltipEl && _scarabMetaTooltipEl.parentNode) return _scarabMetaTooltipEl;
+  const el = document.createElement('div');
+  el.id = 'scarabMetaTooltip';
+  el.className = 'analysis-tooltip scarab-meta-tooltip';
+  document.body.appendChild(el);
+  _scarabMetaTooltipEl = el;
+  return el;
+}
+
+function showScarabMetaTooltip(target, ev) {
+  const text = String(target?.getAttribute('data-scarab-tooltip') || '').trim();
+  if (!text) return;
+  const tip = ensureScarabMetaTooltipEl();
+  tip.textContent = text;
+  tip.classList.add('show');
+  moveScarabMetaTooltip(ev);
+}
+
+function moveScarabMetaTooltip(ev) {
+  const tip = _scarabMetaTooltipEl;
+  if (!tip || !tip.classList.contains('show')) return;
+  const pad = 12;
+  const x = (ev && Number.isFinite(ev.clientX)) ? ev.clientX : 0;
+  const y = (ev && Number.isFinite(ev.clientY)) ? ev.clientY : 0;
+  const vw = window.innerWidth || 0;
+  const vh = window.innerHeight || 0;
+  let left = x + pad;
+  let top = y + pad;
+  const rect = tip.getBoundingClientRect();
+  if (left + rect.width + 8 > vw) left = Math.max(8, x - rect.width - pad);
+  if (top + rect.height + 8 > vh) top = Math.max(8, y - rect.height - pad);
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+function hideScarabMetaTooltip() {
+  const tip = _scarabMetaTooltipEl;
+  if (!tip) return;
+  tip.classList.remove('show');
+  tip.textContent = '';
+}
+
+function bindScarabMetaTooltipEvents() {
+  if (_scarabMetaTooltipBound) return;
+  _scarabMetaTooltipBound = true;
+  document.addEventListener('mouseover', (ev) => {
+    const target = ev.target && ev.target.closest ? ev.target.closest('[data-scarab-tooltip]') : null;
+    if (!target) return;
+    showScarabMetaTooltip(target, ev);
+  });
+  document.addEventListener('mousemove', (ev) => {
+    const active = ev.target && ev.target.closest ? ev.target.closest('[data-scarab-tooltip]') : null;
+    if (!active) return;
+    moveScarabMetaTooltip(ev);
+  });
+  document.addEventListener('mouseout', (ev) => {
+    const from = ev.target && ev.target.closest ? ev.target.closest('[data-scarab-tooltip]') : null;
+    if (!from) return;
+    const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest('[data-scarab-tooltip]') : null;
+    if (to === from) return;
+    hideScarabMetaTooltip();
+  });
+  document.addEventListener('scroll', hideScarabMetaTooltip, true);
+  window.addEventListener('blur', hideScarabMetaTooltip);
 }
 
 function applyScarabModifierTooltips(scopeEl) {
   if (!state._scarabMetaByName) return;
+  bindScarabMetaTooltipEvents();
   const root = scopeEl && scopeEl.querySelectorAll ? scopeEl : document;
   const nodes = root.querySelectorAll('.scarab-name, .scarab-name-mobile');
   nodes.forEach((el) => {
@@ -87,8 +157,9 @@ function applyScarabModifierTooltips(scopeEl) {
       : el.textContent;
     const tooltip = getScarabTooltipText(baseName || '');
     if (!tooltip) return;
-    el.setAttribute('title', tooltip);
+    el.removeAttribute('title');
     el.setAttribute('aria-label', tooltip);
+    el.setAttribute('data-scarab-tooltip', tooltip);
   });
 }
 
