@@ -105,6 +105,7 @@ function buildPoePullChecks(card){
 function buildCloudflareUsageChecks(card){
   const detail=String((card&&card.detail)||'-');
   const usage=(card&&card.usage&&card.usage.metrics)?card.usage.metrics:null;
+  const r2Storage=(card&&card.r2Storage)?card.r2Storage:null;
   const rows=[{level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail}];
   if(!usage)return rows;
   const order=[
@@ -129,6 +130,22 @@ function buildCloudflareUsageChecks(card){
       meter:{used,limit,pct}
     });
   });
+  if(r2Storage&&Number.isFinite(Number(r2Storage.totalBytes))){
+    const totalBytes=Math.max(0,Number(r2Storage.totalBytes)||0);
+    const objectCount=Math.max(0,Number(r2Storage.objectCount)||0);
+    const gb=totalBytes/(1024*1024*1024);
+    rows.push({
+      level:'ok',
+      label:'R2 storage',
+      detail:gb.toFixed(3)+' GB stored | '+objectCount.toLocaleString()+' objects'
+    });
+  }else{
+    rows.push({
+      level:'warn',
+      label:'R2 storage',
+      detail:'R2 storage usage unavailable (bucket binding missing or list failed).'
+    });
+  }
   return rows;
 }
 
@@ -736,7 +753,8 @@ async function checkHealthCloudflareUsage(){
     meta:'KV writes '+(Number(kvWrite.used)||0).toLocaleString()+'/'+(Number(kvWrite.limit)||0).toLocaleString()
       +' | Workers '+(Number(workers.used)||0).toLocaleString()+'/'+(Number(workers.limit)||0).toLocaleString()
       +' | '+took+'ms',
-    usage
+    usage,
+    r2Storage:r.json.r2Storage||null
   };
 }
 

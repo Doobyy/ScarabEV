@@ -163,6 +163,8 @@ export async function handleOpsRoutes(
     }
 
     let usage = null;
+    const storagePrefix = `${deps.config.backupObjectPrefix}/${deps.config.appEnv}/`;
+    const r2Storage = await computeBackupStorageUsage(deps.backupR2, storagePrefix);
     let usageError: string | null = null;
     if (!deps.config.cloudflareApiToken || !deps.config.cloudflareAccountId) {
       const missing: string[] = [];
@@ -197,14 +199,17 @@ export async function handleOpsRoutes(
     await writeAudit(deps.securityRepo, context, request, "admin.cloudflare_usage", 200, auth.session.user.id, {
       workersRequestsUsed: usage.metrics.workersRequests.used,
       kvWriteUsed: usage.metrics.kvWrite.used,
-      kvReadUsed: usage.metrics.kvRead.used
+      kvReadUsed: usage.metrics.kvRead.used,
+      r2ObjectCount: r2Storage?.objectCount ?? null,
+      r2TotalBytes: r2Storage?.totalBytes ?? null
     });
 
     const response = jsonResponse(
       {
         ok: true,
         requestId: context.requestId,
-        usage
+        usage,
+        r2Storage
       },
       { status: 200 }
     );
