@@ -854,6 +854,7 @@ async function fetchMarketScarabPrices() {
         else statusEl.textContent = `${sourceLabel} \u00B7 ${mins} mins ago`;
       }, 30000);
       renderVendorTable();
+      if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
       btn.disabled = false;
       if (WORKER_URL) {
         fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=Currency`, { cache: 'no-store' })
@@ -1881,22 +1882,28 @@ function showAtlasTrendPreviewChart() {
 }
 
 async function fetchAndRenderAtlasTrendPreview() {
+  const requestId = (Number(state._atlasTrendFetchSeq) || 0) + 1;
+  state._atlasTrendFetchSeq = requestId;
   if (!WORKER_URL) {
+    if (requestId !== state._atlasTrendFetchSeq) return;
     setAtlasTrendPreviewEmpty('Atlas EV history endpoint is not configured.');
     return;
   }
   const league = document.getElementById('leagueSelect')?.value || 'Mirage';
   try {
     const res = await fetch(`${WORKER_URL}?type=AtlasEVHistory&league=${encodeURIComponent(league)}`, { cache: 'no-store' });
+    if (requestId !== state._atlasTrendFetchSeq) return;
     if (!res.ok) {
       setAtlasTrendPreviewEmpty('Could not load Atlas EV history.');
       return;
     }
     const data = await res.json();
+    if (requestId !== state._atlasTrendFetchSeq) return;
     const history = Array.isArray(data?.history) ? data.history : [];
     state._atlasTrendHistoryRaw = history;
     renderAtlasTrendPreview(history);
   } catch (_e) {
+    if (requestId !== state._atlasTrendFetchSeq) return;
     setAtlasTrendPreviewEmpty('Could not load Atlas EV history.');
   }
 }
@@ -2190,6 +2197,11 @@ function renderEVChart(history) {
   const WINDOW_DAYS = 30;
   const EV_HISTORY_V2_START = '2026-04-02';
   const cutoffMs = Date.parse(`${EV_HISTORY_V2_START}T00:00:00Z`);
+  const getPositiveNumber = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
   const toDateKey = (dateValue) => {
     const s = String(dateValue || '').trim();
     if (!s) return '';
@@ -2221,15 +2233,15 @@ function renderEVChart(history) {
     : [];
 
   let harmonicSeries = raw
-    .filter(h => Number.isFinite(Number(h?.harmonicEv ?? h?.ev)))
-    .map(h => ({ date: toDateKey(h.date), ev: Number(h?.harmonicEv ?? h?.ev) }))
+    .map(h => ({ date: toDateKey(h.date), ev: getPositiveNumber(h?.harmonicEv ?? h?.ev) }))
+    .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-WINDOW_DAYS);
 
   let weightedSeries = raw
-    .filter(h => Number.isFinite(Number(h?.weightedEv)))
-    .map(h => ({ date: toDateKey(h.date), ev: Number(h.weightedEv) }))
+    .map(h => ({ date: toDateKey(h.date), ev: getPositiveNumber(h?.weightedEv) }))
+    .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-WINDOW_DAYS);
