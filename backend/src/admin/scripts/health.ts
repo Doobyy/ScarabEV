@@ -404,6 +404,21 @@ async function getMarketHealthBundle(){
     if(!leagueMeta||leagueAgeMs===null){
       marketWorkerLastSuccessAt=Date.now();
     }
+    const marketWorkerBase=(()=>{
+      if(leagueState==='stale'){
+        const ageLevel=classifyMarketWorkerAge(leagueAgeMs);
+        const ageTxt=humanAge(leagueAgeMs);
+        return {
+          level:ageLevel,
+          detail:ageLevel==='ok'
+            ?'League cache snapshot is within healthy age window (hourly cadence).'
+            :'League cache snapshot is stale.',
+          meta:'Last success '+ageTxt+' | League '+league+' | '+took+'ms'
+        };
+      }
+      return {level:'ok',detail:'League cache endpoint is healthy.',meta:'League '+league+' | '+took+'ms'};
+    })();
+
     const pullStarted=performance.now();
     const [scarabRes,currencyRes]=await Promise.all([
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Scarab',{cache:'no-store'}),
@@ -416,7 +431,7 @@ async function getMarketHealthBundle(){
       const ageTxt=humanAge(ageMs);
       const ageLevel=classifyPoePullAge(ageMs);
       return {
-        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        marketWorker:marketWorkerBase,
         poePull:{level:ageLevel,detail:'Worker could not fetch fresh PoE.ninja data.',meta:'Last success '+ageTxt+' | Scarab '+scarabRes.status+' | Currency '+currencyRes.status+' | '+pullTook+'ms'}
       };
     }
@@ -442,22 +457,16 @@ async function getMarketHealthBundle(){
         poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker reported error state for league lookup.'}
       };
     }
-    if(leagueState==='stale'){
-      return {
-        marketWorker:{level:'warn',detail:'Market worker serving stale league cache.',meta:'Last success '+humanAge(leagueAgeMs)+' | League '+league+' | '+took+'ms'},
-        poePull:{level:'warn',detail:'Market worker is stale; freshness should recover after refresh.',meta:'League '+league}
-      };
-    }
 
     if(pullState==='error'){
       return {
-        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        marketWorker:marketWorkerBase,
         poePull:{level:'err',detail:'Market worker reports market cache error.',meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms'}
       };
     }
     if(pullState==='stale'){
       return {
-        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        marketWorker:marketWorkerBase,
         poePull:{level:classifyPoePullAge(pullAgeMs),detail:'Serving stale market data cache.',meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms'}
       };
     }
@@ -474,7 +483,7 @@ async function getMarketHealthBundle(){
       const ageTxt=humanAge(ageMs);
       const ageLevel=classifyPoePullAge(ageMs);
       return {
-        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        marketWorker:marketWorkerBase,
         poePull:{level:ageLevel,detail:'No scarab lines returned from latest PoE.ninja pull.',meta:'Last success '+ageTxt+' | League '+league+' | '+pullTook+'ms'}
       };
     }
@@ -482,14 +491,14 @@ async function getMarketHealthBundle(){
       if(poePullLastSuccessAt===null)poePullLastSuccessAt=Date.now();
       const ageMs=Date.now()-poePullLastSuccessAt;
       return {
-        marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+        marketWorker:marketWorkerBase,
         poePull:{level:'warn',detail:'Scarab data loaded, but Divine Orb rate missing/invalid.',meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | '+pullTook+'ms'}
       };
     }
     if(poePullLastSuccessAt===null)poePullLastSuccessAt=Date.now();
     const ageMs=Date.now()-poePullLastSuccessAt;
     return {
-      marketWorker:{level:'ok',detail:'Market worker reachable and returning current league.',meta:'League '+league+' | '+took+'ms'},
+      marketWorker:marketWorkerBase,
       poePull:{level:'ok',detail:'PoE.ninja scarab + currency pulls are healthy.',meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | Divine '+divineValue.toFixed(2)+'c | '+pullTook+'ms'}
     };
   }catch(e){
@@ -510,8 +519,8 @@ function renderHealthCards(results){
   if(!wrap)return;
   const backend=enrichHealthCard('healthBackend','Admin API',results.backend||{});
   const publicTokens=enrichHealthCard('healthPublic','Public Token Endpoint',results.publicTokens||{});
-  const marketWorker=enrichHealthCard('healthWorker','Market Worker',results.marketWorker||{});
-  const poePull=enrichHealthCard('healthPoeNinja','PoE.ninja Price Pull',results.poePull||{});
+  const marketWorker=enrichHealthCard('healthWorker','League Cache',results.marketWorker||{});
+  const poePull=enrichHealthCard('healthPoeNinja','Market Price Cache',results.poePull||{});
   const sessionApi=enrichHealthCard('healthSessionApi','Session API',results.sessionApi||{});
   const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
@@ -519,8 +528,8 @@ function renderHealthCards(results){
   wrap.innerHTML=''
     +healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug)
     +healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug)
-    +healthCard('healthWorker','Market Worker',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug)
-    +healthCard('healthPoeNinja','PoE.ninja Price Pull',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug)
+    +healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug)
+    +healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug)
     +healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug)
     +healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug)
     +healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug)
