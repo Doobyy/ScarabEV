@@ -6,6 +6,15 @@
 
 import { state } from './state.js';
 
+function toLocalDateKey(dateInput = new Date()) {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function parseWorkerResponse(data) {
   if (!Array.isArray(data?.lines) || !data.lines.length)
     throw new Error(`no lines array (keys: ${Object.keys(data||{}).join(', ')})`);
@@ -58,7 +67,7 @@ export function parseWorkerResponse(data) {
     for (let i = 0; i < pcts.length; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() - (pcts.length - 1 - i));
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = toLocalDateKey(d);
       points.push({ date: dateStr, price: parseFloat((baseline * (1 + pcts[i] / 100)).toFixed(4)) });
     }
     priceHistory[name] = points;

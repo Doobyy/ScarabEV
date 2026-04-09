@@ -204,6 +204,15 @@ async function fetchPriceHistory() {
   } catch(e) { /* silent */ }
 }
 
+function toLocalDateKey(dateInput = new Date()) {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function getFinalSparklineSeries(scarabName) {
   const hist = state._priceHistory[scarabName];
   let workingHist = hist ? [...hist] : [];
@@ -213,7 +222,7 @@ function getFinalSparklineSeries(scarabName) {
     const lower = buildNinjaLookup();
     const livePrice = getNinjaPrice(scarabName, lower);
     if (livePrice > 0) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = toLocalDateKey();
       workingHist = workingHist.filter(h => h.date !== today);
       workingHist.push({ date: today, price: livePrice, live: true });
     }
@@ -1896,7 +1905,7 @@ async function fetchAndRenderEVChart() {
       for (let i = evValues.length - 1; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - i);
-        demo.push({ date: d.toISOString().slice(0, 10), ev: evValues[evValues.length - 1 - i], demo: true });
+        demo.push({ date: toLocalDateKey(d), ev: evValues[evValues.length - 1 - i], demo: true });
       }
       renderEVChart(demo);
       return;
@@ -1992,7 +2001,7 @@ function buildLiveAtlasTrendPoint() {
   const point = optimizeAtlasBaselineAndOptimized(state._observedWeights, priceByName);
   if (!point) return null;
   return {
-    date: new Date().toISOString().slice(0, 10),
+    date: toLocalDateKey(),
     baselineEv: point.baselineEv,
     optimizedEv: point.optimizedEv,
     live: true
@@ -2089,7 +2098,7 @@ function renderEVChart(history) {
   }
 
   if (state.ninjaLoaded) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateKey();
     const liveHarmonic = calcLiveHarmonicThresholdFromCurrentPrices();
     if (liveHarmonic) {
       harmonicSeries = harmonicSeries.filter(h => h.date !== today);
@@ -2118,7 +2127,7 @@ function renderEVChart(history) {
     for (let i = evValues.length - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      demo.push({ date: d.toISOString().slice(0, 10), ev: evValues[evValues.length - 1 - i], demo: true });
+      demo.push({ date: toLocalDateKey(d), ev: evValues[evValues.length - 1 - i], demo: true });
     }
     dates = demo.map(d => d.date);
     harmonicSeries = demo.map(d => ({ date: d.date, ev: d.ev }));
@@ -3307,7 +3316,7 @@ function initBulkGeminiKey() {
 
 // Model fallback: prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads).
 function getTodayDateKey() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return toLocalDateKey(); // YYYY-MM-DD (local)
 }
 function isFlashSkippedToday() {
   try {
