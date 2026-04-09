@@ -137,6 +137,14 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .health-card.drag-placeholder{background:transparent;border:1px dashed color-mix(in srgb,var(--accent) 70%,var(--line));box-shadow:none}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
+.health-drag-handle{
+  border:1px solid var(--line-soft);background:var(--panel);color:var(--muted);
+  width:20px;height:20px;border-radius:4px;cursor:grab;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  user-select:none
+}
+.health-drag-handle:active{cursor:grabbing}
+.health-drag-handle:hover{color:var(--heading);border-color:var(--line)}
 .health-expand-btn{
   border:1px solid var(--line-soft);background:var(--panel);color:var(--muted);
   width:20px;height:20px;border-radius:4px;cursor:pointer;line-height:1;

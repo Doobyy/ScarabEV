@@ -264,9 +264,11 @@ function bindHealthDnD(){
   wrap.dataset.dndBound='1';
 
   wrap.addEventListener('dragstart',(ev)=>{
-    const card=ev.target&&ev.target.closest?ev.target.closest('.health-card'):null;
+    const handle=ev.target&&ev.target.closest?ev.target.closest('.health-drag-handle'):null;
+    if(!handle)return;
+    const card=handle.closest?handle.closest('.health-card'):null;
     if(!card)return;
-    const id=String(card.getAttribute('data-health-id')||'');
+    const id=String(handle.getAttribute('data-health-drag-id')||'');
     if(!id)return;
     state.healthDragId=id;
     card.classList.add('dragging');
@@ -338,10 +340,11 @@ function healthCard(id,title,level,detail,meta,checks,debug){
   const hasMore=(Array.isArray(checks)&&checks.length)||(Array.isArray(debug)&&debug.length);
   const moreId=id+'-more';
   const isOpen=!!(state.healthOpenCards&&state.healthOpenCards[id]);
-  return '<div class="health-card'+(isOpen?' open':'')+'" id="'+id+'" data-health-id="'+id+'" draggable="true">'
+  return '<div class="health-card'+(isOpen?' open':'')+'" id="'+id+'" data-health-id="'+id+'">'
     +'<div class="health-head">'
       +'<div class="h">'+title+'</div>'
       +'<div class="health-head-right">'
+        +'<button class="health-drag-handle" type="button" draggable="true" data-health-drag-id="'+id+'" aria-label="Drag to reorder">::</button>'
         +healthBadge(level)
         +(hasMore?'<button class="health-expand-btn" type="button" onclick="toggleHealthCard(event,\''+id+'\')" aria-controls="'+moreId+'" aria-label="Toggle details">&#9656;</button>':'')
       +'</div>'
