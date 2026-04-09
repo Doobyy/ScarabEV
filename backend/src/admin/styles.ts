@@ -129,8 +129,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list th,.session-list td{padding:6px}
 .session-list .session-detail-row td{white-space:normal;overflow:visible}
 .session-main-id .mono,.session-main-id{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px}
+.health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start;grid-auto-rows:min-content}
+.health-card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;display:grid;gap:6px;align-self:start}
 .health-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .health-head-right{display:flex;align-items:center;gap:8px}
 .health-expand-btn{
