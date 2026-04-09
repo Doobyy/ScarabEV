@@ -2562,8 +2562,8 @@ async function submitSession() {
     // Reset form
     state._loggerSnapshotBefore = state._loggerSnapshotAfter = null;
     window._parsedSession = null;
-    document.getElementById('snap1Text').textContent = 'Choose CSV file';
-    document.getElementById('snap2Text').textContent = 'Choose CSV file';
+    document.getElementById('snap1Text').textContent = 'Upload CSV file';
+    document.getElementById('snap2Text').textContent = 'Upload CSV file';
     document.getElementById('snap1Label').classList.remove('loaded');
     document.getElementById('snap2Label').classList.remove('loaded');
     state._loggerRegexUserEdited = false;
@@ -4315,8 +4315,8 @@ function atlasGroupCardHTML(group, isBlockable, isRecommended) {
   const activeValuePct = baselineEV > 0 ? (activeValueDelta / baselineEV) : 0;
   const isMarginalGain = isActive && !isEvLoss && activeValuePct > 0.000005 && activeValuePct < 0.01;
   if (isEvLoss) badgeHtml += '<span class="atlas-badge ev-loss">EV loss</span>';
-  if (!isActive && isRecommended) badgeHtml += '<span class="atlas-badge recommended">suggested</span>';
-  if (isMarginalGain) badgeHtml += '<span class="atlas-badge marginal">marginal gains</span>';
+  if (!isActive && isRecommended) badgeHtml += '<span class="atlas-badge recommended" title="SUGGESTED = >1% Change">suggested</span>';
+  if (isMarginalGain) badgeHtml += '<span class="atlas-badge marginal" title="MARGINAL GAINS = <1% Change">marginal gains</span>';
 
   const togClass  = isBlockable ? 'block-toggle' : 'boost-toggle';
   // Both block and boost: toggle is OFF (grey) by default, ON when active.

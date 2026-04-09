@@ -733,14 +733,16 @@ body {
 .logger-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .logger-field { display: flex; flex-direction: column; gap: 6px; }
 .logger-label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
-.logger-upload { display: flex; align-items: center; justify-content: center; padding: 10px 14px; border: 1.5px dashed var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-3); transition: all 0.15s; text-align: center; }
+.logger-upload { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; border: 1.5px dashed var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-3); transition: all 0.15s; text-align: center; }
 .logger-upload:hover { border-color: var(--accent); color: var(--accent); }
 .logger-upload.loaded { border-color: var(--green); border-style: solid; color: var(--green); }
+.logger-upload-icon { width: 16px; height: 16px; display: inline-block; flex: 0 0 auto; }
+.logger-upload-icon svg { width: 16px; height: 16px; display: block; }
 .logger-regex-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-card); font-family: 'Courier New', monospace; font-size: 12px; color: var(--chaos); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
 .logger-regex-input:focus { border-color: var(--accent); }
 .logger-regex-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; min-height: 16px; }
 .logger-submit-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 20px; border: 1px solid var(--accent); border-radius: 5px; background: var(--accent); color: #fff; cursor: pointer; transition: all 0.15s; }
-.logger-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.logger-submit-btn:disabled { opacity: 0.4; cursor: default; }
 .logger-submit-btn:not(:disabled):hover { opacity: 0.85; }
 [data-theme="dark"] .logger-submit-btn { background: #378ADD; border-color: #378ADD; color: #fff; }
 [data-theme="dark"] .logger-submit-btn:disabled { background: #0d1e2e; border-color: #2a5a8a; color: #2a5a8a; opacity: 1; }
@@ -1075,7 +1077,7 @@ body.graph-palette-ruby {
   color: var(--ninja-accent); cursor: pointer; transition: all 0.15s;
 }
 .refresh-btn:hover { background: var(--ninja-accent); color: #fff; border-color: var(--ninja-accent); }
-.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.refresh-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Comparison delta in ninja tab */
 .delta-badge { font-size: 11px; font-variant-numeric: tabular-nums; }
@@ -1707,7 +1709,7 @@ body.graph-palette-ruby {
 }
 .notice-warn strong { color: var(--amber); }
 .notice-atlas-config .atlas-evloss { color: var(--red); font-weight: 700; }
-#tab-atlas .atlas-note strong { color: var(--text-2); }
+#tab-atlas .atlas-note strong { color: inherit; }
 #tab-atlas .atlas-note .atlas-evloss { color: color-mix(in srgb, var(--red) 78%, var(--text-2) 22%); font-weight: 700; }
 #tab-atlas .atlas-note .atlas-suggested { color: color-mix(in srgb, var(--green) 78%, var(--text-2) 22%); font-weight: 700; }
 #tab-atlas .atlas-note .atlas-marginal { color: color-mix(in srgb, #9d8700 78%, var(--text-2) 22%); font-weight: 700; }
@@ -1717,7 +1719,7 @@ body.graph-palette-ruby {
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-evloss,
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-suggested,
 [data-theme="dark"] #tab-atlas .atlas-note .atlas-marginal { font-weight: 600; }
-[data-theme="dark"] #tab-atlas .atlas-note strong { color: #7faedc; }
+[data-theme="dark"] #tab-atlas .atlas-note strong { color: inherit; }
 .notice-tip {
   background: var(--accent-dim); border-color: rgba(75,108,247,0.15); border-left-color: var(--accent);
 }
@@ -2112,13 +2114,13 @@ body.graph-palette-ruby {
 .atlas-trend-preview-empty[hidden] { display: none !important; }
 .atlas-trend-preview.collapsed .atlas-trend-preview-body { display: none; }
 .atlas-trend-preview.collapsed .estimator-chevron { transform: rotate(-90deg); }
-
+.atlas-trend-preview-hint { font-size: 11px; color: var(--text-3); margin-top: 6px; }
 .atlas-note {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 14px; font-size: 11px; color: var(--text-3); line-height: 1.6;
   margin-bottom: 14px;
 }
-.atlas-note strong { color: var(--text-2); }
+.atlas-note strong { color: inherit; font-weight: 700; }
 
 .atlas-save-btn {
   font-family: inherit; font-size: 11px; font-weight: 600;
@@ -3007,7 +3009,7 @@ body.graph-palette-ruby {
           <span style="font-size:11px;color:var(--text-3)">Each export does double duty &mdash; it closes the previous session and opens the next one.</span>
         </div>
 
-        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">Sessions that look recycled (fewer than 15% of outputs are vendor-target quality) are automatically flagged and saved locally only &mdash; they won't be included in the community database. You'll see a message explaining this when you submit.</div>
+        <div style="margin-top:14px;font-size:11px;color:var(--text-3)">Sessions that fail validation are saved locally only and not included in the community database. Sessions counted in community data will be noted in your logs.</div>
       </div>
     </div>
 
@@ -3016,14 +3018,26 @@ body.graph-palette-ruby {
         <div class="logger-field">
           <div class="logger-label">Snapshot 1 &mdash; <span class="logger-purple-bold">Before trade</span></div>
           <label class="logger-upload" id="snap1Label">
-            <span id="snap1Text">Choose CSV file</span>
+            <span class="logger-upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M2 2h12v12H2V2zm1 1v10h10V3H3z" clip-rule="evenodd"/>
+                <path d="M8.6 11H7.4V6.9L6 8.3l-.85-.85L8 4.6l2.85 2.85L10 8.3 8.6 6.9V11z"/>
+              </svg>
+            </span>
+            <span id="snap1Text">Upload CSV file</span>
             <input type="file" accept=".csv" id="snap1Input" onchange="handleSnap(1, event)" style="display:none">
           </label>
         </div>
         <div class="logger-field">
           <div class="logger-label">Snapshot 2 &mdash; <span class="logger-purple-bold">After trade</span></div>
           <label class="logger-upload" id="snap2Label">
-            <span id="snap2Text">Choose CSV file</span>
+            <span class="logger-upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M2 2h12v12H2V2zm1 1v10h10V3H3z" clip-rule="evenodd"/>
+                <path d="M8.6 11H7.4V6.9L6 8.3l-.85-.85L8 4.6l2.85 2.85L10 8.3 8.6 6.9V11z"/>
+              </svg>
+            </span>
+            <span id="snap2Text">Upload CSV file</span>
             <input type="file" accept=".csv" id="snap2Input" onchange="handleSnap(2, event)" style="display:none">
           </label>
         </div>
@@ -3316,7 +3330,7 @@ body.graph-palette-ruby {
       <div class="atlas-hero-card">
         <div class="atlas-hero-label">Map Drop EV</div>
         <div class="atlas-hero-val chaos" id="atlas-ev-current">&mdash;</div>
-        <div class="atlas-hero-sub">expected value per scarab drop</div>
+        <div class="atlas-hero-sub">expected avg value per scarab drop</div>
       </div>
       <div class="atlas-hero-card">
         <div class="atlas-hero-label">Baseline EV</div>
@@ -3337,7 +3351,7 @@ body.graph-palette-ruby {
 
     <div class="atlas-trend-preview" id="atlasTrendPreview" aria-hidden="true">
       <div class="atlas-trend-preview-head" onclick="toggleAtlasTrendPreview()">
-        <span class="atlas-trend-preview-title">Map Drop EV History</span>
+        <span class="atlas-trend-preview-title">Scarab Profitability Trend</span>
         <span class="atlas-trend-preview-legend">
           <span class="atlas-trend-preview-legend-item"><span class="atlas-trend-preview-legend-dot base"></span>Baseline</span>
           <span class="atlas-trend-preview-legend-item"><span class="atlas-trend-preview-legend-dot opt"></span>Optimized</span>
@@ -3349,11 +3363,12 @@ body.graph-palette-ruby {
         <canvas id="atlasTrendPreviewChart" aria-label="Atlas EV trend preview"></canvas>
         <div class="atlas-trend-preview-empty" id="atlasTrendPreviewEmpty" hidden>No Atlas EV history snapshots yet.</div>
       </div>
+      <div class="atlas-trend-preview-hint">Sharp spikes mark periods where farming scarabs is especially profitable.</div>
       </div>
     </div>
 
     <div class="atlas-note" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <span style="font-size:12px;color:var(--text-2);line-height:1.7"><strong>Set up and save your config.</strong> On your next visit, we'll flag any toggle that has flipped to an <span class="atlas-evloss">EV LOSS</span> or is newly <strong class="atlas-suggested">SUGGESTED</strong>. <strong class="atlas-marginal">MARGINAL GAINS</strong> = &lt;1% Change.</span>
+      <span style="font-size:12px;line-height:1.7"><strong>Set up and save your config.</strong> On your next visit, we'll flag and alert you of any status changes.</span>
       <button id="atlasSaveBtn" class="atlas-save-btn" onclick="atlasSave()">Save config</button>
     </div>
 
