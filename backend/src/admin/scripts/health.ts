@@ -47,6 +47,10 @@ function deriveHealthHints(id,card){
     hints.push('Checks performed: Cloudflare GraphQL account analytics query.');
     hints.push('Validation: today usage for Workers requests and KV operation buckets.');
     hints.push('Limits shown are Free-tier defaults (Workers requests 100k/day, KV writes/lists/deletes 1k/day, KV reads 100k/day, R2 storage 10 GB-month).');
+  }else if(id==='healthSnapshot'){
+    hints.push('Checks performed: market worker daily snapshot status (\`type=SnapshotStatus\`).');
+    hints.push('Validation: per-league write completion (EV/Atlas/price), retry state, and last error.');
+    hints.push('Retries are same-day with increasing attempts; stale-day retries are marked expired.');
   }else{
     hints.push('Check completed via admin health probe.');
     hints.push('Use refresh to rerun and compare latency/status changes.');
@@ -153,6 +157,41 @@ function buildCloudflareUsageChecks(card){
       detail:'R2 storage usage unavailable (bucket binding missing or list failed).'
     });
   }
+  return rows;
+}
+
+function buildSnapshotChecks(card){
+  const detail=String((card&&card.detail)||'-');
+  const meta=String((card&&card.meta)||'-');
+  const t=card&&card.telemetry?card.telemetry:{};
+  const target=Array.isArray(t.targetLeagues)?t.targetLeagues:[];
+  const completed=Array.isArray(t.completedLeagues)?t.completedLeagues:[];
+  const pending=Array.isArray(t.pendingLeagues)?t.pendingLeagues:[];
+  const failed=Array.isArray(t.failedLeagues)?t.failedLeagues:[];
+  const retries=Number(t.retryCount)||0;
+  const rows=[
+    {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
+    {level:'ok',label:'Snapshot date',detail:String(t.date||'unknown')},
+    {level:'ok',label:'Target leagues',detail:target.length?target.join(', '):'none'},
+    {level:pending.length?'warn':'ok',label:'Completed writes',detail:completed.length+' / '+target.length+' leagues'},
+    {level:pending.length?'warn':'ok',label:'Still retrying',detail:pending.length?pending.join(', '):'none'},
+    {level:failed.length?'err':'ok',label:'Failed leagues',detail:failed.length?failed.join(', '):'none'},
+    {level:'ok',label:'Retry attempts',detail:String(retries)},
+    {level:'ok',label:'Last attempt',detail:t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported'},
+    {level:'ok',label:'Next retry',detail:t.nextRetryAt?formatAdminTime(t.nextRetryAt):'none scheduled'}
+  ];
+  const leagues=(t.leagues&&typeof t.leagues==='object')?t.leagues:{};
+  Object.keys(leagues).sort((a,b)=>a.localeCompare(b)).forEach((league)=>{
+    const info=leagues[league]||{};
+    const writes=(info&&info.writes&&typeof info.writes==='object')?info.writes:{};
+    const state=String(info.state||'unknown');
+    const writeSummary='EV '+(writes.ev?'yes':'no')+' | Atlas '+(writes.atlas?'yes':'no')+' | Price '+(writes.price?'yes':'no');
+    const err=info.lastError?(' | '+String(info.lastError)):'';
+    const line=state.toUpperCase()+' | '+writeSummary+err;
+    const level=state==='success'?'ok':(state==='retrying'?'warn':'err');
+    rows.push({level,label:'League '+league,detail:line});
+  });
+  if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
   return rows;
 }
 
@@ -274,6 +313,7 @@ function enrichHealthCard(id,title,card){
     if(id==='healthWorker')checks=buildWorkerChecks(card);
     else if(id==='healthPoeNinja')checks=buildPoePullChecks(card);
     else if(id==='healthCloudflare')checks=buildCloudflareUsageChecks(card);
+    else if(id==='healthSnapshot')checks=buildSnapshotChecks(card);
     else{
       checks=[];
       checks.push({level,label:'Overall result',detail:String((card&&card.detail)||'-')});
@@ -775,6 +815,11 @@ async function checkHealthPoeNinjaPull(){
   return bundle.poePull;
 }
 
+async function checkHealthDailySnapshot(){
+  const bundle=await getMarketHealthBundle();
+  return bundle.snapshot;
+}
+
 async function getMarketHealthBundle(){
   const now=Date.now();
   const probeIso=new Date(now).toISOString();
@@ -795,7 +840,8 @@ async function getMarketHealthBundle(){
       const ageLevel=classifyMarketWorkerAge(ageMs);
       return {
         marketWorker:{level:ageLevel,detail:'Market worker request failed; using last known health window.',meta:'Last success '+ageTxt+' | Status '+res.status+' | '+took+'ms',telemetry:{probedAt:probeIso,lastSuccessAt:null}},
-        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker league lookup failed ('+res.status+').'}
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker league lookup failed ('+res.status+').'},
+        snapshot:{level:'err',detail:'Daily snapshot status unavailable.',meta:'Market worker league lookup failed ('+res.status+').'}
       };
     }
     let data=null;try{data=await res.json();}catch(e){}
@@ -812,7 +858,8 @@ async function getMarketHealthBundle(){
       const ageLevel=classifyMarketWorkerAge(ageMs);
       return {
         marketWorker:{level:ageLevel,detail:'Market worker responded but current league was missing.',meta:'Last success '+ageTxt+' | Status '+res.status+' | '+took+'ms',telemetry:{probedAt:probeIso,lastSuccessAt:(leagueMeta&&leagueMeta.lastSuccessAt)||null}},
-        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Current league missing from market worker response.'}
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Current league missing from market worker response.'},
+        snapshot:{level:'warn',detail:'Daily snapshot status unavailable.',meta:'Current league missing from market worker response.'}
       };
     }
     if(!leagueMeta||leagueAgeMs===null){
@@ -840,11 +887,44 @@ async function getMarketHealthBundle(){
     })();
 
     const pullStarted=performance.now();
-    const [scarabRes,currencyRes]=await Promise.all([
+    const [scarabRes,currencyRes,snapshotRes]=await Promise.all([
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Scarab',{cache:'no-store'}),
-      fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Currency',{cache:'no-store'})
+      fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Currency',{cache:'no-store'}),
+      fetch(MARKET_WORKER_URL+'?type=SnapshotStatus',{cache:'no-store'})
     ]);
     const pullTook=Math.round(performance.now()-pullStarted);
+    let snapshotData=null;
+    try{snapshotData=await snapshotRes.json();}catch(e){}
+    const snapshotStatus=String(snapshotData&&snapshotData.status||'').toLowerCase();
+    const snapshotLevel=snapshotStatus==='success'?'ok':((snapshotStatus.includes('retry')||snapshotStatus==='partial')?'warn':(snapshotStatus?'err':'warn'));
+    const snapshotCard=(snapshotRes.ok&&snapshotData&&snapshotData.ok)
+      ?{
+        level:snapshotLevel,
+        detail:snapshotStatus==='success'
+          ?'Daily snapshot writes completed.'
+          :(snapshotStatus.includes('retry')
+            ?'Daily snapshot is still retrying.'
+            :(snapshotStatus.includes('failed')
+              ?'Daily snapshot failed for one or more leagues.'
+              :'Daily snapshot status is partial.')),
+        meta:'Status '+String(snapshotData.status||'unknown')+' | Date '+String(snapshotData.date||'unknown')+' | '+pullTook+'ms',
+        telemetry:{
+          date:snapshotData.date||null,
+          targetLeagues:Array.isArray(snapshotData.targetLeagues)?snapshotData.targetLeagues:[],
+          completedLeagues:Array.isArray(snapshotData.completedLeagues)?snapshotData.completedLeagues:[],
+          pendingLeagues:Array.isArray(snapshotData.pendingLeagues)?snapshotData.pendingLeagues:[],
+          failedLeagues:Array.isArray(snapshotData.failedLeagues)?snapshotData.failedLeagues:[],
+          retryCount:Number(snapshotData.retryCount)||0,
+          nextRetryAt:snapshotData.nextRetryAt||null,
+          lastAttemptAt:snapshotData.lastAttemptAt||null,
+          leagues:(snapshotData.leagues&&typeof snapshotData.leagues==='object')?snapshotData.leagues:{}
+        }
+      }
+      :{
+        level:'warn',
+        detail:'Daily snapshot status endpoint unavailable.',
+        meta:'Status '+snapshotRes.status+' | '+pullTook+'ms'
+      };
 
     if(!scarabRes.ok||!currencyRes.ok){
       const ageMs=poePullLastSuccessAt===null?null:(Date.now()-poePullLastSuccessAt);
@@ -857,7 +937,8 @@ async function getMarketHealthBundle(){
           detail:'Worker could not fetch fresh PoE.ninja data.',
           meta:'Last success '+ageTxt+' | Scarab '+scarabRes.status+' | Currency '+currencyRes.status+' | '+pullTook+'ms',
           telemetry:{probedAt:probeIso,lastScarabSuccessAt:null,lastCurrencySuccessAt:null,divineRatio:null}
-        }
+        },
+        snapshot:snapshotCard
       };
     }
 
@@ -879,7 +960,8 @@ async function getMarketHealthBundle(){
     if(leagueState==='error'){
       return {
         marketWorker:{level:'err',detail:'Market worker cache is in error state.',meta:'Last success '+humanAge(leagueAgeMs)+' | '+took+'ms'},
-        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker reported error state for league lookup.'}
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker reported error state for league lookup.'},
+        snapshot:snapshotCard
       };
     }
 
@@ -896,7 +978,8 @@ async function getMarketHealthBundle(){
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
           }
-        }
+        },
+        snapshot:snapshotCard
       };
     }
     if(pullState==='stale'){
@@ -912,7 +995,8 @@ async function getMarketHealthBundle(){
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
           }
-        }
+        },
+        snapshot:snapshotCard
       };
     }
 
@@ -939,7 +1023,8 @@ async function getMarketHealthBundle(){
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
           }
-        }
+        },
+        snapshot:snapshotCard
       };
     }
     if(divineValue<=0){
@@ -957,7 +1042,8 @@ async function getMarketHealthBundle(){
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
           }
-        }
+        },
+        snapshot:snapshotCard
       };
     }
     if(poePullLastSuccessAt===null)poePullLastSuccessAt=Date.now();
@@ -974,7 +1060,8 @@ async function getMarketHealthBundle(){
           lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
           divineRatio:divineValue
         }
-      }
+      },
+      snapshot:snapshotCard
     };
   }catch(e){
     const marketAgeMs=marketWorkerLastSuccessAt===null?null:(Date.now()-marketWorkerLastSuccessAt);
@@ -991,6 +1078,11 @@ async function getMarketHealthBundle(){
         detail:'PoE.ninja pull validation failed.',
         meta:'Last success '+humanAge(pullAgeMs)+' | '+String((e&&e.message)||e||'error'),
         telemetry:{probedAt:probeIso,lastScarabSuccessAt:null,lastCurrencySuccessAt:null,divineRatio:null}
+      },
+      snapshot:{
+        level:'err',
+        detail:'Daily snapshot status check failed.',
+        meta:String((e&&e.message)||e||'error')
       }
     };
   }})()
@@ -1015,6 +1107,7 @@ function renderHealthCards(results){
   const publicTokens=enrichHealthCard('healthPublic','Public Token Endpoint',results.publicTokens||{});
   const marketWorker=enrichHealthCard('healthWorker','League Cache',results.marketWorker||{});
   const poePull=enrichHealthCard('healthPoeNinja','Market Price Cache',results.poePull||{});
+  const snapshot=enrichHealthCard('healthSnapshot','Daily Snapshot',results.snapshot||{});
   const sessionApi=enrichHealthCard('healthSessionApi','Session API',results.sessionApi||{});
   const backups=enrichHealthCard('healthBackups','Backup Snapshot',results.backups||{});
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
@@ -1024,6 +1117,7 @@ function renderHealthCards(results){
     healthPublic:healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug),
     healthWorker:healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug),
     healthPoeNinja:healthCard('healthPoeNinja','Market Price Cache',poePull.level,poePull.detail,poePull.meta,poePull.checks,poePull.debug),
+    healthSnapshot:healthCard('healthSnapshot','Daily Snapshot',snapshot.level,snapshot.detail,snapshot.meta,snapshot.checks,snapshot.debug),
     healthSessionApi:healthCard('healthSessionApi','Session API',sessionApi.level,sessionApi.detail,sessionApi.meta,sessionApi.checks,sessionApi.debug),
     healthBackups:healthCard('healthBackups','Backup Snapshot',backups.level,backups.detail,backups.meta,backups.checks,backups.debug),
     healthTokenSets:healthCard('healthTokenSets','Token History',tokenHistory.level,tokenHistory.detail,tokenHistory.meta,tokenHistory.checks,tokenHistory.debug),
@@ -1048,17 +1142,18 @@ async function loadHealthOverview(opts){
   const background=!!(opts&&opts.background);
   if(!background)busy('healthRefreshBtn',true);
   try{
-    const [backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage]=await Promise.all([
+    const [backend,publicTokens,marketWorker,poePull,snapshot,sessionApi,backups,tokenHistory,cloudflareUsage]=await Promise.all([
       checkHealthBackend(),
       checkHealthPublicTokens(),
       checkHealthMarketWorker(),
       checkHealthPoeNinjaPull(),
+      checkHealthDailySnapshot(),
       checkHealthSessionApi(),
       checkHealthBackups(),
       checkHealthTokenHistory(),
       checkHealthCloudflareUsage()
     ]);
-    state.healthLastResults={backend,publicTokens,marketWorker,poePull,sessionApi,backups,tokenHistory,cloudflareUsage};
+    state.healthLastResults={backend,publicTokens,marketWorker,poePull,snapshot,sessionApi,backups,tokenHistory,cloudflareUsage};
     renderHealthCards(state.healthLastResults);
     state.healthAutoLoaded=true;
     const now=formatAdminTime(new Date().toISOString());

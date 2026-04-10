@@ -7,9 +7,10 @@ const UPSTREAM_TIMEOUT_MS = 8000;
 const AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api/aggregate";
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 const SNAPSHOT_RETRY_KEY = `${CACHE_PREFIX}:snapshot-retry`;
+const SNAPSHOT_STATUS_KEY = `${CACHE_PREFIX}:snapshot-status`;
 const SNAPSHOT_INLINE_ATTEMPTS = 3;
-const SNAPSHOT_RETRY_DELAY_MS = 60 * 60 * 1000;
-const SNAPSHOT_RETRY_MAX_ATTEMPTS = 3;
+const SNAPSHOT_RETRY_DELAY_MS = 15 * 60 * 1000;
+const SNAPSHOT_RETRY_MAX_ATTEMPTS = 24;
 
 const POLICY = {
   currentLeague: {
@@ -43,7 +44,7 @@ export default {
       ctx.waitUntil(refreshCurrentLeagueMarketBundle(env));
       if (utcMinute === 5) ctx.waitUntil(refreshStandardMarketBundle(env));
       if (utcMinute === 10) ctx.waitUntil(refreshCurrentLeagueCache(env));
-      if (utcMinute === 0) ctx.waitUntil(runPendingSnapshotRetry(env));
+      ctx.waitUntil(runPendingSnapshotRetry(env));
       return;
     }
   }
@@ -61,6 +62,7 @@ async function handleRequest(request, env) {
   if (type === "EVHistory") return handleEVHistory(league, env);
   if (type === "PriceHistory") return handlePriceHistory(league, env);
   if (type === "AtlasEVHistory") return handleAtlasEVHistory(league, env);
+  if (type === "SnapshotStatus") return handleSnapshotStatus(env);
   if (type === "CurrentLeague") return handleCurrentLeague(env);
 
   if (type === "Scarab" || type === "Currency") {
@@ -406,6 +408,59 @@ async function handleAtlasEVHistory(league, env) {
   return withCors(jsonResponse({ history }));
 }
 
+async function handleSnapshotStatus(env) {
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "snapshot-status");
+  const today = new Date().toISOString().slice(0, 10);
+  const [rawStatus, rawRetry] = await Promise.all([
+    env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY),
+    env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY)
+  ]);
+  const status = parseJsonObject(rawStatus);
+  const retry = parseJsonObject(rawRetry);
+  const sameDayStatus = String(status?.date || "") === today ? status : null;
+  const sameDayRetry = String(retry?.date || "") === today ? retry : null;
+  const leaguesMap = (sameDayStatus?.leagues && typeof sameDayStatus.leagues === "object")
+    ? sameDayStatus.leagues
+    : {};
+  const targetLeagues = Array.isArray(sameDayStatus?.targetLeagues)
+    ? sameDayStatus.targetLeagues.map((s) => String(s)).filter(Boolean)
+    : [];
+  const completedLeagues = Object.entries(leaguesMap)
+    .filter(([, value]) => String(value?.state || "") === "success")
+    .map(([league]) => league);
+  const failedLeagues = Object.entries(leaguesMap)
+    .filter(([, value]) => String(value?.state || "") === "failed")
+    .map(([league]) => league);
+  const pendingLeagues = Array.isArray(sameDayRetry?.pendingLeagues)
+    ? sameDayRetry.pendingLeagues.map((s) => String(s)).filter(Boolean)
+    : targetLeagues.filter((league) => !completedLeagues.includes(league) && !failedLeagues.includes(league));
+  const anyCompleted = completedLeagues.length > 0;
+  const anyPending = pendingLeagues.length > 0;
+  const anyFailed = failedLeagues.length > 0 || String(sameDayRetry?.status || "") === "failed";
+  let overallStatus = "idle";
+  if (targetLeagues.length) {
+    if (anyPending) overallStatus = anyCompleted ? "partial_retrying" : "retrying";
+    else if (anyFailed) overallStatus = anyCompleted ? "partial_failed" : "failed";
+    else if (completedLeagues.length === targetLeagues.length) overallStatus = "success";
+    else overallStatus = "partial";
+  }
+
+  return withCors(jsonResponse({
+    ok: true,
+    date: sameDayStatus?.date || today,
+    status: overallStatus,
+    targetLeagues,
+    completedLeagues,
+    pendingLeagues,
+    failedLeagues,
+    retryCount: Number(sameDayRetry?.retryCount || 0),
+    nextRetryAt: sameDayRetry?.nextRetryAt || null,
+    lastAttemptAt: sameDayStatus?.lastAttemptAt || sameDayRetry?.lastAttemptAt || null,
+    errors: sameDayRetry?.errors || {},
+    leagues: leaguesMap
+  }));
+}
+
 async function resolveSnapshotLeagues() {
   const leagues = new Set(["Standard"]);
   try {
@@ -424,7 +479,7 @@ async function snapshotLeagueForDate(env, league, today) {
     if (!Array.isArray(data?.lines) || !data.lines.length) return { ok: false, error: "no_scarab_lines" };
 
     const harmonicEv = calcHarmonicEV(data.lines);
-    if (!Number.isFinite(harmonicEv) || harmonicEv <= 0) return { ok: false, error: "harmonic_unavailable" };
+    if (!Number.isFinite(harmonicEv)) return { ok: false, error: "harmonic_unavailable" };
 
     const weights = await fetchObservedWeightsForLeague(league);
     const weightedEv = calcWeightedThresholdEV(data.lines, weights);
@@ -439,7 +494,7 @@ async function snapshotLeagueForDate(env, league, today) {
       ev: Number(harmonicEv.toFixed(4)), // backward compatibility
       harmonicEv: Number(harmonicEv.toFixed(4))
     };
-    if (Number.isFinite(weightedEv) && weightedEv > 0) evEntry.weightedEv = Number(weightedEv.toFixed(4));
+    if (Number.isFinite(weightedEv)) evEntry.weightedEv = Number(weightedEv.toFixed(4));
     if (evIdx >= 0) evHistory[evIdx] = { ...evHistory[evIdx], ...evEntry };
     else evHistory.push(evEntry);
 
@@ -448,7 +503,12 @@ async function snapshotLeagueForDate(env, league, today) {
     const evCutoffStr = evCutoff.toISOString().slice(0, 10);
     await env.EV_HISTORY.put(evKey, JSON.stringify(evHistory.filter((e) => e.date >= evCutoffStr)));
 
-    if (atlasSnapshot && atlasSnapshot.baselineEv > 0 && atlasSnapshot.optimizedEv > 0) {
+    let wroteAtlas = false;
+    if (
+      atlasSnapshot &&
+      Number.isFinite(atlasSnapshot.baselineEv) &&
+      Number.isFinite(atlasSnapshot.optimizedEv)
+    ) {
       const atlasKey = `atlas-ev-history-${league.toLowerCase()}`;
       const atlasStored = await env.EV_HISTORY.get(atlasKey);
       const atlasHistory = atlasStored ? JSON.parse(atlasStored) : [];
@@ -465,6 +525,7 @@ async function snapshotLeagueForDate(env, league, today) {
       atlasCutoff.setDate(atlasCutoff.getDate() - 90);
       const atlasCutoffStr = atlasCutoff.toISOString().slice(0, 10);
       await env.EV_HISTORY.put(atlasKey, JSON.stringify(atlasHistory.filter((e) => e.date >= atlasCutoffStr)));
+      wroteAtlas = true;
     }
 
     const priceKey = `price-history-${league.toLowerCase()}`;
@@ -484,7 +545,18 @@ async function snapshotLeagueForDate(env, league, today) {
       priceHistory[name] = priceHistory[name].filter((e) => e.date >= priceCutoffStr);
     }
     await env.EV_HISTORY.put(priceKey, JSON.stringify(priceHistory));
-    return { ok: true };
+    return {
+      ok: true,
+      writes: {
+        ev: true,
+        atlas: wroteAtlas,
+        price: true
+      },
+      values: {
+        harmonicEv: Number(harmonicEv.toFixed(4)),
+        weightedEv: Number.isFinite(weightedEv) ? Number(weightedEv.toFixed(4)) : null
+      }
+    };
   } catch (e) {
     return { ok: false, error: String(e?.message || e || "snapshot_failed") };
   }
@@ -538,27 +610,66 @@ async function runDailyEVSnapshot(env, opts = {}) {
     ? [...new Set(opts.leagues.map((s) => String(s).trim()).filter(Boolean))]
     : await resolveSnapshotLeagues();
   if (!leagues.length) return;
+  const statusState = await readSnapshotStatusState(env, today, leagues);
 
   const failures = [];
   for (const league of leagues) {
     let success = false;
     let lastError = "snapshot_failed";
+    let writes = { ev: false, atlas: false, price: false };
+    let values = { harmonicEv: null, weightedEv: null };
+    let attemptsUsed = 0;
     for (let attempt = 1; attempt <= SNAPSHOT_INLINE_ATTEMPTS; attempt++) {
+      attemptsUsed++;
       const result = await snapshotLeagueForDate(env, league, today);
       if (result.ok) {
         success = true;
+        writes = {
+          ev: !!result?.writes?.ev,
+          atlas: !!result?.writes?.atlas,
+          price: !!result?.writes?.price
+        };
+        values = {
+          harmonicEv: Number.isFinite(result?.values?.harmonicEv) ? Number(result.values.harmonicEv) : null,
+          weightedEv: Number.isFinite(result?.values?.weightedEv) ? Number(result.values.weightedEv) : null
+        };
         break;
       }
       lastError = result.error || "snapshot_failed";
     }
     if (!success) failures.push({ league, error: lastError });
+    const previous = statusState.leagues[league] || {};
+    statusState.leagues[league] = {
+      state: success ? "success" : "retrying",
+      attempts: (Number(previous.attempts) || 0) + attemptsUsed,
+      lastAttemptAt: new Date().toISOString(),
+      lastError: success ? null : lastError,
+      writes,
+      values
+    };
   }
 
+  statusState.lastAttemptAt = new Date().toISOString();
+  const exhausted = (Number(opts.retryCount) || 0) >= SNAPSHOT_RETRY_MAX_ATTEMPTS;
   if (failures.length) {
     await saveSnapshotRetryState(env, today, failures, Number(opts.retryCount) || 0);
+    for (const failure of failures) {
+      if (!statusState.leagues[failure.league]) continue;
+      statusState.leagues[failure.league].state = exhausted ? "failed" : "retrying";
+      statusState.leagues[failure.league].lastError = String(failure.error || "snapshot_failed");
+    }
+    if (exhausted) {
+      statusState.status = failures.length === leagues.length ? "failed" : "partial_failed";
+    } else if (failures.length === leagues.length) {
+      statusState.status = "retrying";
+    } else {
+      statusState.status = "partial_retrying";
+    }
   } else {
     await clearSnapshotRetryState(env, today);
+    statusState.status = "success";
   }
+  await env.EV_HISTORY.put(SNAPSHOT_STATUS_KEY, JSON.stringify(statusState));
 }
 
 async function runPendingSnapshotRetry(env) {
@@ -574,6 +685,13 @@ async function runPendingSnapshotRetry(env) {
   }
   const today = new Date().toISOString().slice(0, 10);
   if (String(state?.date || "") !== today) {
+    const rawStatus = await env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY);
+    const status = parseJsonObject(rawStatus);
+    if (status && String(status.date || "") === String(state?.date || "")) {
+      status.status = "failed_expired";
+      status.lastAttemptAt = new Date().toISOString();
+      await env.EV_HISTORY.put(SNAPSHOT_STATUS_KEY, JSON.stringify(status));
+    }
     await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
     return;
   }
@@ -629,6 +747,37 @@ function calcHarmonicEV(lines) {
   const sum = prices.reduce((s, p) => s + 1 / p, 0);
   const harmonic = prices.length / sum;
   return Math.floor(harmonic * 100) / 100;
+}
+
+function parseJsonObject(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+async function readSnapshotStatusState(env, today, leagues) {
+  const raw = await env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY);
+  const parsed = parseJsonObject(raw);
+  const sameDate = String(parsed?.date || "") === today;
+  const base = sameDate
+    ? parsed
+    : {
+      date: today,
+      status: "pending",
+      targetLeagues: leagues,
+      lastAttemptAt: null,
+      leagues: {}
+    };
+  if (!Array.isArray(base.targetLeagues)) base.targetLeagues = [];
+  for (const league of leagues) {
+    if (!base.targetLeagues.includes(league)) base.targetLeagues.push(league);
+  }
+  if (!base.leagues || typeof base.leagues !== "object") base.leagues = {};
+  return base;
 }
 
 async function fetchObservedWeightsForLeague(league) {
