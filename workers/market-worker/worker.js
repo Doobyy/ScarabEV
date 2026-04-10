@@ -68,8 +68,8 @@ async function handleRequest(request, env) {
   if (type === "PriceHistory") return handlePriceHistory(league, env);
   if (type === "AtlasEVHistory") return handleAtlasEVHistory(league, env);
   if (type === "SnapshotStatus") return handleSnapshotStatus(env);
-  if (type === "FailureLogs") return handleFailureLogs(url, env);
-  if (type === "ManualRetry") return handleManualRetry(url, env);
+  if (type === "FailureLogs") return handleFailureLogs(request, url, env);
+  if (type === "ManualRetry") return handleManualRetry(request, url, env);
   if (type === "CurrentLeague") return handleCurrentLeague(env);
 
   if (type === "Scarab" || type === "Currency") {
@@ -484,7 +484,25 @@ async function handleSnapshotStatus(env) {
   }));
 }
 
-async function handleFailureLogs(url, env) {
+function requireAdminOpsToken(request, env) {
+  const expected = String(env?.MANUAL_RETRY_TOKEN || "").trim();
+  if (!expected) {
+    return errorResponse("admin_ops_not_configured", "Admin ops token is not configured.", 503, "admin-ops-auth");
+  }
+  const provided = String(
+    request?.headers?.get("x-admin-token")
+    || request?.headers?.get("x-manual-retry-token")
+    || ""
+  ).trim();
+  if (!provided || provided !== expected) {
+    return errorResponse("admin_ops_forbidden", "Admin ops token is invalid.", 403, "admin-ops-auth");
+  }
+  return null;
+}
+
+async function handleFailureLogs(request, url, env) {
+  const authFailure = requireAdminOpsToken(request, env);
+  if (authFailure) return authFailure;
   if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "failure-logs");
   const daysRaw = Number(url.searchParams.get("days") || FAILURE_LOG_RETENTION_DAYS);
   const days = Math.max(1, Math.min(FAILURE_LOG_RETENTION_DAYS, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : FAILURE_LOG_RETENTION_DAYS));
@@ -517,15 +535,20 @@ async function handleFailureLogs(url, env) {
   return withCors(jsonResponse({ ok: true, days, count: events.length, events }));
 }
 
-async function handleManualRetry(url, env) {
+async function handleManualRetry(request, url, env) {
+  const authFailure = requireAdminOpsToken(request, env);
+  if (authFailure) return authFailure;
   const action = String(url.searchParams.get("action") || "").trim().toLowerCase();
   if (!action) return errorResponse("invalid_action", "Missing manual retry action.", 400, "manual-retry");
   const startedAt = Date.now();
   try {
     if (action === "snapshot-retry") {
-      const pending = await getPendingSnapshotRetryLeagues(env);
-      if (pending.length) {
-        await runPendingSnapshotRetry(env);
+      const pending = await getPendingSnapshotRetryState(env);
+      if (pending.leagues.length) {
+        await runDailyEVSnapshot(env, {
+          leagues: pending.leagues,
+          retryCount: pending.retryCount + 1
+        });
       } else {
         const incomplete = await getIncompleteSnapshotLeaguesForToday(env);
         if (incomplete.length) {
@@ -563,15 +586,19 @@ async function handleManualRetry(url, env) {
   }
 }
 
-async function getPendingSnapshotRetryLeagues(env) {
-  if (!env.EV_HISTORY) return [];
+async function getPendingSnapshotRetryState(env) {
+  if (!env.EV_HISTORY) return { leagues: [], retryCount: 0 };
   const raw = await env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY);
   const retry = parseJsonObject(raw);
   const today = new Date().toISOString().slice(0, 10);
-  if (!retry || String(retry.date || "") !== today) return [];
-  return Array.isArray(retry.pendingLeagues)
+  if (!retry || String(retry.date || "") !== today) return { leagues: [], retryCount: 0 };
+  const leagues = Array.isArray(retry.pendingLeagues)
     ? retry.pendingLeagues.map((s) => String(s || "").trim()).filter(Boolean)
     : [];
+  return {
+    leagues: [...new Set(leagues)],
+    retryCount: Math.max(0, Number(retry.retryCount) || 0)
+  };
 }
 
 async function getIncompleteSnapshotLeaguesForToday(env) {
@@ -586,9 +613,8 @@ async function getIncompleteSnapshotLeaguesForToday(env) {
   const leagues = (status.leagues && typeof status.leagues === "object") ? status.leagues : {};
   return target.filter((league) => {
     const info = leagues[league] || {};
-    const state = String(info.state || "");
     const writes = (info.writes && typeof info.writes === "object") ? info.writes : {};
-    return state === "success" && listMissingRequiredWrites(writes).length > 0;
+    return listMissingRequiredWrites(writes).length > 0;
   });
 }
 
@@ -619,8 +645,32 @@ async function snapshotLeagueForDate(env, league, today) {
     }
 
     const weights = await fetchObservedWeightsForLeague(league);
+    if (!weights || typeof weights !== "object" || !Object.keys(weights).length) {
+      await logFailureEvent(env, "snapshot_weights_unavailable", "Snapshot failed: observed weights unavailable.", {
+        league,
+        date: today,
+        stage: "fetch_weights"
+      });
+      return { ok: false, error: "weights_unavailable" };
+    }
     const weightedEv = calcWeightedThresholdEV(data.lines, weights);
+    if (!Number.isFinite(weightedEv) || weightedEv <= 0) {
+      await logFailureEvent(env, "snapshot_weighted_unavailable", "Snapshot failed: weighted EV unavailable.", {
+        league,
+        date: today,
+        stage: "compute_weighted_ev"
+      });
+      return { ok: false, error: "weighted_unavailable" };
+    }
     const atlasSnapshot = calcAtlasBaselineOptimizedEV(data.lines, weights);
+    if (!atlasSnapshot || !Number.isFinite(atlasSnapshot.baselineEv) || !Number.isFinite(atlasSnapshot.optimizedEv)) {
+      await logFailureEvent(env, "snapshot_atlas_unavailable", "Snapshot failed: atlas EV unavailable.", {
+        league,
+        date: today,
+        stage: "compute_atlas_ev"
+      });
+      return { ok: false, error: "atlas_unavailable" };
+    }
 
     const evKey = `ev-history-${league.toLowerCase()}`;
     const evStored = await env.EV_HISTORY.get(evKey);
@@ -950,7 +1000,9 @@ async function readSnapshotStatusState(env, today, leagues) {
 }
 
 async function fetchObservedWeightsForLeague(league) {
-  try {
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
     const url = `${AGGREGATE_API_URL}?league=${encodeURIComponent(league)}`;
     const res = await fetchWithTimeout(url, {
       headers: {
@@ -958,7 +1010,7 @@ async function fetchObservedWeightsForLeague(league) {
         Accept: "application/json"
       }
     }, UPSTREAM_TIMEOUT_MS);
-    if (!res.ok) return null;
+    if (!res.ok) throw new Error(`aggregate_http_${res.status}`);
     const data = await res.json();
     const provided = data?.weights && typeof data.weights === "object" ? data.weights : null;
     if (provided && Object.keys(provided).length > 0) return provided;
@@ -976,9 +1028,12 @@ async function fetchObservedWeightsForLeague(league) {
       if (c > 0) normalized[name] = c / total;
     }
     return Object.keys(normalized).length ? normalized : null;
-  } catch (_e) {
-    return null;
+    } catch (_e) {
+      if (attempt >= attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+    }
   }
+  return null;
 }
 
 function calcWeightedThresholdEV(lines, weights) {
@@ -1121,7 +1176,35 @@ async function fetchNinjaExchange(league, type) {
   if (!res.ok) {
     throw new Error(`poe.ninja returned ${res.status}`);
   }
-  return res.json();
+  const payload = await res.json();
+  return normalizeExchangePayload(payload);
+}
+
+function normalizeExchangePayload(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const lines = Array.isArray(payload.lines) ? payload.lines : [];
+  if (!items.length || !lines.length) return payload;
+  const nameById = new Map();
+  const nameByDetailsId = new Map();
+  for (const item of items) {
+    const id = String(item?.id || "").trim();
+    const detailsId = String(item?.detailsId || "").trim();
+    const name = String(item?.name || "").trim();
+    if (!name) continue;
+    if (id) nameById.set(id, name);
+    if (detailsId) nameByDetailsId.set(detailsId, name);
+  }
+  const normalizedLines = lines.map((line) => {
+    if (!line || typeof line !== "object") return line;
+    if (String(line.name || "").trim()) return line;
+    const id = String(line.id || "").trim();
+    const detailsId = String(line.detailsId || "").trim();
+    const mappedName = (id && nameById.get(id)) || (detailsId && nameByDetailsId.get(detailsId)) || "";
+    if (!mappedName) return line;
+    return { ...line, name: mappedName };
+  });
+  return { ...payload, lines: normalizedLines };
 }
 
 function getMarketBundleKey(league) {

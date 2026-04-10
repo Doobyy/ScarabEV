@@ -24,6 +24,7 @@ export interface Env {
   BACKUP_OBJECT_PREFIX?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  MARKET_WORKER_ADMIN_TOKEN?: string;
   DB?: D1Database;
   BACKUP_R2?: R2Bucket;
 }
@@ -51,6 +52,7 @@ export interface RuntimeConfig {
   backupObjectPrefix: string;
   cloudflareApiToken?: string;
   cloudflareAccountId?: string;
+  marketWorkerAdminToken?: string;
 }
 
 const VALID_ENV: ReadonlySet<string> = new Set(["dev", "staging", "production"]);
@@ -163,6 +165,7 @@ export function loadConfig(env: Env): RuntimeConfig {
     backupRequireExternal,
     backupObjectPrefix,
     cloudflareApiToken: env.CLOUDFLARE_API_TOKEN?.trim() || undefined,
-    cloudflareAccountId: env.CLOUDFLARE_ACCOUNT_ID?.trim() || undefined
+    cloudflareAccountId: env.CLOUDFLARE_ACCOUNT_ID?.trim() || undefined,
+    marketWorkerAdminToken: env.MARKET_WORKER_ADMIN_TOKEN?.trim() || undefined
   };
 }

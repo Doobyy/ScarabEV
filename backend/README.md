@@ -88,6 +88,7 @@ Optional:
 - `BACKUP_OBJECT_PREFIX`: defaults to `snapshots`.
 - `CLOUDFLARE_API_TOKEN`: optional token for Cloudflare usage telemetry in admin health.
 - `CLOUDFLARE_ACCOUNT_ID`: optional account id paired with `CLOUDFLARE_API_TOKEN`.
+- `MARKET_WORKER_ADMIN_TOKEN`: required for admin ops that proxy to market-worker protected endpoints (manual retry, failure logs).
 - `ALERT_WEBHOOK_URL`: optional webhook for operational alerts.
 
 Optional binding:
@@ -97,7 +98,7 @@ Optional binding:
 - No secret values are committed to git.
 - Local secrets live in `backend/.dev.vars` (gitignored).
 - Staging/production secrets live in:
-  - GitHub Actions secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)
+  - GitHub Actions secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MARKET_WORKER_ADMIN_TOKEN`)
   - Cloudflare Worker secrets (`wrangler secret put ... --env <env>`)
 - D1 binding:
   - Bind D1 as `DB` in Wrangler config before using auth/admin routes.

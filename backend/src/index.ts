@@ -798,6 +798,17 @@ interface MarketManualRetryResponse {
   error?: string;
 }
 
+function getMarketWorkerAdminHeaders(config: RuntimeConfig): Record<string, string> {
+  const token = String(config.marketWorkerAdminToken || "").trim();
+  if (!token) {
+    throw new Error("market_worker_admin_token_missing");
+  }
+  return {
+    accept: "application/json",
+    "x-admin-token": token
+  };
+}
+
 async function listBackupSnapshots(db: D1Database, limit = 10): Promise<BackupSnapshotSummary[]> {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 10;
   const rows = await db
@@ -1002,7 +1013,7 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
   };
 }
 
-async function getMarketFailureLogs(daysRaw: number): Promise<{
+async function getMarketFailureLogs(daysRaw: number, config: RuntimeConfig): Promise<{
   days: number;
   count: number;
   events: Array<{
@@ -1017,12 +1028,8 @@ async function getMarketFailureLogs(daysRaw: number): Promise<{
 }> {
   const days = Math.max(1, Math.min(30, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : 30));
   const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=FailureLogs&days=${days}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      accept: "application/json"
-    }
-  });
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetch(url, { method: "GET", headers });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`market_failure_logs_request_failed:${res.status}:${body.slice(0, 160)}`);
@@ -1047,7 +1054,7 @@ async function getMarketFailureLogs(daysRaw: number): Promise<{
   };
 }
 
-async function runMarketManualRetry(actionRaw: string): Promise<{
+async function runMarketManualRetry(actionRaw: string, config: RuntimeConfig): Promise<{
   action: string;
   elapsedMs: number;
 }> {
@@ -1062,12 +1069,8 @@ async function runMarketManualRetry(actionRaw: string): Promise<{
   ]);
   if (!allowed.has(action)) throw new Error(`manual_retry_invalid_action:${action}`);
   const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=ManualRetry&action=${encodeURIComponent(action)}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      accept: "application/json"
-    }
-  });
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetch(url, { method: "GET", headers });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`manual_retry_request_failed:${res.status}:${body.slice(0, 160)}`);
@@ -1324,8 +1327,8 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     computeBackupStorageUsage,
     runBackupSnapshot,
     getCloudflareUsageSummary,
-    getMarketFailureLogs,
-    runMarketManualRetry,
+    getMarketFailureLogs: (days: number) => getMarketFailureLogs(days, deps.config),
+    runMarketManualRetry: (action: string) => runMarketManualRetry(action, deps.config),
     jsonResponse,
     withBaseHeaders,
     parseNullableString,
