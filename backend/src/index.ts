@@ -791,6 +791,13 @@ interface MarketFailureLogsResponse {
   }>;
 }
 
+interface MarketManualRetryResponse {
+  ok?: boolean;
+  action?: string;
+  elapsedMs?: number;
+  error?: string;
+}
+
 async function listBackupSnapshots(db: D1Database, limit = 10): Promise<BackupSnapshotSummary[]> {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 10;
   const rows = await db
@@ -1040,6 +1047,41 @@ async function getMarketFailureLogs(daysRaw: number): Promise<{
   };
 }
 
+async function runMarketManualRetry(actionRaw: string): Promise<{
+  action: string;
+  elapsedMs: number;
+}> {
+  const action = String(actionRaw || "").trim().toLowerCase();
+  const allowed = new Set([
+    "snapshot-retry",
+    "snapshot-run",
+    "cache-current-league",
+    "cache-current-market",
+    "cache-standard-market",
+    "cache-all"
+  ]);
+  if (!allowed.has(action)) throw new Error(`manual_retry_invalid_action:${action}`);
+  const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=ManualRetry&action=${encodeURIComponent(action)}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      accept: "application/json"
+    }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`manual_retry_request_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketManualRetryResponse;
+  if (!payload || payload.ok !== true) {
+    throw new Error(`manual_retry_failed:${String(payload?.error || "unknown_error")}`);
+  }
+  return {
+    action: String(payload.action || action),
+    elapsedMs: Math.max(0, Number(payload.elapsedMs) || 0)
+  };
+}
+
 async function collectBackupRows(db: D1Database): Promise<Record<string, unknown[]>> {
   const tableQueries: Array<{ key: string; sql: string }> = [
     { key: "leagues", sql: "SELECT * FROM leagues ORDER BY created_at ASC, id ASC" },
@@ -1283,6 +1325,7 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     runBackupSnapshot,
     getCloudflareUsageSummary,
     getMarketFailureLogs,
+    runMarketManualRetry,
     jsonResponse,
     withBaseHeaders,
     parseNullableString,

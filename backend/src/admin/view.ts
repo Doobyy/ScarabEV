@@ -191,7 +191,7 @@ export function buildAdminMarkup(): string {
       <div class="card">
         <div class="h">Health Overview</div>
         <div class="sub">Quick signal checks across admin API, token pipeline, session API integration, and backups.</div>
-        <div class="toolbar"><button id="healthRefreshBtn" class="btn ghost" type="button">Refresh Health</button></div>
+        <div class="toolbar"><button id="healthRefreshBtn" class="btn ghost" type="button">Refresh Health</button><button id="retrySnapshotBtn" class="btn warn" type="button">Retry Snapshot</button><button id="refreshCachesBtn" class="btn warn" type="button">Refresh Caches</button></div>
         <div id="healthGrid" class="health-grid"></div>
         <div id="healthStatus" class="status">Health checks run automatically on sign-in.</div>
       </div>

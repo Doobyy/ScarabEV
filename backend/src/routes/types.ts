@@ -163,6 +163,12 @@ export interface OpsRouteHelpers extends BaseRouteHelpers {
       context: Record<string, unknown>;
     }>;
   }>;
+  runMarketManualRetry: (
+    action: string
+  ) => Promise<{
+    action: string;
+    elapsedMs: number;
+  }>;
 }
 
 export type OperationalAlertType = "auth_failure" | "publish_failure" | "api_error";

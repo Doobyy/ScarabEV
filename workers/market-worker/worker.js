@@ -69,6 +69,7 @@ async function handleRequest(request, env) {
   if (type === "AtlasEVHistory") return handleAtlasEVHistory(league, env);
   if (type === "SnapshotStatus") return handleSnapshotStatus(env);
   if (type === "FailureLogs") return handleFailureLogs(url, env);
+  if (type === "ManualRetry") return handleManualRetry(url, env);
   if (type === "CurrentLeague") return handleCurrentLeague(env);
 
   if (type === "Scarab" || type === "Currency") {
@@ -508,6 +509,44 @@ async function handleFailureLogs(url, env) {
   }
   events.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
   return withCors(jsonResponse({ ok: true, days, count: events.length, events }));
+}
+
+async function handleManualRetry(url, env) {
+  const action = String(url.searchParams.get("action") || "").trim().toLowerCase();
+  if (!action) return errorResponse("invalid_action", "Missing manual retry action.", 400, "manual-retry");
+  const startedAt = Date.now();
+  try {
+    if (action === "snapshot-retry") {
+      await runPendingSnapshotRetry(env);
+    } else if (action === "snapshot-run") {
+      await runDailyEVSnapshot(env);
+    } else if (action === "cache-current-league") {
+      await refreshCurrentLeagueCache(env);
+    } else if (action === "cache-current-market") {
+      await refreshCurrentLeagueMarketBundle(env);
+    } else if (action === "cache-standard-market") {
+      await refreshStandardMarketBundle(env);
+    } else if (action === "cache-all") {
+      await Promise.all([
+        refreshCurrentLeagueCache(env),
+        refreshCurrentLeagueMarketBundle(env),
+        refreshStandardMarketBundle(env)
+      ]);
+    } else {
+      return errorResponse("invalid_action", `Unsupported action: ${action}`, 400, "manual-retry");
+    }
+    return withCors(jsonResponse({
+      ok: true,
+      action,
+      elapsedMs: Math.max(0, Date.now() - startedAt)
+    }));
+  } catch (error) {
+    await logFailureEvent(env, "manual_retry_failed", "Manual retry action failed.", {
+      action,
+      error: String(error?.message || error || "manual_retry_failed")
+    });
+    return errorResponse("manual_retry_failed", String(error?.message || error || "manual_retry_failed"), 500, "manual-retry");
+  }
 }
 
 async function resolveSnapshotLeagues() {

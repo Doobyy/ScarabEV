@@ -17,9 +17,11 @@ export async function handleOpsRoutes(
     runBackupSnapshot,
     getCloudflareUsageSummary,
     getMarketFailureLogs,
+    runMarketManualRetry,
     jsonResponse,
     withBaseHeaders,
-    parseNullableString
+    parseNullableString,
+    parseJsonBody
   } = helpers;
 
   if (request.method === "GET" && url.pathname === "/admin/audit-logs") {
@@ -263,6 +265,92 @@ export async function handleOpsRoutes(
         { status: 503 }
       );
       return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/admin/ops/retry") {
+    const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
+    if (auth instanceof Response) {
+      return auth;
+    }
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
+    if (ownerOnly) {
+      await writeAudit(deps.securityRepo, context, request, "admin.manual_retry", 403, auth.session.user.id);
+      return ownerOnly;
+    }
+
+    let action = "";
+    try {
+      const body = await parseJsonBody(request);
+      action = String(body.action || "").trim().toLowerCase();
+    } catch (_error) {
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "invalid_body",
+            requestId: context.requestId
+          },
+          { status: 400 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    }
+
+    if (!action) {
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "missing_action",
+            requestId: context.requestId
+          },
+          { status: 400 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    }
+
+    try {
+      const result = await runMarketManualRetry(action);
+      await writeAudit(deps.securityRepo, context, request, "admin.manual_retry", 200, auth.session.user.id, {
+        action: result.action,
+        elapsedMs: result.elapsedMs
+      });
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: true,
+            requestId: context.requestId,
+            action: result.action,
+            elapsedMs: result.elapsedMs
+          },
+          { status: 200 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await writeAudit(deps.securityRepo, context, request, "admin.manual_retry", 503, auth.session.user.id, {
+        action,
+        errorDetail: detail
+      });
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "manual_retry_failed",
+            errorDetail: detail,
+            requestId: context.requestId
+          },
+          { status: 503 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
     }
   }
 

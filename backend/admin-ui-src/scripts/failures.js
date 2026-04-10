@@ -65,3 +65,35 @@ async function loadFailureLogs(opts){
     busy('failureRefreshBtn',false);
   }
 }
+
+async function runManualRetryAction(action,label){
+  const target=String(action||'').trim().toLowerCase();
+  if(!target)return false;
+  const buttonId=target.indexOf('snapshot')>=0?'retrySnapshotBtn':'refreshCachesBtn';
+  busy(buttonId,true);
+  status('healthStatus','Running '+(label||target)+'...','warn');
+  try{
+    const r=await api('/admin/ops/retry',{
+      method:'POST',
+      body:JSON.stringify({action:target})
+    });
+    if(r.res.status!==200||!r.json||!r.json.ok){
+      status('healthStatus','Manual retry failed: '+formatApiFailure(r.res,r.json,r.text),'err');
+      return false;
+    }
+    const took=Math.max(0,Number(r.json.elapsedMs)||0);
+    status('healthStatus',(label||target)+' completed in '+took+'ms.','ok');
+    if(typeof loadHealthOverview==='function'){
+      await loadHealthOverview({quiet:true});
+    }
+    if(state.activePanel==='failures'){
+      await loadFailureLogs({quiet:true});
+    }
+    return true;
+  }catch(e){
+    status('healthStatus','Manual retry failed: '+formatThrownError(e),'err');
+    return false;
+  }finally{
+    busy(buttonId,false);
+  }
+}
