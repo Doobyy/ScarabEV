@@ -2773,6 +2773,8 @@ body.graph-palette-ruby {
     color: var(--text-3);
   }
   #tab-ninja .table-head.ninja-head .th-trend { text-align: center; }
+  #tab-ninja .table-head.ninja-head .th-trend .label-mobile { display: inline; }
+  #tab-ninja .table-head.ninja-head .th-trend .label-desktop { display: none; }
   #tab-ninja .table-head.ninja-head .th-delta,
   #tab-ninja .table-head.ninja-head .th-price { text-align: right; }
   #tab-ninja .table-head.ninja-head .th-diff { text-align: center; }
@@ -3019,7 +3021,7 @@ body.graph-palette-ruby {
         <div class="th th-icon"></div>
         <div class="th th-name" id="n-th-name" onclick="setNinjaSort('name')" style="cursor:pointer;user-select:none">Scarab</div>
         <div class="th th-group" id="n-th-group" onclick="setNinjaSort('group')" style="cursor:pointer;user-select:none">Group</div>
-        <div class="th center th-trend" id="n-th-trend" onclick="setNinjaSort('trend')" style="cursor:pointer;user-select:none">7D History</div>
+        <div class="th center th-trend" id="n-th-trend" onclick="setNinjaSort('trend')" style="cursor:pointer;user-select:none"><span class="label-desktop">7D History</span><span class="label-mobile">History</span></div>
         <div class="th right th-delta" id="n-th-delta" onclick="setNinjaSort('delta')" style="cursor:pointer;user-select:none">Trend</div>
         <div class="th right th-price" id="n-th-chaosPerUnit" onclick="setNinjaSort('chaosPerUnit')" style="cursor:pointer;user-select:none">Cost/ea</div>
         <div class="th center th-diff" id="n-th-diff" onclick="setNinjaSort('diff')" style="cursor:pointer;user-select:none">vs EV</div>
