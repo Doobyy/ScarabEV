@@ -190,32 +190,25 @@ function buildSnapshotChecks(card){
     {level:'ok',label:'Last attempt',detail:t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported'},
     {level:'ok',label:'Next retry',detail:t.nextRetryAt?formatAdminTime(t.nextRetryAt):'none scheduled'}
   ];
-  function snapshotFlagChip(label,ok){
-    return '<span class="snapshot-flag-chip '+(ok?'yes':'no')+'">'+escHtml(String(label||''))+' <b>'+(ok?'YES':'NO')+'</b></span>';
-  }
-  function snapshotStateChip(state){
-    const normalized=String(state||'unknown').toLowerCase();
-    const cls=normalized==='success'?'ok':(normalized==='retrying'?'warn':'err');
-    return '<span class="snapshot-state-chip '+cls+'">'+escHtml(normalized.toUpperCase())+'</span>';
+  function yesNoHtml(ok){
+    return '<span class="snapshot-yn '+(ok?'yes':'no')+'">'+(ok?'YES':'NO')+'</span>';
   }
   const leagues=(t.leagues&&typeof t.leagues==='object')?t.leagues:{};
   Object.keys(leagues).sort((a,b)=>a.localeCompare(b)).forEach((league)=>{
     const info=leagues[league]||{};
     const writes=(info&&info.writes&&typeof info.writes==='object')?info.writes:{};
     const state=String(info.state||'unknown');
-    const writeSummary='EV '+(writes.ev?'yes':'no')+' | Atlas '+(writes.atlas?'yes':'no')+' | Price '+(writes.price?'yes':'no');
+    const writeSummary='EV '+(writes.ev?'YES':'NO')+' | Atlas '+(writes.atlas?'YES':'NO')+' | Price '+(writes.price?'YES':'NO');
     const err=info.lastError?(' | '+String(info.lastError)):'';
     const line=state.toUpperCase()+' | '+writeSummary+err;
     const missing=(!writes.ev)||(!writes.atlas)||(!writes.price);
     const level=(state==='success'&&!missing)?'ok':(state==='retrying'?'warn':'err');
-    const chips='<div class="snapshot-inline-row">'
-      +snapshotStateChip(state)
-      +snapshotFlagChip('EV',!!writes.ev)
-      +snapshotFlagChip('Atlas',!!writes.atlas)
-      +snapshotFlagChip('Price',!!writes.price)
-      +(info.lastError?('<span class="snapshot-error-chip">'+escHtml(String(info.lastError))+'</span>'):'')
-      +'</div>';
-    rows.push({level,label:'League '+league,detail:line,detailHtml:chips});
+    const lineHtml=escHtml(state.toUpperCase())
+      +' | EV '+yesNoHtml(!!writes.ev)
+      +' | Atlas '+yesNoHtml(!!writes.atlas)
+      +' | Price '+yesNoHtml(!!writes.price)
+      +(info.lastError?(' | '+escHtml(String(info.lastError))):'');
+    rows.push({level,label:'League '+league,detail:line,detailHtml:lineHtml});
   });
   if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
   return rows;
