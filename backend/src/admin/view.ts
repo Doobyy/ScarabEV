@@ -200,7 +200,7 @@ export function buildAdminMarkup(): string {
       <div class="card">
         <div class="h">Failure Logs</div>
         <div class="sub">30-day failure history from market worker snapshot/cache pipelines. Includes exact failure codes and context payloads.</div>
-        <div class="toolbar"><select id="failureDays"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option></select><button id="failureRefreshBtn" class="btn ghost" type="button">Refresh Logs</button></div>
+        <div class="toolbar"><select id="failureDays"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option></select><button id="failureRefreshBtn" class="btn ghost" type="button">Refresh Logs</button><button id="failureClearBtn" class="btn ghost" type="button">Clear Logs</button></div>
         <div class="list ops-list"><table><thead><tr><th style="width:150px">Time (PDT)</th><th style="width:120px">Code</th><th style="width:130px">Source</th><th>Message</th><th style="width:290px">Context</th></tr></thead><tbody id="failureRows"></tbody></table></div>
         <div id="failureMeta" class="sub mono">No logs loaded.</div>
         <div id="failureStatus" class="status">Open this tab to load failure history.</div>

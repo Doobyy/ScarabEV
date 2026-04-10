@@ -569,6 +569,8 @@ async function handleManualRetry(request, url, env) {
         refreshCurrentLeagueMarketBundle(env),
         refreshStandardMarketBundle(env)
       ]);
+    } else if (action === "clear-failure-logs") {
+      await clearFailureLogs(env);
     } else {
       return errorResponse("invalid_action", `Unsupported action: ${action}`, 400, "manual-retry");
     }
@@ -584,6 +586,20 @@ async function handleManualRetry(request, url, env) {
     });
     return errorResponse("manual_retry_failed", String(error?.message || error || "manual_retry_failed"), 500, "manual-retry");
   }
+}
+
+async function clearFailureLogs(env) {
+  if (!env?.EV_HISTORY) {
+    throw new Error("kv_not_configured");
+  }
+  const deletes = [];
+  for (let i = 0; i < FAILURE_LOG_RETENTION_DAYS; i++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = `${FAILURE_LOG_PREFIX}:${d.toISOString().slice(0, 10)}`;
+    deletes.push(env.EV_HISTORY.delete(key));
+  }
+  await Promise.all(deletes);
 }
 
 async function getPendingSnapshotRetryState(env) {

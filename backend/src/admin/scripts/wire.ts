@@ -23,6 +23,7 @@ function wire(){
   $('opsListBtn').onclick=()=>opsListBackups(); $('opsRunBtn').onclick=opsRunBackup;
   $('healthRefreshBtn').onclick=()=>loadHealthOverview();
   if($('failureRefreshBtn'))$('failureRefreshBtn').onclick=()=>loadFailureLogs();
+  if($('failureClearBtn'))$('failureClearBtn').onclick=(ev)=>clearFailureLogs(ev.currentTarget);
   if($('failureDays'))$('failureDays').onchange=()=>loadFailureLogs({quiet:true});
   $('editorModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='editorModalWrap')closeModal();}); $('captureModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='captureModalWrap')closeCaptureModal();}); $('sessCfgModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='sessCfgModalWrap')closeSessionCfgModal();});
 }

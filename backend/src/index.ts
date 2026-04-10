@@ -1065,7 +1065,8 @@ async function runMarketManualRetry(actionRaw: string, config: RuntimeConfig): P
     "cache-current-league",
     "cache-current-market",
     "cache-standard-market",
-    "cache-all"
+    "cache-all",
+    "clear-failure-logs"
   ]);
   if (!allowed.has(action)) throw new Error(`manual_retry_invalid_action:${action}`);
   const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=ManualRetry&action=${encodeURIComponent(action)}`;

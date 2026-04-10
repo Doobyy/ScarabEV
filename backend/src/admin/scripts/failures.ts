@@ -85,6 +85,40 @@ async function loadFailureLogs(opts){
   }
 }
 
+async function clearFailureLogs(buttonEl){
+  if(state.manualRetryBusy)return false;
+  const confirmed=window.confirm('Clear failure logs for the last 30 days?');
+  if(!confirmed)return false;
+  state.manualRetryBusy=true;
+  setManualRetryBusy(buttonEl,true,'Clear logs');
+  status('failureStatus','Clearing failure logs...','warn');
+  try{
+    const r=await api('/admin/ops/retry',{
+      method:'POST',
+      body:JSON.stringify({action:'clear-failure-logs'})
+    });
+    if(r.res.status!==200||!r.json||!r.json.ok){
+      status('failureStatus','Failed to clear logs: '+formatApiFailure(r.res,r.json,r.text),'err');
+      return false;
+    }
+    state.failureLogs=[];
+    renderFailureLogs([]);
+    const metaEl=$('failureMeta');
+    if(metaEl)metaEl.textContent='Window 30d | Events 0';
+    status('failureStatus','Failure logs cleared.','ok');
+    if(typeof loadHealthOverview==='function'){
+      await loadHealthOverview({quiet:true});
+    }
+    return true;
+  }catch(e){
+    status('failureStatus','Failed to clear logs: '+formatThrownError(e),'err');
+    return false;
+  }finally{
+    state.manualRetryBusy=false;
+    setManualRetryBusy(buttonEl,false,'Clear logs');
+  }
+}
+
 async function runManualRetryAction(action,label,buttonEl){
   const target=String(action||'').trim().toLowerCase();
   if(!target)return false;
