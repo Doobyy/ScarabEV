@@ -621,10 +621,20 @@ function healthCard(id,title,level,detail,meta,checks,debug){
   const hasMore=(Array.isArray(checks)&&checks.length)||(Array.isArray(debug)&&debug.length);
   const moreId=id+'-more';
   const isOpen=!!(state.healthOpenCards&&state.healthOpenCards[id]);
+  const actions=(()=>{
+    if(id==='healthSnapshot'){
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('snapshot-retry','Snapshot retry')\">Retry Snapshot</button>";
+    }
+    if(id==='healthWorker'){
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-all','Cache refresh')\">Refresh Caches</button>";
+    }
+    return '';
+  })();
   return '<div class="health-card'+(isOpen?' open':'')+'" id="'+id+'" data-health-id="'+id+'">'
     +'<div class="health-head">'
       +'<div class="h">'+title+'</div>'
       +'<div class="health-head-right">'
+        +actions
         +'<button class="health-drag-handle" type="button" draggable="true" data-health-drag-id="'+id+'" aria-label="Drag to reorder">::</button>'
         +healthBadge(level)
         +(hasMore?'<button class="health-expand-btn" type="button" onclick="toggleHealthCard(event,\''+id+'\')" aria-controls="'+moreId+'" aria-label="Toggle details">&#9656;</button>':'')

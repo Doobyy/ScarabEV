@@ -22,8 +22,6 @@ function wire(){
   $('recombMcRunBtn').onclick=runRecombMonteCarlo;
   $('opsListBtn').onclick=()=>opsListBackups(); $('opsRunBtn').onclick=opsRunBackup;
   $('healthRefreshBtn').onclick=()=>loadHealthOverview();
-  if($('retrySnapshotBtn'))$('retrySnapshotBtn').onclick=()=>runManualRetryAction('snapshot-retry','Snapshot retry');
-  if($('refreshCachesBtn'))$('refreshCachesBtn').onclick=()=>runManualRetryAction('cache-all','Cache refresh');
   if($('failureRefreshBtn'))$('failureRefreshBtn').onclick=()=>loadFailureLogs();
   if($('failureDays'))$('failureDays').onchange=()=>loadFailureLogs({quiet:true});
   $('editorModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='editorModalWrap')closeModal();}); $('captureModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='captureModalWrap')closeCaptureModal();}); $('sessCfgModalWrap').addEventListener('click',(ev)=>{if(ev.target.id==='sessCfgModalWrap')closeSessionCfgModal();});
