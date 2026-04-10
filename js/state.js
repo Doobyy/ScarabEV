@@ -41,8 +41,10 @@ export const state = {
   _evChartInstance: null,
   _evHistoryRaw: null,
   _evWeightedSeriesCache: null,
+  _evChartRange: '30d',   // '7d' | '30d' | '90d'
   _atlasTrendPreviewChart: null,
   _atlasTrendHistoryRaw: null,
+  _atlasTrendRange: '30d', // '7d' | '30d' | '90d'
   _scarabMetaByName: null,
   _scarabMetaLoaded: false,
 

@@ -8,6 +8,7 @@ import { ADMIN_SESSIONS_SCRIPT } from "./scripts/sessions.js";
 import { ADMIN_SESSION_INTEL_SCRIPT } from "./scripts/sessionIntel.js";
 import { ADMIN_TOKENS_SCRIPT } from "./scripts/tokens.js";
 import { ADMIN_REGEX_SCRIPT } from "./scripts/regex.js";
+import { ADMIN_RECOMB_SCRIPT } from "./scripts/recomb.js";
 import { ADMIN_OPS_SCRIPT } from "./scripts/ops.js";
 import { ADMIN_HEALTH_SCRIPT } from "./scripts/health.js";
 import { ADMIN_WIRE_SCRIPT } from "./scripts/wire.js";
@@ -21,6 +22,7 @@ const ADMIN_UI_SCRIPT = [
   ADMIN_SESSION_INTEL_SCRIPT,
   ADMIN_TOKENS_SCRIPT,
   ADMIN_REGEX_SCRIPT,
+  ADMIN_RECOMB_SCRIPT,
   ADMIN_OPS_SCRIPT,
   ADMIN_HEALTH_SCRIPT,
   ADMIN_WIRE_SCRIPT

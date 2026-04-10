@@ -3,7 +3,7 @@ export function buildAdminMarkup(): string {
 <header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><div><div class="title">ScarabEV Admin Plane</div><div id="panelTitle" class="sub">Scarab Manager | Staging-first control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
 <section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" autocomplete="username" placeholder="Username"/><input id="password" type="password" autocomplete="current-password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
 <section id="app" class="shell hidden">
-  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button></aside>
+  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button></aside>
   <div id="navBackdrop" class="nav-backdrop"></div>
   <main class="content">
     <section id="panel-scarab" class="panel">
@@ -130,6 +130,61 @@ export function buildAdminMarkup(): string {
           <div class="syntax-op"><span class="mono">\S</span><span>One non-space char.</span><span><span class="mono">\S+</span><span class="op-outcome"> -> "hello"</span></span><span><span class="mono">\S+</span><span class="op-outcome"> -> "   "</span></span></div>
           <div class="syntax-op"><span class="mono">(?=...)</span><span>Next text must exist, but is not consumed.</span><span><span class="mono">scarab(?= of)</span><span class="op-outcome"> -> "scarab of"</span></span><span><span class="mono">scarab(?= of)</span><span class="op-outcome"> -> "scarab in"</span></span></div>
         </div>
+      </div>
+    </section>
+    <section id="panel-recomb" class="panel">
+      <div class="card recomb-card">
+        <div class="h">Recombinator Lab</div>
+        <div class="sub">In-game style bench: one item on the left, one on the right, recombine into a middle result. Use <b>Simple</b> mode for direct recombine intuition, or <b>Weighted</b> mode to prioritize selected affixes.</div>
+        <div class="grid3 recomb-top-controls">
+          <div><div class="sub">Recomb Mode</div><select id="recombMode"><option value="simple" selected>Simple</option><option value="weighted">Weighted (Select Affixes)</option></select></div>
+          <div><div class="sub">Engine Profile</div><select id="recombEngine"><option value="new" selected>New (3.25+)</option><option value="legacy">Legacy (approx)</option></select></div>
+          <div><div class="sub">Legacy Boost (%)</div><input id="recombLegacyBoost" type="number" min="0" max="25" value="2"/></div>
+        </div>
+        <div class="grid3 recomb-item-head">
+          <div><div class="sub">Left Base</div><input id="recombLeftBase" placeholder="e.g. Titanium Spirit Shield"/></div>
+          <div><div class="sub">Middle</div><div class="sub mono recomb-mid-label">RECOMBINED RESULT</div></div>
+          <div><div class="sub">Right Base</div><input id="recombRightBase" placeholder="e.g. Titanium Spirit Shield"/></div>
+        </div>
+        <div class="grid3 recomb-visual-row">
+          <div id="recombVisualLeft" class="recomb-item-card"></div>
+          <div id="recombVisualMid" class="recomb-item-card recomb-item-card-mid"></div>
+          <div id="recombVisualRight" class="recomb-item-card"></div>
+        </div>
+        <div id="recombSheetRows" class="recomb-sheet-wrap"></div>
+        <div class="toolbar recomb-actions"><button id="recombRunBtn" class="btn" type="button">Recombine (Estimate)</button></div>
+        <div id="recombMetrics" class="kpi"></div>
+        <div class="grid2 recomb-results">
+          <div class="list recomb-list"><div id="recombPrefixDist"></div></div>
+          <div class="list recomb-list"><div id="recombSuffixDist"></div></div>
+        </div>
+        <div id="recombStatus" class="status">Ready. Enter left/right item mods and run recombine.</div>
+      </div>
+      <div class="card recomb-card">
+        <div class="h">Exclusive + Fill-Order Monte Carlo</div>
+        <div class="sub">Experimental side-order simulation with exclusive pruning across both pools. Use this for edge-case intuition, not exact GGG odds.</div>
+        <div class="grid3">
+          <div><div class="sub">Mode</div><select id="recombMcMode"><option value="new" selected>New (3.25+)</option><option value="legacy">Legacy (approx)</option></select></div>
+          <div><div class="sub">Fill Order</div><select id="recombMcOrder"><option value="50" selected>50 / 50</option><option value="prefix">Prefix First</option><option value="suffix">Suffix First</option></select></div>
+          <div><div class="sub">Trials</div><input id="recombMcTrials" type="number" min="100" max="200000" value="15000"/></div>
+        </div>
+        <div class="grid3">
+          <div><div class="sub">Prefix Natural Count</div><input id="recombMcPrefixNatural" type="number" min="0" max="6" value="3"/></div>
+          <div><div class="sub">Prefix Exclusive Count</div><input id="recombMcPrefixExclusive" type="number" min="0" max="6" value="1"/></div>
+          <div><div class="sub">Desired Prefix Naturals</div><input id="recombMcDesiredPrefixNatural" type="number" min="0" max="6" value="1"/></div>
+        </div>
+        <div class="grid3">
+          <div><div class="sub">Suffix Natural Count</div><input id="recombMcSuffixNatural" type="number" min="0" max="6" value="3"/></div>
+          <div><div class="sub">Suffix Exclusive Count</div><input id="recombMcSuffixExclusive" type="number" min="0" max="6" value="1"/></div>
+          <div><div class="sub">Desired Suffix Naturals</div><input id="recombMcDesiredSuffixNatural" type="number" min="0" max="6" value="1"/></div>
+        </div>
+        <div class="toolbar recomb-actions"><button id="recombMcRunBtn" class="btn" type="button">Run Monte Carlo</button></div>
+        <div class="list recomb-list"><div id="recombMcResults"></div></div>
+        <div class="grid2 recomb-results">
+          <div class="list recomb-list"><div id="recombMcBucketsRolled"></div></div>
+          <div class="list recomb-list"><div id="recombMcBucketsSelected"></div></div>
+        </div>
+        <div id="recombMcStatus" class="status">Ready. Configure pools and run simulation.</div>
       </div>
     </section>
     <section id="panel-health" class="panel active">

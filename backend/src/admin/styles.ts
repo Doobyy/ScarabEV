@@ -73,6 +73,28 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:none;font-size:12px}
 .modal-wrap{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(1,6,14,.68);z-index:60}.modal-wrap.open{display:flex}.modal{width:min(920px,96vw);max-height:92vh;overflow:auto;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:12px;display:grid;gap:10px;box-shadow:var(--shadow)}.modal-head{display:flex;justify-content:space-between;align-items:center}
 .regex-card{max-width:980px}
+.recomb-card{max-width:1100px}
+.recomb-actions{height:100%;align-items:flex-end}
+.recomb-results{align-items:start}
+.recomb-list{height:auto;min-height:0;max-height:none;overflow:visible}
+.recomb-list table{font-size:12px}
+.recomb-list th,.recomb-list td{padding:6px}
+.recomb-top-controls{align-items:end}
+.recomb-item-head{align-items:end}
+.recomb-mid-label{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 9px;text-align:center}
+.recomb-visual-row{align-items:start}
+.recomb-item-card{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px;display:grid;gap:6px;min-height:140px}
+.recomb-item-card-mid{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent) inset}
+.recomb-base{font-weight:700;color:var(--heading)}
+.recomb-lines{display:grid;gap:3px}
+.recomb-line{display:grid;grid-template-columns:18px 1fr;gap:6px;font-size:12px}
+.recomb-k{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-soft);border-radius:4px;background:var(--card);color:var(--heading);font-size:10px}
+.recomb-sheet-wrap{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px;overflow:auto}
+.recomb-sheet{width:100%;min-width:900px;border-collapse:collapse}
+.recomb-sheet th,.recomb-sheet td{padding:6px;border-bottom:1px solid var(--line-soft)}
+.recomb-sheet th{background:var(--card);color:var(--heading);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.recomb-sheet input,.recomb-sheet select{height:28px;padding:3px 6px;font-size:12px}
+.recomb-sheet td:nth-child(1),.recomb-sheet td:nth-child(2),.recomb-sheet td:nth-child(8),.recomb-sheet td:nth-child(9){text-align:center}
 .syntax-guide{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;display:grid;gap:4px;line-height:1.3}
 .syntax-guide .sub{line-height:1.3}
 .syntax-guide .sub b{margin:0}

@@ -643,12 +643,37 @@ body {
 }
 .threshold-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
 .threshold-left { display: flex; align-items: center; gap: 10px; }
+.threshold-left .threshold-data-frame + .threshold-ev-pill-wrap,
+.threshold-left .threshold-data-frame + .threshold-ev-pill-wrap + .ev-mode-desktop {
+  margin-left: -4px !important;
+}
 .threshold-right { display: flex; align-items: center; gap: 10px; }
 .threshold-hint { font-size: 11px; color: var(--text-3); font-weight: 600; }
 .threshold-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
 .threshold-label-mobile { display: none; }
-.threshold-value { font-size: 18px; font-weight: 700; color: var(--chaos); font-variant-numeric: tabular-nums; min-width: 48px; }
-.threshold-mode { font-size: 11px; color: var(--text-3); }
+.threshold-data-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 35%, transparent);
+}
+.threshold-value-frame { min-width: 62px; }
+.threshold-roi-frame { min-width: 78px; }
+.threshold-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--chaos);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: center;
+  line-height: 1;
+  display: block;
+}
+.threshold-mode { display: none; font-size: 11px; color: var(--text-3); }
 .threshold-roi { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .threshold-roi.roi-good { color: var(--green); }
 .threshold-roi.roi-warn { color: var(--amber); }
@@ -911,6 +936,44 @@ body.graph-palette-ruby {
 .ev-chart-legend-dot.harmonic { background: var(--text-2); }
 .ev-chart-legend-dot.weighted { background: var(--chaos); }
 .ev-chart-body { padding: 12px 16px; }
+.ev-chart-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.ev-chart-range-micro {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.ev-range-micro-btn {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  min-width: 26px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0.62;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s;
+}
+.ev-range-micro-btn:hover {
+  color: color-mix(in srgb, var(--text-2) 85%, var(--text-3) 15%);
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border) 76%);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  opacity: 0.8;
+}
+.ev-range-micro-btn.active {
+  color: color-mix(in srgb, var(--text-2) 90%, var(--text-3) 10%);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border) 74%);
+  opacity: 0.95;
+}
 .ev-chart-panel.collapsed .ev-chart-body { display: none; }
 .ev-chart-panel.collapsed .estimator-chevron { transform: rotate(-90deg); }
 
@@ -2125,6 +2188,13 @@ body.graph-palette-ruby {
 .atlas-trend-preview.collapsed .atlas-trend-preview-body { display: none; }
 .atlas-trend-preview.collapsed .estimator-chevron { transform: rotate(-90deg); }
 .atlas-trend-preview-hint { font-size: 11px; color: var(--text-3); margin-top: 6px; }
+.atlas-trend-preview-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
 .atlas-note {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 14px; font-size: 11px; color: var(--text-3); line-height: 1.6;
@@ -2614,6 +2684,9 @@ body.graph-palette-ruby {
     white-space: nowrap;
   }
   .threshold-right .threshold-roi { font-size: 12px; }
+  .threshold-data-frame { padding: 2px 6px; }
+  .threshold-value-frame { min-width: 56px; }
+  .threshold-roi-frame { min-width: 72px; }
 
 
   /* -- SCARAB NAMES: last-word display on mobile -- */
@@ -2664,6 +2737,11 @@ body.graph-palette-ruby {
   .regex-body,
   .ev-chart-body,
   .estimator-body { padding: 10px 12px; }
+
+  .ev-chart-footer { gap: 6px; }
+  .ev-chart-range-micro { gap: 3px; }
+  .ev-range-micro-btn { font-size: 7px; padding: 0 3px; border-radius: 5px; min-width: 24px; height: 15px; }
+  .atlas-trend-preview-footer { gap: 6px; }
 
   .estimator-header > div { padding-left: 8px !important; gap: 6px !important; flex-wrap: wrap; }
   .info-bar-import { font-size: 10px; padding: 4px 8px; }
@@ -2787,22 +2865,22 @@ body.graph-palette-ruby {
         <div class="threshold-left">
           <span class="threshold-label threshold-label-desktop">Vendor Threshold</span>
           <span class="threshold-label threshold-label-mobile">Threshold</span>
-          <span class="threshold-value" id="sliderValueDisplay">&mdash;</span>
+          <span class="threshold-data-frame threshold-value-frame"><span class="threshold-value" id="sliderValueDisplay">&mdash;</span></span>
           <span class="threshold-mode" id="thresholdModeLabel">auto EV</span>
-          <div class="threshold-ev-pill-wrap" style="margin-left:6px;display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div class="threshold-ev-pill-wrap" style="margin-left:2px;display:flex;align-items:center;gap:6px;flex-shrink:0">
             <button id="evModePill" onclick="toggleEVMode()" title="Switch between Harmonic and Weighted EV"
               style="position:relative;width:36px;height:20px;border-radius:10px;border:none;background:var(--chaos);cursor:pointer;transition:background 0.2s;flex-shrink:0;padding:0">
               <span id="evModePillThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;display:block"></span>
             </button>
           </div>
-          <div class="view-toggle ev-mode-desktop" style="margin-left:6px">
+          <div class="view-toggle ev-mode-desktop" style="margin-left:2px">
             <button id="evModeHarmonic" class="active" onclick="setEVMode('harmonic')">Harmonic EV</button>
             <button id="evModeWeighted" onclick="setEVMode('weighted')">Weighted EV</button>
           </div>
         </div>
         <div class="threshold-right">
           <span class="threshold-hint" id="sliderHint" style="display:none"></span>
-          <span class="threshold-roi" id="sliderROI"></span>
+          <span class="threshold-data-frame threshold-roi-frame"><span class="threshold-roi" id="sliderROI"></span></span>
           <button class="ev-clear-btn" id="sliderResetBtn" style="display:none" onclick="resetSlider()">Reset to auto EV</button>
         </div>
       </div>
@@ -2844,7 +2922,14 @@ body.graph-palette-ruby {
         <div style="position:relative;width:100%;height:140px">
           <canvas id="evHistoryChart"></canvas>
         </div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px" id="evSnapshotTimeLabel">Daily EV snapshot at 18:00 UTC</div>
+        <div class="ev-chart-footer">
+          <div style="font-size:11px;color:var(--text-3)" id="evSnapshotTimeLabel">Daily EV snapshot at 18:00 UTC</div>
+          <div class="ev-chart-range-micro" role="group" aria-label="EV chart date range">
+            <button type="button" class="ev-range-micro-btn ev-range-option" data-range="7d" onclick="setEVChartRange('7d', event)" aria-pressed="false">7D</button>
+            <button type="button" class="ev-range-micro-btn ev-range-option active" data-range="30d" onclick="setEVChartRange('30d', event)" aria-pressed="true">30D</button>
+            <button type="button" class="ev-range-micro-btn ev-range-option" data-range="90d" onclick="setEVChartRange('90d', event)" aria-pressed="false">90D</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3373,7 +3458,14 @@ body.graph-palette-ruby {
         <canvas id="atlasTrendPreviewChart" aria-label="Atlas EV trend preview"></canvas>
         <div class="atlas-trend-preview-empty" id="atlasTrendPreviewEmpty" hidden>No Atlas EV history snapshots yet.</div>
       </div>
-      <div class="atlas-trend-preview-hint">Sharp spikes mark periods where farming scarabs is especially profitable.</div>
+      <div class="atlas-trend-preview-footer">
+        <div class="atlas-trend-preview-hint">Sharp spikes mark periods where farming scarabs is especially profitable.</div>
+        <div class="ev-chart-range-micro" role="group" aria-label="Atlas trend date range">
+          <button type="button" class="ev-range-micro-btn atlas-range-option" data-range="7d" onclick="setAtlasTrendRange('7d', event)" aria-pressed="false">7D</button>
+          <button type="button" class="ev-range-micro-btn atlas-range-option active" data-range="30d" onclick="setAtlasTrendRange('30d', event)" aria-pressed="true">30D</button>
+          <button type="button" class="ev-range-micro-btn atlas-range-option" data-range="90d" onclick="setAtlasTrendRange('90d', event)" aria-pressed="false">90D</button>
+        </div>
+      </div>
       </div>
     </div>
 

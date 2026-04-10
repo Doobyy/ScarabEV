@@ -62,8 +62,8 @@ function toggleTheme(){const dark=document.documentElement.getAttribute('data-th
 
 function switchPanel(name){
   state.activePanel=name;
-  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',regex:'Regex Lab'};
-  ['scarab','sessions','health','regex'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
+  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',regex:'Regex Lab',recomb:'Recombinator Lab'};
+  ['scarab','sessions','health','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
   document.querySelectorAll('.navbtn').forEach((b)=>b.classList.toggle('active',b.dataset.panel===name));
   $('panelTitle').textContent=(labels[name]||'Dashboard')+' | Staging-first control plane';
   closeMobileNav();

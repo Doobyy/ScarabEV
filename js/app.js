@@ -42,6 +42,13 @@ import {
 // multiple scarabs), fall back to last two meaningful words.
 const _SCARAB_STOP = new Set(['scarab','of','the','a','an']);
 const DAILY_SNAPSHOT_UTC_HOUR = 18;
+const EV_CHART_RANGE_STORAGE_KEY = 'poepool28v2-ev-chart-range';
+const ATLAS_TREND_RANGE_STORAGE_KEY = 'poepool28v2-atlas-trend-range';
+const EV_CHART_RANGE_TO_DAYS = Object.freeze({
+  '7d': 7,
+  '30d': 30,
+  '90d': 90
+});
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 let _scarabMetaTooltipBound = false;
 let _scarabMetaTooltipEl = null;
@@ -692,6 +699,14 @@ if (result.regex) {
 
 
 try { const o = localStorage.getItem('poepool28v2-ninja-evoverride'); if (o) state.ninjaEvOverride = parseFloat(o); } catch(e) {}
+try {
+  const savedEvChartRange = String(localStorage.getItem(EV_CHART_RANGE_STORAGE_KEY) || '').toLowerCase();
+  if (EV_CHART_RANGE_TO_DAYS[savedEvChartRange]) state._evChartRange = savedEvChartRange;
+} catch (e) {}
+try {
+  const savedAtlasTrendRange = String(localStorage.getItem(ATLAS_TREND_RANGE_STORAGE_KEY) || '').toLowerCase();
+  if (EV_CHART_RANGE_TO_DAYS[savedAtlasTrendRange]) state._atlasTrendRange = savedAtlasTrendRange;
+} catch (e) {}
 
 // items[i].id  ? name + image URL
 configureScarabEngine({
@@ -1841,6 +1856,36 @@ function toggleEVChart() {
   document.getElementById('evChartPanel').classList.toggle('collapsed');
 }
 
+function getEVChartWindowDays() {
+  const key = String(state._evChartRange || '30d').toLowerCase();
+  return EV_CHART_RANGE_TO_DAYS[key] || EV_CHART_RANGE_TO_DAYS['30d'];
+}
+
+function syncEVChartRangeControls() {
+  const current = String(state._evChartRange || '30d').toLowerCase();
+  const controls = document.querySelectorAll('.ev-range-option[data-range]');
+  controls.forEach((btn) => {
+    const range = String(btn.getAttribute('data-range') || '').toLowerCase();
+    const isActive = range === current;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    btn.hidden = false;
+    btn.tabIndex = 0;
+  });
+}
+
+function setEVChartRange(range, ev) {
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+  if (ev && ev.currentTarget && typeof ev.currentTarget.blur === 'function') ev.currentTarget.blur();
+  const normalized = String(range || '').toLowerCase();
+  if (!EV_CHART_RANGE_TO_DAYS[normalized]) return;
+  state._evChartRange = normalized;
+  try { localStorage.setItem(EV_CHART_RANGE_STORAGE_KEY, normalized); } catch (e) {}
+  syncEVChartRangeControls();
+  if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
+  else fetchAndRenderEVChart();
+}
+
 function toggleAtlasTrendPreview() {
   const panel = document.getElementById('atlasTrendPreview');
   if (!panel) return;
@@ -1881,6 +1926,34 @@ function showAtlasTrendPreviewChart() {
   if (empty) empty.hidden = true;
 }
 
+function getAtlasTrendWindowDays() {
+  const key = String(state._atlasTrendRange || '30d').toLowerCase();
+  return EV_CHART_RANGE_TO_DAYS[key] || EV_CHART_RANGE_TO_DAYS['30d'];
+}
+
+function syncAtlasTrendRangeControls() {
+  const current = String(state._atlasTrendRange || '30d').toLowerCase();
+  const controls = document.querySelectorAll('.atlas-range-option[data-range]');
+  controls.forEach((btn) => {
+    const range = String(btn.getAttribute('data-range') || '').toLowerCase();
+    const isActive = range === current;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+}
+
+function setAtlasTrendRange(range, ev) {
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+  if (ev && ev.currentTarget && typeof ev.currentTarget.blur === 'function') ev.currentTarget.blur();
+  const normalized = String(range || '').toLowerCase();
+  if (!EV_CHART_RANGE_TO_DAYS[normalized]) return;
+  state._atlasTrendRange = normalized;
+  try { localStorage.setItem(ATLAS_TREND_RANGE_STORAGE_KEY, normalized); } catch (e) {}
+  syncAtlasTrendRangeControls();
+  if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
+  else fetchAndRenderAtlasTrendPreview();
+}
+
 async function fetchAndRenderAtlasTrendPreview() {
   const requestId = (Number(state._atlasTrendFetchSeq) || 0) + 1;
   state._atlasTrendFetchSeq = requestId;
@@ -1910,6 +1983,8 @@ async function fetchAndRenderAtlasTrendPreview() {
 
 function renderAtlasTrendPreview(history) {
   const canvas = document.getElementById('atlasTrendPreviewChart');
+  const windowDays = getAtlasTrendWindowDays();
+  syncAtlasTrendRangeControls();
   if (!canvas || typeof Chart === 'undefined') return;
 
   if (state._atlasTrendPreviewChart) {
@@ -1926,13 +2001,13 @@ function renderAtlasTrendPreview(history) {
         return !!d && Number.isFinite(baseline) && baseline > 0 && Number.isFinite(optimized) && optimized > 0;
       })
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      .slice(-90)
+      .slice(-windowDays)
     : [];
   const livePoint = buildLiveAtlasTrendPoint();
   if (livePoint) {
     series = series.filter((h) => String(h.date) !== livePoint.date);
     series.push(livePoint);
-    series = series.sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-90);
+    series = series.sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-windowDays);
   }
   if (series.length < 2) {
     setAtlasTrendPreviewEmpty('No Atlas EV history snapshots yet.');
@@ -2194,9 +2269,10 @@ function calcLiveWeightedThresholdFromCurrentPrices() {
 }
 
 function renderEVChart(history) {
-  const WINDOW_DAYS = 30;
+  const windowDays = getEVChartWindowDays();
   const EV_HISTORY_V2_START = '2026-04-02';
   const cutoffMs = Date.parse(`${EV_HISTORY_V2_START}T00:00:00Z`);
+  syncEVChartRangeControls();
   const getPositiveNumber = (value) => {
     if (value === null || value === undefined || value === '') return null;
     const n = Number(value);
@@ -2237,22 +2313,22 @@ function renderEVChart(history) {
     .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-WINDOW_DAYS);
+    .slice(-windowDays);
 
   let weightedSeries = raw
     .map(h => ({ date: toDateKey(h.date), ev: getPositiveNumber(h?.weightedEv) }))
     .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-WINDOW_DAYS);
+    .slice(-windowDays);
   if (weightedSeries.length >= 2) {
     state._evWeightedSeriesCache = weightedSeries.map((h) => ({ date: String(h.date), ev: Number(h.ev) }));
   } else if (Array.isArray(state._evWeightedSeriesCache) && state._evWeightedSeriesCache.length >= 2) {
-    weightedSeries = state._evWeightedSeriesCache
-      .map((h) => ({ date: toDateKey(h.date), ev: Number(h.ev), cached: true }))
-      .filter((h) => isOnOrAfterCutoff(h.date))
-      .filter((h) => !!h.date)
-      .slice(-WINDOW_DAYS);
+      weightedSeries = state._evWeightedSeriesCache
+        .map((h) => ({ date: toDateKey(h.date), ev: Number(h.ev), cached: true }))
+        .filter((h) => isOnOrAfterCutoff(h.date))
+        .filter((h) => !!h.date)
+        .slice(-windowDays);
   }
 
   if (state.ninjaLoaded) {
@@ -2261,13 +2337,13 @@ function renderEVChart(history) {
     if (liveHarmonic) {
       harmonicSeries = harmonicSeries.filter(h => h.date !== today);
       harmonicSeries.push({ date: today, ev: liveHarmonic, live: true });
-      harmonicSeries = harmonicSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-WINDOW_DAYS);
+      harmonicSeries = harmonicSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-windowDays);
     }
     const liveWeighted = calcLiveWeightedThresholdFromCurrentPrices();
     if (liveWeighted) {
       weightedSeries = weightedSeries.filter(h => h.date !== today);
       weightedSeries.push({ date: today, ev: liveWeighted, live: true });
-      weightedSeries = weightedSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-WINDOW_DAYS);
+      weightedSeries = weightedSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-windowDays);
     }
   }
 
@@ -2281,11 +2357,15 @@ function renderEVChart(history) {
   if (isDemo) {
     const demo = [];
     const evValues = [0.44,0.43,0.42,0.44,0.45,0.43,0.41,0.40,0.42,0.41,0.39,0.38,0.40,0.41,0.42,0.43,0.41,0.40,0.39,0.41,0.42,0.40,0.39,0.38,0.40,0.41,0.39,0.38,0.37,0.39];
+    const demoDays = Math.max(windowDays, 30);
     const now = new Date();
-    for (let i = evValues.length - 1; i >= 0; i--) {
+    for (let i = demoDays - 1; i >= 0; i--) {
+      const idx = demoDays - 1 - i;
+      const base = evValues[idx % evValues.length];
+      const drift = Math.sin(idx / 7) * 0.005;
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      demo.push({ date: toLocalDateKey(d), ev: evValues[evValues.length - 1 - i], demo: true });
+      demo.push({ date: toLocalDateKey(d), ev: Number((base + drift).toFixed(4)), demo: true });
     }
     dates = demo.map(d => d.date);
     harmonicSeries = demo.map(d => ({ date: d.date, ev: d.ev }));
@@ -5125,7 +5205,9 @@ exposeGlobals({
   calcEstimator,
   renderEstimator,
   toggleEVChart,
+  setEVChartRange,
   toggleAtlasTrendPreview,
+  setAtlasTrendRange,
   fetchAndRenderEVChart,
   renderEVChart,
   parseSnapCSV,
