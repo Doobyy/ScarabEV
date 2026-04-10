@@ -84,12 +84,22 @@ function buildPoePullChecks(card){
   const detail=String((card&&card.detail)||'-');
   const meta=String((card&&card.meta)||'-');
   const t=card&&card.telemetry?card.telemetry:{};
+  const currentMarketState=String(t.currentMarketState||'').toLowerCase();
+  const standardMarketState=String(t.standardMarketState||'').toLowerCase();
+  const currentMarketLast=t.currentMarketLastSuccessAt?formatAdminTime(t.currentMarketLastSuccessAt)+' ('+humanAge(msSince(t.currentMarketLastSuccessAt))+')':'not reported';
+  const standardMarketLast=t.standardMarketLastSuccessAt?formatAdminTime(t.standardMarketLastSuccessAt)+' ('+humanAge(msSince(t.standardMarketLastSuccessAt))+')':'not reported';
+  const currentMarketLevel=currentMarketState==='live'?'ok':(currentMarketState==='stale'?'warn':(currentMarketState==='error'?'err':'warn'));
+  const standardMarketLevel=standardMarketState==='live'?'ok':(standardMarketState==='stale'?'warn':(standardMarketState==='error'?'err':'warn'));
+  const currentMarketStatus=currentMarketState==='live'?'success':(currentMarketState==='stale'?'stale':(currentMarketState==='error'?'failed':'unknown'));
+  const standardMarketStatus=standardMarketState==='live'?'success':(standardMarketState==='stale'?'stale':(standardMarketState==='error'?'failed':'unknown'));
   const lastScarabSuccess=t.lastScarabSuccessAt?formatAdminTime(t.lastScarabSuccessAt)+' ('+humanAge(msSince(t.lastScarabSuccessAt))+')':'not reported';
   const lastCurrencySuccess=t.lastCurrencySuccessAt?formatAdminTime(t.lastCurrencySuccessAt)+' ('+humanAge(msSince(t.lastCurrencySuccessAt))+')':'not reported';
   const lastProbeText=t.probedAt?formatAdminTime(t.probedAt):'not reported';
   const divineRatio=(typeof t.divineRatio==='number'&&Number.isFinite(t.divineRatio)&&t.divineRatio>0)?(t.divineRatio.toFixed(2)+' chaos'):'not reported';
   const rows=[
     {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
+    {level:currentMarketLevel,label:'Current market cache',detail:currentMarketStatus+' | Last success '+currentMarketLast},
+    {level:standardMarketLevel,label:'Standard market cache',detail:standardMarketStatus+' | Last success '+standardMarketLast},
     {level:'ok',label:'Task',detail:'Pull scarab prices (`type=Scarab`).'},
     {level:'ok',label:'Configured cadence',detail:'Every 5 minutes.'},
     {level:'ok',label:'Last successful scarab pull',detail:lastScarabSuccess},
@@ -623,14 +633,14 @@ function healthCard(id,title,level,detail,meta,checks,debug){
   const isOpen=!!(state.healthOpenCards&&state.healthOpenCards[id]);
   const actions=(()=>{
     if(id==='healthSnapshot'){
-      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('snapshot-retry','Snapshot retry')\">Retry Snapshot</button>";
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('snapshot-retry','Snapshot retry',this)\">Retry Snapshot</button>";
     }
     if(id==='healthWorker'){
-      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-league','League cache refresh')\">Refresh League Cache</button>";
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-league','League cache refresh',this)\">Refresh League Cache</button>";
     }
     if(id==='healthPoeNinja'){
-      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-market','Current market refresh')\">Refresh Current Market</button>"
-        +"<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-standard-market','Standard market refresh')\">Refresh Standard Market</button>";
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-market','Current market refresh',this)\">Refresh Current</button>"
+        +"<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-standard-market','Standard market refresh',this)\">Refresh Standard</button>";
     }
     return '';
   })();
@@ -899,14 +909,33 @@ async function getMarketHealthBundle(){
     })();
 
     const pullStarted=performance.now();
-    const [scarabRes,currencyRes,snapshotRes]=await Promise.all([
+    const [scarabRes,currencyRes,snapshotRes,standardScarabRes]=await Promise.all([
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Scarab',{cache:'no-store'}),
       fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent(league)+'&type=Currency',{cache:'no-store'}),
-      fetch(MARKET_WORKER_URL+'?type=SnapshotStatus',{cache:'no-store'})
+      fetch(MARKET_WORKER_URL+'?type=SnapshotStatus',{cache:'no-store'}),
+      fetch(MARKET_WORKER_URL+'?league='+encodeURIComponent('Standard')+'&type=Scarab',{cache:'no-store'})
     ]);
     const pullTook=Math.round(performance.now()-pullStarted);
+    let scarab=null,currency=null,standardScarab=null;
     let snapshotData=null;
+    try{scarab=await scarabRes.json();}catch(e){}
+    try{currency=await currencyRes.json();}catch(e){}
+    try{standardScarab=await standardScarabRes.json();}catch(e){}
     try{snapshotData=await snapshotRes.json();}catch(e){}
+    const scarabMeta=scarab&&scarab._meta?scarab._meta:null;
+    const currencyMeta=currency&&currency._meta?currency._meta:null;
+    const standardScarabMeta=standardScarab&&standardScarab._meta?standardScarab._meta:null;
+    const currentMarketState=scarabRes.ok?(parseMetaState(scarabMeta)||'unknown'):'error';
+    const standardMarketState=standardScarabRes.ok?(parseMetaState(standardScarabMeta)||'unknown'):'error';
+    const marketStatusTelemetry={
+      currentMarketState,
+      currentMarketLastSuccessAt:(scarabMeta&&scarabMeta.lastSuccessAt)||null,
+      currentMarketHttpStatus:scarabRes.status,
+      standardMarketState,
+      standardMarketLastSuccessAt:(standardScarabMeta&&standardScarabMeta.lastSuccessAt)||null,
+      standardMarketHttpStatus:standardScarabRes.status
+    };
+    const withPoeTelemetry=(base)=>Object.assign({},base||{},marketStatusTelemetry);
     const snapshotStatus=String(snapshotData&&snapshotData.status||'').toLowerCase();
     const snapshotLevel=snapshotStatus==='success'?'ok':((snapshotStatus.includes('retry')||snapshotStatus==='partial')?'warn':(snapshotStatus?'err':'warn'));
     const snapshotCard=(snapshotRes.ok&&snapshotData&&snapshotData.ok)
@@ -948,17 +977,11 @@ async function getMarketHealthBundle(){
           level:ageLevel,
           detail:'Worker could not fetch fresh PoE.ninja data.',
           meta:'Last success '+ageTxt+' | Scarab '+scarabRes.status+' | Currency '+currencyRes.status+' | '+pullTook+'ms',
-          telemetry:{probedAt:probeIso,lastScarabSuccessAt:null,lastCurrencySuccessAt:null,divineRatio:null}
+          telemetry:withPoeTelemetry({probedAt:probeIso,lastScarabSuccessAt:null,lastCurrencySuccessAt:null,divineRatio:null})
         },
         snapshot:snapshotCard
       };
     }
-
-    let scarab=null,currency=null;
-    try{scarab=await scarabRes.json();}catch(e){}
-    try{currency=await currencyRes.json();}catch(e){}
-    const scarabMeta=scarab&&scarab._meta?scarab._meta:null;
-    const currencyMeta=currency&&currency._meta?currency._meta:null;
     const scarabState=parseMetaState(scarabMeta);
     const currencyState=parseMetaState(currencyMeta);
     const scarabAgeMs=parseMetaAgeMs(scarabMeta);
@@ -972,7 +995,7 @@ async function getMarketHealthBundle(){
     if(leagueState==='error'){
       return {
         marketWorker:{level:'err',detail:'Market worker cache is in error state.',meta:'Last success '+humanAge(leagueAgeMs)+' | '+took+'ms'},
-        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker reported error state for league lookup.'},
+        poePull:{level:'err',detail:'PoE.ninja pull validation failed.',meta:'Market worker reported error state for league lookup.',telemetry:withPoeTelemetry({probedAt:probeIso,lastScarabSuccessAt:null,lastCurrencySuccessAt:null,divineRatio:null})},
         snapshot:snapshotCard
       };
     }
@@ -984,12 +1007,12 @@ async function getMarketHealthBundle(){
           level:'err',
           detail:'Market worker reports market cache error.',
           meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms',
-          telemetry:{
+          telemetry:withPoeTelemetry({
             probedAt:probeIso,
             lastScarabSuccessAt:(scarabMeta&&scarabMeta.lastSuccessAt)||null,
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
-          }
+          })
         },
         snapshot:snapshotCard
       };
@@ -1001,12 +1024,12 @@ async function getMarketHealthBundle(){
           level:classifyPoePullAge(pullAgeMs),
           detail:'Serving stale market data cache.',
           meta:'Last success '+humanAge(pullAgeMs)+' | '+pullTook+'ms',
-          telemetry:{
+          telemetry:withPoeTelemetry({
             probedAt:probeIso,
             lastScarabSuccessAt:(scarabMeta&&scarabMeta.lastSuccessAt)||null,
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
-          }
+          })
         },
         snapshot:snapshotCard
       };
@@ -1029,12 +1052,12 @@ async function getMarketHealthBundle(){
           level:ageLevel,
           detail:'No scarab lines returned from latest PoE.ninja pull.',
           meta:'Last success '+ageTxt+' | League '+league+' | '+pullTook+'ms',
-          telemetry:{
+          telemetry:withPoeTelemetry({
             probedAt:probeIso,
             lastScarabSuccessAt:(scarabMeta&&scarabMeta.lastSuccessAt)||null,
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
-          }
+          })
         },
         snapshot:snapshotCard
       };
@@ -1048,12 +1071,12 @@ async function getMarketHealthBundle(){
           level:'warn',
           detail:'Scarab data loaded, but Divine Orb rate missing/invalid.',
           meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | '+pullTook+'ms',
-          telemetry:{
+          telemetry:withPoeTelemetry({
             probedAt:probeIso,
             lastScarabSuccessAt:(scarabMeta&&scarabMeta.lastSuccessAt)||null,
             lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
             divineRatio:null
-          }
+          })
         },
         snapshot:snapshotCard
       };
@@ -1066,12 +1089,12 @@ async function getMarketHealthBundle(){
         level:'ok',
         detail:'PoE.ninja scarab + currency pulls are healthy.',
         meta:'Last success '+humanAge(ageMs)+' | League '+league+' | Scarabs '+scarabLines.length+' | Divine '+divineValue.toFixed(2)+'c | '+pullTook+'ms',
-        telemetry:{
+        telemetry:withPoeTelemetry({
           probedAt:probeIso,
           lastScarabSuccessAt:(scarabMeta&&scarabMeta.lastSuccessAt)||null,
           lastCurrencySuccessAt:(currencyMeta&&currencyMeta.lastSuccessAt)||null,
           divineRatio:divineValue
-        }
+        })
       },
       snapshot:snapshotCard
     };

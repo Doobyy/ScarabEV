@@ -16,7 +16,7 @@ const state={
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
   captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,
   sessionDupes:[],sessionSignals:[],healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
-  failureLogsAutoLoaded:false,failureLogs:[]
+  failureLogsAutoLoaded:false,failureLogs:[],manualRetryBusy:false
 };
 
 const $=(id)=>document.getElementById(id);
@@ -32,7 +32,7 @@ function clipText(v,maxLen){
 function formatApiFailure(res,json,text){
   const statusCode=res&&typeof res.status==='number'?res.status:0;
   const jsonMsg=(json&&typeof json==='object')
-    ?(json.error||json.message||json.detail||json.reason||'')
+    ?(json.errorDetail||json.error||json.message||json.detail||json.reason||'')
     :'';
   const body=clipText(jsonMsg||text||'',180);
   return 'HTTP '+statusCode+(body?(': '+body):'');

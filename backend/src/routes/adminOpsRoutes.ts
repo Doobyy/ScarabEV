@@ -342,7 +342,7 @@ export async function handleOpsRoutes(
         jsonResponse(
           {
             ok: false,
-            error: "manual_retry_failed",
+            error: "manual_retry_unavailable",
             errorDetail: detail,
             requestId: context.requestId
           },
