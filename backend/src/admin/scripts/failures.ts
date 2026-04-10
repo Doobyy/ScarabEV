@@ -32,6 +32,87 @@ function failureFmtTime(value){
   try{return formatAdminTime(value);}catch(e){return String(value);} 
 }
 
+function failureGuidance(code,context){
+  const c=String(code||'').toLowerCase();
+  const stage=String((context&&context.stage)||'').toLowerCase();
+  if(c==='snapshot_weights_unavailable'){
+    return {
+      what:'Could not fetch weighted market inputs needed to compute EV.',
+      next:'Check aggregate/weights upstream availability, then retry snapshot.'
+    };
+  }
+  if(c==='snapshot_league_incomplete'){
+    return {
+      what:'Snapshot wrote only part of the required data for this league.',
+      next:'System will retry automatically; use manual retry if it remains incomplete.'
+    };
+  }
+  if(c==='snapshot_harmonic_unavailable'){
+    return {
+      what:'Harmonic EV could not be computed from the current data.',
+      next:'Verify scarab market payload quality and retry.'
+    };
+  }
+  if(c==='snapshot_weighted_unavailable'){
+    return {
+      what:'Weighted EV calculation failed for this attempt.',
+      next:'Check weighted inputs and retry snapshot.'
+    };
+  }
+  if(c==='snapshot_atlas_unavailable'){
+    return {
+      what:'Atlas EV metrics could not be calculated.',
+      next:'Validate atlas inputs/config and retry snapshot.'
+    };
+  }
+  if(c==='snapshot_no_scarab_lines'){
+    return {
+      what:'No scarab market lines were returned by upstream.',
+      next:'Wait for upstream market data to recover, then retry.'
+    };
+  }
+  if(c==='snapshot_retry_exhausted'){
+    return {
+      what:'Automatic retries reached the max attempts for today.',
+      next:'Run a manual retry after upstream data is healthy.'
+    };
+  }
+  if(c==='snapshot_retry_state_corrupt'){
+    return {
+      what:'Retry tracking state was invalid and was reset.',
+      next:'Run a manual retry to rebuild a clean retry state.'
+    };
+  }
+  if(c==='snapshot_retry_expired'){
+    return {
+      what:'Pending retry state was from a previous day and got expired.',
+      next:'Expected after date rollover; today will create fresh snapshot state.'
+    };
+  }
+  if(c==='manual_retry_failed'){
+    return {
+      what:'A manual retry action failed to complete.',
+      next:'Inspect error context and rerun the specific retry action.'
+    };
+  }
+  if(c==='snapshot_exception'){
+    return {
+      what:'Snapshot process hit an unexpected runtime error.',
+      next:'Inspect error details in context and retry after fixing root cause.'
+    };
+  }
+  if(stage==='fetch_weights'){
+    return {
+      what:'Weighted inputs fetch failed during the weights stage.',
+      next:'Check aggregate endpoint health and network/service bindings.'
+    };
+  }
+  return {
+    what:'The pipeline encountered an error for this step.',
+    next:'Use code + context to pinpoint root cause, then retry.'
+  };
+}
+
 function renderFailureLogs(events){
   const rowsEl=$('failureRows');
   if(!rowsEl)return;
@@ -45,13 +126,17 @@ function renderFailureLogs(events){
     const code=failureEsc((evt&&evt.code)||'unknown_error');
     const src=failureEsc((evt&&evt.source)||'market-worker');
     const msg=failureEsc((evt&&evt.message)||'');
+    const rawCtx=(evt&&evt.context&&typeof evt.context==='object')?evt.context:{};
+    const guide=failureGuidance((evt&&evt.code)||'',rawCtx);
+    const guideWhat=failureEsc(guide.what);
+    const guideNext=failureEsc(guide.next);
     let ctx='{}';
-    try{ctx=JSON.stringify((evt&&evt.context&&typeof evt.context==='object')?evt.context:{},null,0);}catch(e){ctx='{}';}
+    try{ctx=JSON.stringify(rawCtx,null,0);}catch(e){ctx='{}';}
     return '<tr>'
       +'<td class="mono">'+failureEsc(at)+'</td>'
       +'<td class="mono">'+code+'</td>'
       +'<td class="mono">'+src+'</td>'
-      +'<td>'+msg+'</td>'
+      +'<td><div>'+msg+'</div><div class="sub">What happened: '+guideWhat+'</div><div class="sub">Next step: '+guideNext+'</div></td>'
       +'<td class="mono">'+failureEsc(ctx)+'</td>'
       +'</tr>';
   }).join('');
