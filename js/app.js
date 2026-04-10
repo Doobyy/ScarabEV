@@ -2032,8 +2032,50 @@ function renderAtlasTrendPreview(history) {
   });
   const baseline = series.map((h) => Number(h.baselineEv));
   const optimized = series.map((h) => Number(h.optimizedEv));
-  const minY = Math.min(...baseline, ...optimized) - 0.08;
-  const maxY = Math.max(...baseline, ...optimized) + 0.08;
+  const allY = [...baseline, ...optimized].filter((v) => Number.isFinite(v));
+  const niceNum = (range, round) => {
+    const safeRange = Math.max(Math.abs(Number(range) || 0), 1e-9);
+    const exponent = Math.floor(Math.log10(safeRange));
+    const fraction = safeRange / Math.pow(10, exponent);
+    let niceFraction;
+    if (round) {
+      if (fraction < 1.5) niceFraction = 1;
+      else if (fraction < 3) niceFraction = 2;
+      else if (fraction < 7) niceFraction = 5;
+      else niceFraction = 10;
+    } else {
+      if (fraction <= 1) niceFraction = 1;
+      else if (fraction <= 2) niceFraction = 2;
+      else if (fraction <= 5) niceFraction = 5;
+      else niceFraction = 10;
+    }
+    return niceFraction * Math.pow(10, exponent);
+  };
+  const buildNiceAxis = (values, targetTickCount = 6) => {
+    const valid = (Array.isArray(values) ? values : []).filter((v) => Number.isFinite(v));
+    if (!valid.length) return { min: 0, max: 1 };
+    let rawMin = Math.min(...valid);
+    let rawMax = Math.max(...valid);
+    if (!(rawMax > rawMin)) {
+      const bump = Math.max(Math.abs(rawMax) * 0.06, 0.01);
+      rawMin -= bump;
+      rawMax += bump;
+    }
+    const spread = Math.max(rawMax - rawMin, 1e-6);
+    const pad = spread * 0.14;
+    const paddedMin = rawMin - pad;
+    const paddedMax = rawMax + pad;
+    const niceRange = niceNum(paddedMax - paddedMin, false);
+    const niceStep = niceNum(niceRange / Math.max(2, targetTickCount - 1), true);
+    let niceMin = Math.floor(paddedMin / niceStep) * niceStep;
+    const niceMax = Math.ceil(paddedMax / niceStep) * niceStep;
+    if (rawMin >= 0 && niceMin < 0) niceMin = 0;
+    return {
+      min: Number(niceMin.toFixed(6)),
+      max: Number(niceMax.toFixed(6))
+    };
+  };
+  const yAxis = buildNiceAxis(allY, 6);
 
   state._atlasTrendPreviewChart = new Chart(canvas, {
     type: 'line',
@@ -2107,8 +2149,8 @@ function renderAtlasTrendPreview(history) {
           grid: { color: borderColor }
         },
         y: {
-          min: minY,
-          max: maxY,
+          min: yAxis.min,
+          max: yAxis.max,
           ticks: { color: tickColor, font: { size: 10 }, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 6 },
           grid: { color: borderColor }
         }
@@ -2312,23 +2354,20 @@ function renderEVChart(history) {
     .map(h => ({ date: toDateKey(h.date), ev: getPositiveNumber(h?.harmonicEv ?? h?.ev) }))
     .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-windowDays);
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   let weightedSeries = raw
     .map(h => ({ date: toDateKey(h.date), ev: getPositiveNumber(h?.weightedEv) }))
     .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-windowDays);
+    .sort((a, b) => a.date.localeCompare(b.date));
   if (weightedSeries.length >= 2) {
     state._evWeightedSeriesCache = weightedSeries.map((h) => ({ date: String(h.date), ev: Number(h.ev) }));
   } else if (Array.isArray(state._evWeightedSeriesCache) && state._evWeightedSeriesCache.length >= 2) {
       weightedSeries = state._evWeightedSeriesCache
         .map((h) => ({ date: toDateKey(h.date), ev: Number(h.ev), cached: true }))
         .filter((h) => isOnOrAfterCutoff(h.date))
-        .filter((h) => !!h.date)
-        .slice(-windowDays);
+        .filter((h) => !!h.date);
   }
 
   if (state.ninjaLoaded) {
@@ -2337,13 +2376,13 @@ function renderEVChart(history) {
     if (liveHarmonic) {
       harmonicSeries = harmonicSeries.filter(h => h.date !== today);
       harmonicSeries.push({ date: today, ev: liveHarmonic, live: true });
-      harmonicSeries = harmonicSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-windowDays);
+      harmonicSeries = harmonicSeries.sort((a, b) => a.date.localeCompare(b.date));
     }
     const liveWeighted = calcLiveWeightedThresholdFromCurrentPrices();
     if (liveWeighted) {
       weightedSeries = weightedSeries.filter(h => h.date !== today);
       weightedSeries.push({ date: today, ev: liveWeighted, live: true });
-      weightedSeries = weightedSeries.sort((a, b) => a.date.localeCompare(b.date)).slice(-windowDays);
+      weightedSeries = weightedSeries.sort((a, b) => a.date.localeCompare(b.date));
     }
   }
 
@@ -2352,6 +2391,7 @@ function renderEVChart(history) {
     ...weightedSeries.map(h => h.date)
   ]);
   let dates = [...dateSet].sort((a, b) => a.localeCompare(b));
+  dates = dates.slice(-windowDays);
 
   const isDemo = dates.length < 2;
   if (isDemo) {
@@ -2378,8 +2418,52 @@ function renderEVChart(history) {
   const harmonicValues = dates.map(date => harmonicByDate.has(date) ? Number(harmonicByDate.get(date)) : null);
   const weightedValues = dates.map(date => weightedByDate.has(date) ? Number(weightedByDate.get(date)) : null);
 
-  const harmonicNonNull = harmonicValues.filter(v => Number.isFinite(Number(v))).map(v => Number(v));
-  const weightedNonNull = weightedValues.filter(v => Number.isFinite(Number(v))).map(v => Number(v));
+  const harmonicNonNull = harmonicValues.filter(v => v !== null && Number.isFinite(v)).map(v => Number(v));
+  const weightedNonNull = weightedValues.filter(v => v !== null && Number.isFinite(v)).map(v => Number(v));
+  const allY = [...harmonicNonNull, ...weightedNonNull];
+  const niceNum = (range, round) => {
+    const safeRange = Math.max(Math.abs(Number(range) || 0), 1e-9);
+    const exponent = Math.floor(Math.log10(safeRange));
+    const fraction = safeRange / Math.pow(10, exponent);
+    let niceFraction;
+    if (round) {
+      if (fraction < 1.5) niceFraction = 1;
+      else if (fraction < 3) niceFraction = 2;
+      else if (fraction < 7) niceFraction = 5;
+      else niceFraction = 10;
+    } else {
+      if (fraction <= 1) niceFraction = 1;
+      else if (fraction <= 2) niceFraction = 2;
+      else if (fraction <= 5) niceFraction = 5;
+      else niceFraction = 10;
+    }
+    return niceFraction * Math.pow(10, exponent);
+  };
+  const buildNiceAxis = (values, targetTickCount = 6) => {
+    const valid = (Array.isArray(values) ? values : []).filter(v => Number.isFinite(v));
+    if (!valid.length) return { min: 0, max: 1 };
+    let rawMin = Math.min(...valid);
+    let rawMax = Math.max(...valid);
+    if (!(rawMax > rawMin)) {
+      const bump = Math.max(Math.abs(rawMax) * 0.06, 0.01);
+      rawMin -= bump;
+      rawMax += bump;
+    }
+    const spread = Math.max(rawMax - rawMin, 1e-6);
+    const pad = spread * 0.14;
+    const paddedMin = rawMin - pad;
+    const paddedMax = rawMax + pad;
+    const niceRange = niceNum(paddedMax - paddedMin, false);
+    const niceStep = niceNum(niceRange / Math.max(2, targetTickCount - 1), true);
+    let niceMin = Math.floor(paddedMin / niceStep) * niceStep;
+    const niceMax = Math.ceil(paddedMax / niceStep) * niceStep;
+    if (rawMin >= 0 && niceMin < 0) niceMin = 0;
+    return {
+      min: Number(niceMin.toFixed(6)),
+      max: Number(niceMax.toFixed(6))
+    };
+  };
+  const yAxis = buildNiceAxis(allY, 6);
   document.getElementById('evChartMeta').innerHTML = isDemo
     ? `<span style="color:var(--amber)">demo data \u2014 next real snapshot at ${getDailySnapshotLocalTimeLabel()}</span>`
     : '';
@@ -2468,8 +2552,8 @@ function renderEVChart(history) {
           grid: { color: gridColor }
         },
         y: {
-          min: Math.min(...harmonicNonNull, ...weightedNonNull) - 0.08,
-          max: Math.max(...harmonicNonNull, ...weightedNonNull) + 0.08,
+          min: yAxis.min,
+          max: yAxis.max,
           ticks: { font: { size: 10 }, color: textColor, callback: v => Number(v).toFixed(2) + 'c', maxTicksLimit: 6 },
           grid: { color: gridColor }
         }
