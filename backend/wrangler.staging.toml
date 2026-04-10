@@ -1,6 +1,7 @@
 name = "scarabev-backend-staging"
 main = "src/index.ts"
 compatibility_date = "2026-04-02"
+compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = true
 
 [vars]
