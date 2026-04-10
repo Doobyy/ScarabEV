@@ -644,12 +644,14 @@ async function snapshotLeagueForDate(env, league, today) {
       return { ok: false, error: "harmonic_unavailable" };
     }
 
-    const weights = await fetchObservedWeightsForLeague(league);
+    const weightResult = await fetchObservedWeightsForLeague(env, league);
+    const weights = weightResult && weightResult.weights;
     if (!weights || typeof weights !== "object" || !Object.keys(weights).length) {
       await logFailureEvent(env, "snapshot_weights_unavailable", "Snapshot failed: observed weights unavailable.", {
         league,
         date: today,
-        stage: "fetch_weights"
+        stage: "fetch_weights",
+        fetchError: String(weightResult?.error || "unknown")
       });
       return { ok: false, error: "weights_unavailable" };
     }
@@ -999,41 +1001,66 @@ async function readSnapshotStatusState(env, today, leagues) {
   return base;
 }
 
-async function fetchObservedWeightsForLeague(league) {
+async function fetchObservedWeightsForLeague(env, league) {
   const attempts = 3;
+  let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-    const url = `${AGGREGATE_API_URL}?league=${encodeURIComponent(league)}`;
-    const res = await fetchWithTimeout(url, {
-      headers: {
-        "User-Agent": "ScarabEV/1.1 (market-worker weighted snapshot)",
-        Accept: "application/json"
-      }
-    }, UPSTREAM_TIMEOUT_MS);
+    const res = await fetchAggregateForLeague(env, league);
     if (!res.ok) throw new Error(`aggregate_http_${res.status}`);
     const data = await res.json();
     const provided = data?.weights && typeof data.weights === "object" ? data.weights : null;
-    if (provided && Object.keys(provided).length > 0) return provided;
+    if (provided && Object.keys(provided).length > 0) return { weights: provided, error: null };
 
     const received = data?.receivedByScarab && typeof data.receivedByScarab === "object"
       ? data.receivedByScarab
       : null;
-    if (!received) return null;
+    if (!received) return { weights: null, error: "aggregate_missing_received" };
     const total = Object.values(received).reduce((sum, n) => sum + (Number(n) || 0), 0);
-    if (!Number.isFinite(total) || total <= 0) return null;
+    if (!Number.isFinite(total) || total <= 0) return { weights: null, error: "aggregate_received_total_zero" };
 
     const normalized = {};
     for (const [name, count] of Object.entries(received)) {
       const c = Number(count) || 0;
       if (c > 0) normalized[name] = c / total;
     }
-    return Object.keys(normalized).length ? normalized : null;
-    } catch (_e) {
+    return Object.keys(normalized).length ? { weights: normalized, error: null } : { weights: null, error: "aggregate_received_normalized_empty" };
+    } catch (e) {
+      lastError = String(e?.message || e || "weights_fetch_failed");
       if (attempt >= attempts) break;
       await new Promise((resolve) => setTimeout(resolve, attempt * 400));
     }
   }
-  return null;
+  return { weights: null, error: lastError || "weights_fetch_failed" };
+}
+
+async function fetchAggregateForLeague(env, league, userAgent = "ScarabEV/1.1 (market-worker weighted snapshot)") {
+  const init = {
+    headers: {
+      "User-Agent": userAgent,
+      Accept: "application/json"
+    }
+  };
+  const path = `/api/aggregate?league=${encodeURIComponent(league)}`;
+  if (env?.SCARABEV_API && typeof env.SCARABEV_API.fetch === "function") {
+    return fetchServiceWithTimeout(env.SCARABEV_API, `https://scarabev-api.internal${path}`, init, UPSTREAM_TIMEOUT_MS);
+  }
+  return fetchWithTimeout(`${AGGREGATE_API_URL}?league=${encodeURIComponent(league)}`, init, UPSTREAM_TIMEOUT_MS);
+}
+
+async function fetchServiceWithTimeout(serviceBinding, url, init = {}, timeoutMs = UPSTREAM_TIMEOUT_MS) {
+  const timeout = Math.max(250, Number(timeoutMs) || UPSTREAM_TIMEOUT_MS);
+  let timer = null;
+  try {
+    return await Promise.race([
+      serviceBinding.fetch(url, init),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("upstream_timeout")), timeout);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function calcWeightedThresholdEV(lines, weights) {
