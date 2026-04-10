@@ -190,6 +190,14 @@ function buildSnapshotChecks(card){
     {level:'ok',label:'Last attempt',detail:t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported'},
     {level:'ok',label:'Next retry',detail:t.nextRetryAt?formatAdminTime(t.nextRetryAt):'none scheduled'}
   ];
+  function snapshotFlagChip(label,ok){
+    return '<span class="snapshot-flag-chip '+(ok?'yes':'no')+'">'+escHtml(String(label||''))+' <b>'+(ok?'YES':'NO')+'</b></span>';
+  }
+  function snapshotStateChip(state){
+    const normalized=String(state||'unknown').toLowerCase();
+    const cls=normalized==='success'?'ok':(normalized==='retrying'?'warn':'err');
+    return '<span class="snapshot-state-chip '+cls+'">'+escHtml(normalized.toUpperCase())+'</span>';
+  }
   const leagues=(t.leagues&&typeof t.leagues==='object')?t.leagues:{};
   Object.keys(leagues).sort((a,b)=>a.localeCompare(b)).forEach((league)=>{
     const info=leagues[league]||{};
@@ -200,7 +208,14 @@ function buildSnapshotChecks(card){
     const line=state.toUpperCase()+' | '+writeSummary+err;
     const missing=(!writes.ev)||(!writes.atlas)||(!writes.price);
     const level=(state==='success'&&!missing)?'ok':(state==='retrying'?'warn':'err');
-    rows.push({level,label:'League '+league,detail:line});
+    const chips='<div class="snapshot-inline-row">'
+      +snapshotStateChip(state)
+      +snapshotFlagChip('EV',!!writes.ev)
+      +snapshotFlagChip('Atlas',!!writes.atlas)
+      +snapshotFlagChip('Price',!!writes.price)
+      +(info.lastError?('<span class="snapshot-error-chip">'+escHtml(String(info.lastError))+'</span>'):'')
+      +'</div>';
+    rows.push({level,label:'League '+league,detail:line,detailHtml:chips});
   });
   if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
   return rows;
@@ -374,7 +389,7 @@ function renderHealthChecks(checks){
       return '<div class="health-check health-check-'+lv+'">'
         +'<span class="health-check-icon">'+icon+'</span>'
         +'<span class="health-check-label">'+escHtml(String((c&&c.label)||'Check'))+'</span>'
-        +'<div class="health-check-detail"><span class="health-check-detail-text">'+escHtml(String((c&&c.detail)||''))+'</span>'+meterHtml+'</div>'
+        +'<div class="health-check-detail"><span class="health-check-detail-text">'+((c&&typeof c.detailHtml==='string')?c.detailHtml:escHtml(String((c&&c.detail)||'')))+'</span>'+meterHtml+'</div>'
       +'</div>';
     }).join('')
   +'</div>';
