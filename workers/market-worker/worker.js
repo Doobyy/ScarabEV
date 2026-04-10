@@ -452,12 +452,13 @@ async function handleSnapshotStatus(env) {
   const failedLeagues = Object.entries(leaguesMap)
     .filter(([, value]) => String(value?.state || "") === "failed")
     .map(([league]) => league);
+  const failedSet = new Set([...failedLeagues, ...incompleteLeagues]);
   const pendingLeagues = Array.isArray(sameDayRetry?.pendingLeagues)
     ? sameDayRetry.pendingLeagues.map((s) => String(s)).filter(Boolean)
-    : targetLeagues.filter((league) => !completedLeagues.includes(league) && !failedLeagues.includes(league));
+    : targetLeagues.filter((league) => String(leaguesMap?.[league]?.state || "") === "retrying" && !failedSet.has(league));
   const anyCompleted = completedLeagues.length > 0;
   const anyPending = pendingLeagues.length > 0;
-  const anyFailed = failedLeagues.length > 0 || incompleteLeagues.length > 0 || String(sameDayRetry?.status || "") === "failed";
+  const anyFailed = failedSet.size > 0 || String(sameDayRetry?.status || "") === "failed";
   let overallStatus = "idle";
   if (targetLeagues.length) {
     if (anyPending) overallStatus = anyCompleted ? "partial_retrying" : "retrying";
@@ -473,7 +474,7 @@ async function handleSnapshotStatus(env) {
     targetLeagues,
     completedLeagues,
     pendingLeagues,
-    failedLeagues: [...new Set([...failedLeagues, ...incompleteLeagues])],
+    failedLeagues: [...failedSet],
     incompleteLeagues,
     retryCount: Number(sameDayRetry?.retryCount || 0),
     nextRetryAt: sameDayRetry?.nextRetryAt || null,
