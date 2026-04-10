@@ -3,7 +3,7 @@ export function buildAdminMarkup(): string {
 <header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><div><div class="title">ScarabEV Admin Plane</div><div id="panelTitle" class="sub">Scarab Manager | Staging-first control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
 <section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" autocomplete="username" placeholder="Username"/><input id="password" type="password" autocomplete="current-password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
 <section id="app" class="shell hidden">
-  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button></aside>
+  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navFailures" class="navbtn" type="button" data-panel="failures">Failure Logs</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button></aside>
   <div id="navBackdrop" class="nav-backdrop"></div>
   <main class="content">
     <section id="panel-scarab" class="panel">
@@ -194,6 +194,16 @@ export function buildAdminMarkup(): string {
         <div class="toolbar"><button id="healthRefreshBtn" class="btn ghost" type="button">Refresh Health</button></div>
         <div id="healthGrid" class="health-grid"></div>
         <div id="healthStatus" class="status">Health checks run automatically on sign-in.</div>
+      </div>
+    </section>
+    <section id="panel-failures" class="panel">
+      <div class="card">
+        <div class="h">Failure Logs</div>
+        <div class="sub">30-day failure history from market worker snapshot/cache pipelines. Includes exact failure codes and context payloads.</div>
+        <div class="toolbar"><select id="failureDays"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option></select><button id="failureRefreshBtn" class="btn ghost" type="button">Refresh Logs</button></div>
+        <div class="list ops-list"><table><thead><tr><th style="width:150px">Time (PDT)</th><th style="width:120px">Code</th><th style="width:130px">Source</th><th>Message</th><th style="width:290px">Context</th></tr></thead><tbody id="failureRows"></tbody></table></div>
+        <div id="failureMeta" class="sub mono">No logs loaded.</div>
+        <div id="failureStatus" class="status">Open this tab to load failure history.</div>
       </div>
     </section>
   </main>

@@ -11,6 +11,10 @@ const SNAPSHOT_STATUS_KEY = `${CACHE_PREFIX}:snapshot-status`;
 const SNAPSHOT_INLINE_ATTEMPTS = 3;
 const SNAPSHOT_RETRY_DELAY_MS = 15 * 60 * 1000;
 const SNAPSHOT_RETRY_MAX_ATTEMPTS = 24;
+const REQUIRED_SNAPSHOT_WRITES = ["ev", "atlas", "price"];
+const FAILURE_LOG_PREFIX = `${CACHE_PREFIX}:failure-log`;
+const FAILURE_LOG_RETENTION_DAYS = 30;
+const FAILURE_LOG_MAX_EVENTS_PER_DAY = 500;
 
 const POLICY = {
   currentLeague: {
@@ -37,6 +41,7 @@ export default {
     const now = new Date(event?.scheduledTime || Date.now());
     const utcMinute = now.getUTCMinutes();
     if (cron === "0 18 * * *") {
+      ctx.waitUntil(pruneFailureLogs(env, now));
       ctx.waitUntil(runDailyEVSnapshot(env));
       return;
     }
@@ -63,6 +68,7 @@ async function handleRequest(request, env) {
   if (type === "PriceHistory") return handlePriceHistory(league, env);
   if (type === "AtlasEVHistory") return handleAtlasEVHistory(league, env);
   if (type === "SnapshotStatus") return handleSnapshotStatus(env);
+  if (type === "FailureLogs") return handleFailureLogs(url, env);
   if (type === "CurrentLeague") return handleCurrentLeague(env);
 
   if (type === "Scarab" || type === "Currency") {
@@ -283,6 +289,16 @@ async function tryRefreshState(kv, key, existing, fetcher, now) {
       nextRetryAt: now + backoffMs
     };
     await kv.put(key, JSON.stringify(failed));
+    await logFailureEvent(
+      { EV_HISTORY: kv },
+      "cache_refresh_failed",
+      "Market cache refresh failed.",
+      {
+        cacheKey: key,
+        failCount: nextFail,
+        nextRetryAt: new Date(now + backoffMs).toISOString()
+      }
+    );
     return { ok: false, state: failed };
   }
 }
@@ -461,6 +477,39 @@ async function handleSnapshotStatus(env) {
   }));
 }
 
+async function handleFailureLogs(url, env) {
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "failure-logs");
+  const daysRaw = Number(url.searchParams.get("days") || FAILURE_LOG_RETENTION_DAYS);
+  const days = Math.max(1, Math.min(FAILURE_LOG_RETENTION_DAYS, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : FAILURE_LOG_RETENTION_DAYS));
+  const dates = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  const keys = dates.map((date) => `${FAILURE_LOG_PREFIX}:${date}`);
+  const raws = await Promise.all(keys.map((key) => env.EV_HISTORY.get(key)));
+  const events = [];
+  for (let i = 0; i < raws.length; i++) {
+    const date = dates[i];
+    const parsed = parseJsonObject(raws[i]);
+    const list = Array.isArray(parsed?.events) ? parsed.events : [];
+    for (const event of list) {
+      events.push({
+        date,
+        at: event?.at || null,
+        source: event?.source || "market-worker",
+        code: event?.code || "unknown_error",
+        message: event?.message || "",
+        severity: event?.severity || "error",
+        context: event?.context && typeof event.context === "object" ? event.context : {}
+      });
+    }
+  }
+  events.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+  return withCors(jsonResponse({ ok: true, days, count: events.length, events }));
+}
+
 async function resolveSnapshotLeagues() {
   const leagues = new Set(["Standard"]);
   try {
@@ -476,10 +525,16 @@ async function resolveSnapshotLeagues() {
 async function snapshotLeagueForDate(env, league, today) {
   try {
     const data = await fetchNinjaExchange(league, "Scarab");
-    if (!Array.isArray(data?.lines) || !data.lines.length) return { ok: false, error: "no_scarab_lines" };
+    if (!Array.isArray(data?.lines) || !data.lines.length) {
+      await logFailureEvent(env, "snapshot_no_scarab_lines", "Snapshot failed: no scarab lines.", { league, date: today, stage: "fetch_scarab" });
+      return { ok: false, error: "no_scarab_lines" };
+    }
 
     const harmonicEv = calcHarmonicEV(data.lines);
-    if (!Number.isFinite(harmonicEv)) return { ok: false, error: "harmonic_unavailable" };
+    if (!Number.isFinite(harmonicEv)) {
+      await logFailureEvent(env, "snapshot_harmonic_unavailable", "Snapshot failed: harmonic EV unavailable.", { league, date: today, stage: "compute_harmonic" });
+      return { ok: false, error: "harmonic_unavailable" };
+    }
 
     const weights = await fetchObservedWeightsForLeague(league);
     const weightedEv = calcWeightedThresholdEV(data.lines, weights);
@@ -558,6 +613,7 @@ async function snapshotLeagueForDate(env, league, today) {
       }
     };
   } catch (e) {
+    await logFailureEvent(env, "snapshot_exception", "Snapshot failed with exception.", { league, date: today, error: String(e?.message || e || "snapshot_failed") });
     return { ok: false, error: String(e?.message || e || "snapshot_failed") };
   }
 }
@@ -567,6 +623,12 @@ async function saveSnapshotRetryState(env, date, failures, retryCount) {
   const errors = {};
   for (const f of failures) errors[f.league] = String(f.error || "snapshot_failed");
   if ((Number(retryCount) || 0) >= SNAPSHOT_RETRY_MAX_ATTEMPTS) {
+    await logFailureEvent(env, "snapshot_retry_exhausted", "Snapshot retries exhausted for one or more leagues.", {
+      date,
+      retryCount: Number(retryCount) || 0,
+      failedLeagues: failures.map((f) => f.league),
+      errors
+    });
     await env.EV_HISTORY.put(SNAPSHOT_RETRY_KEY, JSON.stringify({
       date,
       status: "failed",
@@ -623,7 +685,6 @@ async function runDailyEVSnapshot(env, opts = {}) {
       attemptsUsed++;
       const result = await snapshotLeagueForDate(env, league, today);
       if (result.ok) {
-        success = true;
         writes = {
           ev: !!result?.writes?.ev,
           atlas: !!result?.writes?.atlas,
@@ -633,11 +694,27 @@ async function runDailyEVSnapshot(env, opts = {}) {
           harmonicEv: Number.isFinite(result?.values?.harmonicEv) ? Number(result.values.harmonicEv) : null,
           weightedEv: Number.isFinite(result?.values?.weightedEv) ? Number(result.values.weightedEv) : null
         };
-        break;
+        const missingRequired = listMissingRequiredWrites(writes);
+        if (!missingRequired.length) {
+          success = true;
+          lastError = null;
+          break;
+        }
+        lastError = `incomplete_writes:${missingRequired.join(",")}`;
+        continue;
       }
       lastError = result.error || "snapshot_failed";
     }
     if (!success) failures.push({ league, error: lastError });
+    if (!success) {
+      await logFailureEvent(env, "snapshot_league_incomplete", "League snapshot incomplete; retry queued.", {
+        league,
+        date: today,
+        error: String(lastError || "snapshot_failed"),
+        writes,
+        attemptsUsed
+      });
+    }
     const previous = statusState.leagues[league] || {};
     statusState.leagues[league] = {
       state: success ? "success" : "retrying",
@@ -680,6 +757,7 @@ async function runPendingSnapshotRetry(env) {
   try {
     state = JSON.parse(raw);
   } catch (_e) {
+    await logFailureEvent(env, "snapshot_retry_state_corrupt", "Retry state was corrupt and was reset.", { stage: "parse_retry_state" });
     await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
     return;
   }
@@ -693,6 +771,10 @@ async function runPendingSnapshotRetry(env) {
       await env.EV_HISTORY.put(SNAPSHOT_STATUS_KEY, JSON.stringify(status));
     }
     await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    await logFailureEvent(env, "snapshot_retry_expired", "Retry state expired because date rolled over.", {
+      retryDate: String(state?.date || ""),
+      today
+    });
     return;
   }
   if (String(state?.status || "") === "failed") return;
@@ -757,6 +839,11 @@ function parseJsonObject(raw) {
   } catch (_e) {
     return null;
   }
+}
+
+function listMissingRequiredWrites(writes) {
+  const map = writes && typeof writes === "object" ? writes : {};
+  return REQUIRED_SNAPSHOT_WRITES.filter((key) => !map[key]);
 }
 
 async function readSnapshotStatusState(env, today, leagues) {
@@ -1035,6 +1122,43 @@ async function fetchWithTimeout(url, init = {}, timeoutMs = UPSTREAM_TIMEOUT_MS)
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function logFailureEvent(env, code, message, context = {}, options = {}) {
+  if (!env?.EV_HISTORY) return;
+  try {
+    const now = new Date();
+    const date = String(options?.date || now.toISOString().slice(0, 10));
+    const key = `${FAILURE_LOG_PREFIX}:${date}`;
+    const raw = await env.EV_HISTORY.get(key);
+    const parsed = parseJsonObject(raw);
+    const events = Array.isArray(parsed?.events) ? parsed.events : [];
+    events.push({
+      at: now.toISOString(),
+      source: String(options?.source || "market-worker"),
+      severity: String(options?.severity || "error"),
+      code: String(code || "unknown_error"),
+      message: String(message || "Failure"),
+      context: context && typeof context === "object" ? context : {}
+    });
+    while (events.length > FAILURE_LOG_MAX_EVENTS_PER_DAY) events.shift();
+    await env.EV_HISTORY.put(key, JSON.stringify({
+      date,
+      updatedAt: now.toISOString(),
+      count: events.length,
+      events
+    }));
+  } catch (_e) {
+    // best-effort logging only
+  }
+}
+
+async function pruneFailureLogs(env, now = new Date()) {
+  if (!env?.EV_HISTORY) return;
+  const pruneDate = new Date(now.getTime());
+  pruneDate.setUTCDate(pruneDate.getUTCDate() - (FAILURE_LOG_RETENTION_DAYS + 1));
+  const key = `${FAILURE_LOG_PREFIX}:${pruneDate.toISOString().slice(0, 10)}`;
+  await env.EV_HISTORY.delete(key);
 }
 
 function jsonWithMeta(data, meta) {

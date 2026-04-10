@@ -15,7 +15,8 @@ const state={
   tokensByName:{},draftTokensByScarabId:{},latestDraftEntries:[],sets:[],selectedIds:new Set(),
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
   captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,
-  sessionDupes:[],sessionSignals:[],healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false
+  sessionDupes:[],sessionSignals:[],healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
+  failureLogsAutoLoaded:false,failureLogs:[]
 };
 
 const $=(id)=>document.getElementById(id);
@@ -64,8 +65,8 @@ function toggleTheme(){const dark=document.documentElement.getAttribute('data-th
 
 function switchPanel(name){
   state.activePanel=name;
-  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',regex:'Regex Lab',recomb:'Recombinator Lab'};
-  ['scarab','sessions','health','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
+  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',failures:'Failure Logs',regex:'Regex Lab',recomb:'Recombinator Lab'};
+  ['scarab','sessions','health','failures','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
   document.querySelectorAll('.navbtn').forEach((b)=>b.classList.toggle('active',b.dataset.panel===name));
   $('panelTitle').textContent=(labels[name]||'Dashboard')+' | Staging-first control plane';
   closeMobileNav();

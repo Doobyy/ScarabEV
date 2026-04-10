@@ -148,6 +148,21 @@ export interface OpsRouteHelpers extends BaseRouteHelpers {
       kvList: { used: number; limit: number; remaining: number; percent: number };
     };
   } | null>;
+  getMarketFailureLogs: (
+    days: number
+  ) => Promise<{
+    days: number;
+    count: number;
+    events: Array<{
+      date: string;
+      at: string | null;
+      source: string;
+      code: string;
+      message: string;
+      severity: string;
+      context: Record<string, unknown>;
+    }>;
+  }>;
 }
 
 export type OperationalAlertType = "auth_failure" | "publish_failure" | "api_error";

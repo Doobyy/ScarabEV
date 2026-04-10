@@ -16,6 +16,7 @@ export async function handleOpsRoutes(
     computeBackupStorageUsage,
     runBackupSnapshot,
     getCloudflareUsageSummary,
+    getMarketFailureLogs,
     jsonResponse,
     withBaseHeaders,
     parseNullableString
@@ -214,6 +215,55 @@ export async function handleOpsRoutes(
       { status: 200 }
     );
     return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+  }
+
+  if (request.method === "GET" && url.pathname === "/admin/ops/failure-logs") {
+    const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
+    if (auth instanceof Response) {
+      return auth;
+    }
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
+    if (ownerOnly) {
+      await writeAudit(deps.securityRepo, context, request, "admin.failure_logs", 403, auth.session.user.id);
+      return ownerOnly;
+    }
+
+    const daysRaw = Number(url.searchParams.get("days") ?? "30");
+    const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(30, Math.floor(daysRaw))) : 30;
+    try {
+      const logs = await getMarketFailureLogs(days);
+      await writeAudit(deps.securityRepo, context, request, "admin.failure_logs", 200, auth.session.user.id, {
+        days,
+        count: logs.count
+      });
+      const response = jsonResponse(
+        {
+          ok: true,
+          requestId: context.requestId,
+          days: logs.days,
+          count: logs.count,
+          events: logs.events
+        },
+        { status: 200 }
+      );
+      return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await writeAudit(deps.securityRepo, context, request, "admin.failure_logs", 503, auth.session.user.id, {
+        reason: "failure_log_unavailable",
+        errorDetail: detail
+      });
+      const response = jsonResponse(
+        {
+          ok: false,
+          error: "failure_log_unavailable",
+          errorDetail: detail,
+          requestId: context.requestId
+        },
+        { status: 503 }
+      );
+      return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+    }
   }
 
   return null;

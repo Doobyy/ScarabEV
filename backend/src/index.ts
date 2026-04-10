@@ -776,6 +776,21 @@ interface CloudflareUsageGraphqlResponse {
   errors?: Array<{ message?: string }>;
 }
 
+interface MarketFailureLogsResponse {
+  ok?: boolean;
+  days?: number;
+  count?: number;
+  events?: Array<{
+    date?: string;
+    at?: string | null;
+    source?: string;
+    code?: string;
+    message?: string;
+    severity?: string;
+    context?: Record<string, unknown>;
+  }>;
+}
+
 async function listBackupSnapshots(db: D1Database, limit = 10): Promise<BackupSnapshotSummary[]> {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 10;
   const rows = await db
@@ -977,6 +992,51 @@ async function getCloudflareUsageSummary(config: RuntimeConfig): Promise<Cloudfl
       kvDelete: buildUsageMetric(kvDeleteUsed, 1000),
       kvList: buildUsageMetric(kvListUsed, 1000)
     }
+  };
+}
+
+async function getMarketFailureLogs(daysRaw: number): Promise<{
+  days: number;
+  count: number;
+  events: Array<{
+    date: string;
+    at: string | null;
+    source: string;
+    code: string;
+    message: string;
+    severity: string;
+    context: Record<string, unknown>;
+  }>;
+}> {
+  const days = Math.max(1, Math.min(30, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : 30));
+  const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=FailureLogs&days=${days}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      accept: "application/json"
+    }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_failure_logs_request_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketFailureLogsResponse;
+  if (!payload || payload.ok !== true || !Array.isArray(payload.events)) {
+    throw new Error("market_failure_logs_invalid_payload");
+  }
+  const events = payload.events.map((event) => ({
+    date: String(event?.date || ""),
+    at: event?.at ? String(event.at) : null,
+    source: String(event?.source || "market-worker"),
+    code: String(event?.code || "unknown_error"),
+    message: String(event?.message || ""),
+    severity: String(event?.severity || "error"),
+    context: event?.context && typeof event.context === "object" ? event.context : {}
+  }));
+  return {
+    days: Math.max(1, Math.min(30, Number(payload.days) || days)),
+    count: Math.max(0, Number(payload.count) || events.length),
+    events
   };
 }
 
@@ -1222,6 +1282,7 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     computeBackupStorageUsage,
     runBackupSnapshot,
     getCloudflareUsageSummary,
+    getMarketFailureLogs,
     jsonResponse,
     withBaseHeaders,
     parseNullableString,
