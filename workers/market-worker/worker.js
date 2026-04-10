@@ -442,8 +442,12 @@ async function handleSnapshotStatus(env) {
   const targetLeagues = Array.isArray(sameDayStatus?.targetLeagues)
     ? sameDayStatus.targetLeagues.map((s) => String(s)).filter(Boolean)
     : [];
+  const isLeagueSnapshotComplete = (value) => listMissingRequiredWrites((value && value.writes) || {}).length === 0;
   const completedLeagues = Object.entries(leaguesMap)
-    .filter(([, value]) => String(value?.state || "") === "success")
+    .filter(([, value]) => String(value?.state || "") === "success" && isLeagueSnapshotComplete(value))
+    .map(([league]) => league);
+  const incompleteLeagues = Object.entries(leaguesMap)
+    .filter(([, value]) => String(value?.state || "") === "success" && !isLeagueSnapshotComplete(value))
     .map(([league]) => league);
   const failedLeagues = Object.entries(leaguesMap)
     .filter(([, value]) => String(value?.state || "") === "failed")
@@ -453,7 +457,7 @@ async function handleSnapshotStatus(env) {
     : targetLeagues.filter((league) => !completedLeagues.includes(league) && !failedLeagues.includes(league));
   const anyCompleted = completedLeagues.length > 0;
   const anyPending = pendingLeagues.length > 0;
-  const anyFailed = failedLeagues.length > 0 || String(sameDayRetry?.status || "") === "failed";
+  const anyFailed = failedLeagues.length > 0 || incompleteLeagues.length > 0 || String(sameDayRetry?.status || "") === "failed";
   let overallStatus = "idle";
   if (targetLeagues.length) {
     if (anyPending) overallStatus = anyCompleted ? "partial_retrying" : "retrying";
@@ -469,7 +473,8 @@ async function handleSnapshotStatus(env) {
     targetLeagues,
     completedLeagues,
     pendingLeagues,
-    failedLeagues,
+    failedLeagues: [...new Set([...failedLeagues, ...incompleteLeagues])],
+    incompleteLeagues,
     retryCount: Number(sameDayRetry?.retryCount || 0),
     nextRetryAt: sameDayRetry?.nextRetryAt || null,
     lastAttemptAt: sameDayStatus?.lastAttemptAt || sameDayRetry?.lastAttemptAt || null,
@@ -517,7 +522,15 @@ async function handleManualRetry(url, env) {
   const startedAt = Date.now();
   try {
     if (action === "snapshot-retry") {
-      await runPendingSnapshotRetry(env);
+      const pending = await getPendingSnapshotRetryLeagues(env);
+      if (pending.length) {
+        await runPendingSnapshotRetry(env);
+      } else {
+        const incomplete = await getIncompleteSnapshotLeaguesForToday(env);
+        if (incomplete.length) {
+          await runDailyEVSnapshot(env, { leagues: incomplete, retryCount: 0 });
+        }
+      }
     } else if (action === "snapshot-run") {
       await runDailyEVSnapshot(env);
     } else if (action === "cache-current-league") {
@@ -547,6 +560,35 @@ async function handleManualRetry(url, env) {
     });
     return errorResponse("manual_retry_failed", String(error?.message || error || "manual_retry_failed"), 500, "manual-retry");
   }
+}
+
+async function getPendingSnapshotRetryLeagues(env) {
+  if (!env.EV_HISTORY) return [];
+  const raw = await env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY);
+  const retry = parseJsonObject(raw);
+  const today = new Date().toISOString().slice(0, 10);
+  if (!retry || String(retry.date || "") !== today) return [];
+  return Array.isArray(retry.pendingLeagues)
+    ? retry.pendingLeagues.map((s) => String(s || "").trim()).filter(Boolean)
+    : [];
+}
+
+async function getIncompleteSnapshotLeaguesForToday(env) {
+  if (!env.EV_HISTORY) return [];
+  const raw = await env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY);
+  const status = parseJsonObject(raw);
+  const today = new Date().toISOString().slice(0, 10);
+  if (!status || String(status.date || "") !== today) return [];
+  const target = Array.isArray(status.targetLeagues)
+    ? status.targetLeagues.map((s) => String(s || "").trim()).filter(Boolean)
+    : [];
+  const leagues = (status.leagues && typeof status.leagues === "object") ? status.leagues : {};
+  return target.filter((league) => {
+    const info = leagues[league] || {};
+    const state = String(info.state || "");
+    const writes = (info.writes && typeof info.writes === "object") ? info.writes : {};
+    return state === "success" && listMissingRequiredWrites(writes).length > 0;
+  });
 }
 
 async function resolveSnapshotLeagues() {

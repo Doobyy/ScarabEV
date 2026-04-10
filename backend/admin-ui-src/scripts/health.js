@@ -196,7 +196,8 @@ function buildSnapshotChecks(card){
     const writeSummary='EV '+(writes.ev?'yes':'no')+' | Atlas '+(writes.atlas?'yes':'no')+' | Price '+(writes.price?'yes':'no');
     const err=info.lastError?(' | '+String(info.lastError)):'';
     const line=state.toUpperCase()+' | '+writeSummary+err;
-    const level=state==='success'?'ok':(state==='retrying'?'warn':'err');
+    const missing=(!writes.ev)||(!writes.atlas)||(!writes.price);
+    const level=(state==='success'&&!missing)?'ok':(state==='retrying'?'warn':'err');
     rows.push({level,label:'League '+league,detail:line});
   });
   if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
