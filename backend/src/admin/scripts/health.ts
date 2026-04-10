@@ -628,7 +628,11 @@ function healthCard(id,title,level,detail,meta,checks,debug){
       return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('snapshot-retry','Snapshot retry')\">Retry Snapshot</button>";
     }
     if(id==='healthWorker'){
-      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-all','Cache refresh')\">Refresh Caches</button>";
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-league','League cache refresh')\">Refresh League Cache</button>";
+    }
+    if(id==='healthPoeNinja'){
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-market','Current market refresh')\">Refresh Current Market</button>"
+        +"<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-standard-market','Standard market refresh')\">Refresh Standard Market</button>";
     }
     return '';
   })();
