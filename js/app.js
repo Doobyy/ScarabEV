@@ -52,6 +52,8 @@ const EV_CHART_RANGE_TO_DAYS = Object.freeze({
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 let _scarabMetaTooltipBound = false;
 let _scarabMetaTooltipEl = null;
+let _statInfoTooltipBound = false;
+let _statInfoTooltipEl = null;
 const _AMBIGUOUS_LAST = (() => {
   const counts = {};
   for (const s of SCARAB_LIST) {
@@ -125,6 +127,82 @@ function hideScarabMetaTooltip() {
   if (!tip) return;
   tip.classList.remove('show');
   tip.textContent = '';
+}
+
+function ensureStatInfoTooltipEl() {
+  if (_statInfoTooltipEl && _statInfoTooltipEl.parentNode) return _statInfoTooltipEl;
+  const el = document.createElement('div');
+  el.id = 'analysisStatTooltip';
+  el.className = 'analysis-stat-tooltip';
+  document.body.appendChild(el);
+  _statInfoTooltipEl = el;
+  return el;
+}
+
+function moveStatInfoTooltipFromRect(rect) {
+  const tip = _statInfoTooltipEl;
+  if (!tip || !tip.classList.contains('show')) return;
+  const vw = window.innerWidth || 0;
+  const vh = window.innerHeight || 0;
+  const pad = 8;
+  const tipRect = tip.getBoundingClientRect();
+  let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+  left = Math.max(pad, Math.min(left, vw - tipRect.width - pad));
+  let top = rect.top - tipRect.height - 8;
+  if (top < pad) top = Math.min(vh - tipRect.height - pad, rect.bottom + 8);
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+function showStatInfoTooltip(target) {
+  const text = String(target?.getAttribute('data-tip') || '').trim();
+  if (!text) return;
+  const tip = ensureStatInfoTooltipEl();
+  tip.textContent = text;
+  tip.classList.add('show');
+  const rect = target.getBoundingClientRect();
+  moveStatInfoTooltipFromRect(rect);
+}
+
+function hideStatInfoTooltip() {
+  const tip = _statInfoTooltipEl;
+  if (!tip) return;
+  tip.classList.remove('show');
+  tip.textContent = '';
+}
+
+function bindStatInfoTooltipEvents() {
+  if (_statInfoTooltipBound) return;
+  _statInfoTooltipBound = true;
+  document.addEventListener('mouseover', (ev) => {
+    const target = ev.target && ev.target.closest ? ev.target.closest('.analysis-info-tip.stat-tip[data-tip]') : null;
+    if (!target) return;
+    showStatInfoTooltip(target);
+  });
+  document.addEventListener('mouseout', (ev) => {
+    const from = ev.target && ev.target.closest ? ev.target.closest('.analysis-info-tip.stat-tip[data-tip]') : null;
+    if (!from) return;
+    const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest('.analysis-info-tip.stat-tip[data-tip]') : null;
+    if (to === from) return;
+    hideStatInfoTooltip();
+  });
+  document.addEventListener('focusin', (ev) => {
+    const target = ev.target && ev.target.closest ? ev.target.closest('.analysis-info-tip.stat-tip[data-tip]') : null;
+    if (!target) return;
+    showStatInfoTooltip(target);
+  });
+  document.addEventListener('focusout', (ev) => {
+    const from = ev.target && ev.target.closest ? ev.target.closest('.analysis-info-tip.stat-tip[data-tip]') : null;
+    if (!from) return;
+    hideStatInfoTooltip();
+  });
+  window.addEventListener('resize', () => {
+    const active = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.analysis-info-tip.stat-tip[data-tip]') : null;
+    if (!active || !_statInfoTooltipEl || !_statInfoTooltipEl.classList.contains('show')) return;
+    moveStatInfoTooltipFromRect(active.getBoundingClientRect());
+  });
+  document.addEventListener('scroll', hideStatInfoTooltip, true);
+  window.addEventListener('blur', hideStatInfoTooltip);
 }
 
 function bindScarabMetaTooltipEvents() {
@@ -3062,26 +3140,38 @@ function renderAnalysis() {
     contentEl.style.display = 'none';
     emptyEl.innerHTML = '<p>Loading community data...</p>';
     const league = document.getElementById('leagueSelect')?.value || '';
-    fetch(POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league))
-      .then(res => res.ok ? res.json() : null)
-      .then(agg => {
-        if (agg && (agg.sessionCount > 0 || Object.keys(agg.receivedByScarab || {}).length > 0)) {
-          renderAnalysisFromAggregate({
-            totalConsumed: agg.totalConsumed || 0,
-            totalTrades: agg.totalTrades || 0,
-            totalInput: agg.totalInput || 0,
-            totalOutput: agg.totalOutput || 0,
-            totalInputDivine: agg.totalInputDivine ?? null,
-            totalOutputDivine: agg.totalOutputDivine ?? null,
-            receivedByScarab: agg.receivedByScarab || {},
-            sessionCount: agg.sessionCount || 0,
-            dataSourceLabel: 'Community data (' + (agg.totalTrades || 0).toLocaleString() + ' trades)'
-          }, emptyEl, contentEl);
+    Promise.all([
+      fetch(POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league)).then(res => res.ok ? res.json() : null).catch(() => null),
+      fetch(POOL_API_URL + '/api/aggregate?league=all').then(res => res.ok ? res.json() : null).catch(() => null)
+    ])
+      .then(([aggCurrent, aggLifetime]) => {
+        const hasCurrent = !!(aggCurrent && (aggCurrent.sessionCount > 0 || Object.keys(aggCurrent.receivedByScarab || {}).length > 0));
+        if (!hasCurrent) {
+          emptyEl.style.display = 'block';
+          contentEl.style.display = 'none';
+          emptyEl.innerHTML = '<p>No D1 session data found for this league yet.</p>';
           return;
         }
-        renderAnalysisFromLocalSessions(emptyEl, contentEl);
+        renderAnalysisFromAggregate({
+          totalConsumed: aggCurrent.totalConsumed || 0,
+          totalTrades: aggCurrent.totalTrades || 0,
+          totalInput: aggCurrent.totalInput || 0,
+          totalOutput: aggCurrent.totalOutput || 0,
+          totalInputDivine: aggCurrent.totalInputDivine ?? null,
+          totalOutputDivine: aggCurrent.totalOutputDivine ?? null,
+          receivedByScarab: aggCurrent.receivedByScarab || {},
+          sessionCount: aggCurrent.sessionCount || 0,
+          weightSessionCount: aggCurrent.weightSessionCount || 0,
+          weightMeta: aggCurrent.weightMeta || null,
+          lifetimeAggregate: aggLifetime || null,
+          dataSourceLabel: 'Community data (' + (aggCurrent.totalTrades || 0).toLocaleString() + ' trades)'
+        }, emptyEl, contentEl);
       })
-      .catch(() => renderAnalysisFromLocalSessions(emptyEl, contentEl));
+      .catch(() => {
+        emptyEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        emptyEl.innerHTML = '<p>Could not load D1 aggregate data.</p>';
+      });
   } else {
     renderAnalysisFromLocalSessions(emptyEl, contentEl);
   }
@@ -3089,10 +3179,18 @@ function renderAnalysis() {
 
 function renderAnalysisFromLocalSessions(emptyEl, contentEl) {
   const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
+  const selectedLeague = String(document.getElementById('leagueSelect')?.value || '').trim().toLowerCase();
   let totalConsumed = 0, totalTrades = 0, totalInput = 0, totalOutput = 0;
   let totalInputDivine = 0, totalOutputDivine = 0, divineSessionCount = 0;
   const receivedByScarab = {};
+  let filteredSessionCount = 0;
+  let filteredValidCount = 0;
   for (const s of sessions) {
+    const sessionLeague = String(s.league || '').trim().toLowerCase();
+    const inSelectedLeague = selectedLeague ? (sessionLeague === selectedLeague) : true;
+    if (!inSelectedLeague) continue;
+    filteredSessionCount += 1;
+    if (!s.flagged) filteredValidCount += 1;
     totalConsumed += s.total_consumed || 0;
     totalTrades += s.total_trades || 0;
     totalInput += s.input_value || 0;
@@ -3115,20 +3213,15 @@ function renderAnalysisFromLocalSessions(emptyEl, contentEl) {
     totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab,
     totalInputDivine: divineSessionCount > 0 ? totalInputDivine : null,
     totalOutputDivine: divineSessionCount > 0 ? totalOutputDivine : null,
-    sessionCount: sessions.length,
-    validCount: sessions.filter(s => !s.flagged).length,
+    sessionCount: filteredSessionCount,
+    validCount: filteredValidCount,
     dataSourceLabel: 'Your data only (' + totalTrades.toLocaleString() + ' trades)'
   }, emptyEl, contentEl);
 }
 
 function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
+  bindStatInfoTooltipEvents();
   const { totalConsumed, totalTrades, totalInput, totalOutput, totalInputDivine, totalOutputDivine, receivedByScarab, dataSourceLabel } = data;
-  const sessionCount = data.sessionCount != null ? data.sessionCount : 0;
-  const validSub = data.validCount != null ? data.validCount + ' unflagged' : '';
-  const aggregateDivRate = Number(totalInputDivine) > 0
-    ? (totalInput / totalInputDivine)
-    : (Number(totalOutputDivine) > 0 ? (totalOutput / totalOutputDivine) : getDivineRate());
-  const fmt = (c) => fmtWithRate(c, aggregateDivRate);
 
   emptyEl.style.display = 'block';
   contentEl.style.display = 'none';
@@ -3139,12 +3232,38 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
   }
   emptyEl.style.display = 'none';
   contentEl.style.display = '';
-  const totalProfit = totalOutput - totalInput;
-  const overallRoi = totalInput > 0 ? ((totalOutput - totalInput) / totalInput * 100) : 0;
-  const realAvgPerTrade = totalTrades > 0 ? totalOutput / totalTrades : 0;
-
   const sourceEl = document.getElementById('analysisDataSource');
   if (sourceEl) sourceEl.textContent = dataSourceLabel;
+
+  const lifetimeAgg = data && data.lifetimeAggregate && typeof data.lifetimeAggregate === 'object'
+    ? data.lifetimeAggregate
+    : null;
+  const lifetimeSessionCount = lifetimeAgg ? (Number(lifetimeAgg.sessionCount) || 0) : 0;
+  const currentLeagueSessionCount = Number(data.sessionCount) || 0;
+  const hasMultiLeagueData = lifetimeSessionCount > currentLeagueSessionCount;
+  const lifetimeConsumed = lifetimeAgg ? (Number(lifetimeAgg.totalConsumed) || 0) : 0;
+  const lifetimeReceived = lifetimeAgg
+    ? Object.values(lifetimeAgg.receivedByScarab || {}).reduce((sum, n) => sum + (Number(n) || 0), 0)
+    : 0;
+  const currentInDiv = Number(totalInputDivine);
+  const currentOutDiv = Number(totalOutputDivine);
+  const currentLeagueProfitDiv = (Number.isFinite(currentInDiv) && Number.isFinite(currentOutDiv))
+    ? (currentOutDiv - currentInDiv)
+    : null;
+  const lifetimeInDiv = Number(lifetimeAgg?.totalInputDivine);
+  const lifetimeOutDiv = Number(lifetimeAgg?.totalOutputDivine);
+  let lifetimeProfitDiv = (Number.isFinite(lifetimeInDiv) && Number.isFinite(lifetimeOutDiv))
+    ? (lifetimeOutDiv - lifetimeInDiv)
+    : null;
+
+  const atlasBaselineScarabEv = atlasComputeEV(new Set(), new Set());
+  const scarabEvValue = Number.isFinite(atlasBaselineScarabEv) ? (atlasBaselineScarabEv.toFixed(2) + 'c') : '—';
+  const currentLeagueProfitValue = Number.isFinite(currentLeagueProfitDiv)
+    ? ((currentLeagueProfitDiv >= 0 ? '+' : '') + currentLeagueProfitDiv.toFixed(1) + 'd')
+    : '—';
+  const currentLeagueProfitClass = Number.isFinite(currentLeagueProfitDiv)
+    ? (currentLeagueProfitDiv >= 0 ? 'green' : 'red')
+    : '';
 
   // Weight distribution: build data array (sort by received desc initially)
   let observedEv = 0;
@@ -3158,9 +3277,102 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
     return { name, count, pct, weight, ninjaPrice, evContrib };
   });
 
-  const topEvContrib = [...weightData].sort((a, b) => b.evContrib - a.evContrib);
-  const top3EvContrib = topEvContrib.slice(0, 3).reduce((s, d) => s + d.evContrib, 0);
-  const jackpotReliancePct = observedEv > 0 ? (top3EvContrib / observedEv) * 100 : 0;
+  function quantileOf(nums, q) {
+    const arr = nums
+      .map((v) => Number(v) || 0)
+      .filter((v) => Number.isFinite(v))
+      .sort((a, b) => a - b);
+    const len = arr.length;
+    if (!len) return 0;
+    const clamped = Math.max(0, Math.min(1, Number(q) || 0));
+    const pos = (len - 1) * clamped;
+    const lo = Math.floor(pos);
+    const hi = Math.ceil(pos);
+    if (lo === hi) return arr[lo];
+    const frac = pos - lo;
+    return arr[lo] + ((arr[hi] - arr[lo]) * frac);
+  }
+  function computeDynamicJackpotReliance(items) {
+    // Tail detection is value-first and uses only valid priced scarabs.
+    const priced = items
+      .map((d) => {
+        const price = Number(d.ninjaPrice);
+        const contrib = Number(d.evContrib);
+        return {
+          name: String(d.name || ''),
+          price: Number.isFinite(price) ? price : 0,
+          evContrib: Number.isFinite(contrib) ? contrib : 0
+        };
+      })
+      .filter((d) => d.price > 0)
+      .map((d) => ({ ...d, logPrice: Math.log1p(d.price) }));
+
+    const total = priced.reduce((s, d) => s + Math.max(0, d.evContrib), 0);
+    if (!priced.length || total <= 0) {
+      return { pct: 0, count: 0 };
+    }
+
+    const sorted = [...priced].sort((a, b) => b.logPrice - a.logPrice);
+    const logPrices = sorted.map((d) => d.logPrice);
+    let premiumTail = [];
+
+    // Candidate A: natural upper-tail gap on log-price with deterministic guardrails.
+    if (sorted.length >= 5) {
+      const xMed = quantileOf(logPrices, 0.5);
+      const xQ75 = quantileOf(logPrices, 0.75);
+      const candidateGaps = [];
+
+      for (let j = 1; j <= (sorted.length - 3); j++) {
+        const left = sorted[j].logPrice;
+        const right = sorted[j + 1].logPrice;
+        // Upper-regime window: avoid choosing breaks too low in the distribution.
+        if (!(left >= xQ75 && right >= xMed)) continue;
+        candidateGaps.push({ j, gap: left - right });
+      }
+
+      if (candidateGaps.length) {
+        const gapValues = candidateGaps.map((g) => g.gap);
+        const best = candidateGaps.reduce((acc, g) => (g.gap > acc.gap ? g : acc), candidateGaps[0]);
+        const gMed = quantileOf(gapValues, 0.5);
+        const gQ75 = quantileOf(gapValues, 0.75);
+        const clearGapMin = Math.max(0.35, (2 * gMed), (1.5 * gQ75));
+        const clearGap = best.gap >= clearGapMin;
+        const impliedTailSize = best.j + 1;
+        const tinyTailAllowed = impliedTailSize >= 3 || best.gap >= 0.70;
+
+        if (clearGap && tinyTailAllowed) {
+          premiumTail = sorted.slice(0, impliedTailSize);
+        }
+      }
+    }
+
+    // Candidate B fallback: strict value fence in log-price space.
+    if (!premiumTail.length) {
+      const q1 = quantileOf(logPrices, 0.25);
+      const q3 = quantileOf(logPrices, 0.75);
+      const iqr = q3 - q1;
+      const fence = q3 + (2.5 * iqr);
+      premiumTail = sorted.filter((d) => d.logPrice >= fence);
+    }
+
+    // If no premium tail is found, report 0% reliance instead of forcing one.
+    if (!premiumTail.length) {
+      return { pct: 0, count: 0 };
+    }
+
+    const premiumEv = premiumTail.reduce((s, d) => s + Math.max(0, d.evContrib), 0);
+    return {
+      pct: Math.max(0, Math.min(100, (premiumEv / total) * 100)),
+      count: premiumTail.length
+    };
+  }
+  const jackpotDynamic = computeDynamicJackpotReliance(weightData);
+  const jackpotReliancePct = jackpotDynamic.pct;
+  const jackpotDependenceHint = jackpotReliancePct < 30
+    ? 'EV is broadly supported across outcomes.'
+    : (jackpotReliancePct < 60
+      ? 'EV is moderately driven by jackpot hits.'
+      : 'EV is strongly driven by jackpot hits.');
 
   const n = weightData.length;
   const hhi = weightData.reduce((s, d) => s + d.weight * d.weight, 0);
@@ -3172,18 +3384,133 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
     weightStabilityPct = Math.max(0, Math.min(1, stability)) * 100;
   }
   const weightStabilityClass = weightStabilityPct >= 70 ? 'green' : (weightStabilityPct >= 45 ? 'amber' : 'red');
-  const jackpotRelianceClass = jackpotReliancePct <= 35 ? 'green' : (jackpotReliancePct <= 55 ? 'amber' : 'red');
+  const weightStabilityHint = weightStabilityPct < 70
+    ? 'Early data is still unsettled.'
+    : (weightStabilityPct < 90
+      ? 'Results are settling into a stable pattern.'
+      : 'Results are showing a stable pattern.');
+
+  // Weight confidence: share of model weight where each scarab's observed rate
+  // meets a 95% CI relative-error target (Wilson interval, ±20%).
+  const zScore95 = 1.96;
+  const targetRelativeError = 0.20;
+  const z2 = zScore95 * zScore95;
+  const totalObserved = Math.max(1, totalReceived);
+  let statisticallySupportedWeight = 0;
+  let statisticallySupportedScarabs = 0;
+  let totalScarabWithObservations = 0;
+  for (const d of weightData) {
+    const k = Math.max(0, Number(d.count) || 0);
+    if (k <= 0) continue;
+    totalScarabWithObservations += 1;
+    const pHat = k / totalObserved;
+    const denom = 1 + (z2 / totalObserved);
+    const halfWidth = (zScore95 / denom) * Math.sqrt((pHat * (1 - pHat) / totalObserved) + (z2 / (4 * totalObserved * totalObserved)));
+    const relativeHalfWidth = pHat > 0 ? (halfWidth / pHat) : Infinity;
+    const pass = Number.isFinite(relativeHalfWidth) && relativeHalfWidth <= targetRelativeError;
+    if (pass) {
+      statisticallySupportedWeight += d.weight;
+      statisticallySupportedScarabs += 1;
+    }
+  }
+  const weightConfidencePct = Math.max(0, Math.min(100, statisticallySupportedWeight * 100));
+  const weightConfidenceClass = weightConfidencePct >= 80 ? 'green' : (weightConfidencePct >= 60 ? 'amber' : 'red');
+  const weightConfidenceHint = totalScarabWithObservations > 0
+    ? (statisticallySupportedScarabs.toLocaleString() + '/' + totalScarabWithObservations.toLocaleString() + ' scarabs meet the confidence threshold.')
+    : 'Not enough observations.';
+
+  function readCurrentLeagueSharePct(src) {
+    if (!src || typeof src !== 'object') return null;
+    const toFiniteNumber = (value) => {
+      if (value === null || value === undefined || value === '') return null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    };
+    const directCandidates = [
+      src.currentLeagueSharePct,
+      src.currentLeagueShare,
+      src.currentShare,
+      src.leagueShare,
+      src.inputMixCurrentPct,
+      src.inputMixCurrent
+    ];
+    for (const v of directCandidates) {
+      const n = toFiniteNumber(v);
+      if (n != null) {
+        if (n <= 1) return Math.max(0, Math.min(100, n * 100));
+        return Math.max(0, Math.min(100, n));
+      }
+    }
+    const nested = [
+      src.inputMix,
+      src.sourceMix,
+      src.mix,
+      src.transition
+    ];
+    for (const obj of nested) {
+      if (!obj || typeof obj !== 'object') continue;
+      const nestedCandidates = [
+        obj.currentLeagueSharePct,
+        obj.currentLeagueShare,
+        obj.currentShare,
+        obj.currentPct,
+        obj.current
+      ];
+      for (const v of nestedCandidates) {
+        const n = toFiniteNumber(v);
+        if (n != null) {
+          if (n <= 1) return Math.max(0, Math.min(100, n * 100));
+          return Math.max(0, Math.min(100, n));
+        }
+      }
+    }
+
+    // Deterministic derivation from aggregate weight metadata.
+    const mode = String(src.mode || '').toLowerCase();
+    if (mode === 'challenge-current-only') return 100;
+    if (mode === 'challenge-prior-fallback' || mode === 'standard-prior-challenge') return 0;
+
+    const alpha = toFiniteNumber(src.alphaGlobal);
+    if (alpha != null) {
+      if (alpha <= 1) return Math.max(0, Math.min(100, alpha * 100));
+      return Math.max(0, Math.min(100, alpha));
+    }
+
+    const consumedCurrent = toFiniteNumber(src.consumedCurrent);
+    const handoverConsumed = toFiniteNumber(src.handoverConsumed);
+    if (consumedCurrent != null && handoverConsumed != null && handoverConsumed > 0) {
+      return Math.max(0, Math.min(100, (consumedCurrent / handoverConsumed) * 100));
+    }
+
+    return null;
+  }
+  let currentLeagueSharePct = readCurrentLeagueSharePct(data);
+  if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
+  if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(state._weightMeta);
+  const currentLeagueShareClass = currentLeagueSharePct == null
+    ? ''
+    : (currentLeagueSharePct >= 70 ? 'green' : (currentLeagueSharePct >= 45 ? 'amber' : 'red'));
+  const currentLeagueShareValue = currentLeagueSharePct == null ? '&mdash;' : (currentLeagueSharePct.toFixed(1) + '%');
+  const currentLeagueShareHint = currentLeagueSharePct == null
+    ? 'Awaiting league transition telemetry.'
+    : (currentLeagueSharePct < 50
+      ? 'Weights still lean heavily on prior-league data.'
+      : (currentLeagueSharePct < 85
+        ? 'Weights are blending toward current-league data.'
+        : (currentLeagueSharePct < 100
+          ? 'Weights are mostly current-league native.'
+          : 'Weights are fully current-league based.')));
 
   // Summary stats bar
   document.getElementById('analysisStatsBar').innerHTML = `
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Sessions tracked</div><div class="analysis-stat-value">${sessionCount.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">${validSub || '\u2014'}</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Total trades (3:1)</div><div class="analysis-stat-value">${totalTrades.toLocaleString()}</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Total profit</div><div class="analysis-stat-value ${totalProfit >= 0 ? 'green' : ''}">${(totalProfit >= 0 ? '+' : '') + fmt(totalProfit)}</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Overall ROI</div><div class="analysis-stat-value ${overallRoi >= 0 ? 'green' : ''}">${(overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1)}%</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Real avg/trade</div><div class="analysis-stat-value chaos">${realAvgPerTrade.toFixed(2)}c</div><div style="font-size:10px;color:var(--text-3)">from trades</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Weight stability</div><div class="analysis-stat-value ${weightStabilityClass}">${weightStabilityPct.toFixed(0)}%</div><div style="font-size:10px;color:var(--text-3)">Higher = lower output variance.</div></div>
-    <div class="analysis-stat-card"><div class="analysis-stat-label">Jackpot reliance</div><div class="analysis-stat-value ${jackpotRelianceClass}">${jackpotReliancePct.toFixed(1)}%</div><div style="font-size:10px;color:var(--text-3)">Top-3 EV share</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Scarabs vendored</div><div class="analysis-stat-value">${totalConsumed.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">Current league total</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Scarab received</div><div class="analysis-stat-value">${totalReceived.toLocaleString()}</div><div style="font-size:10px;color:var(--text-3)">Current league total</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Scarab EV</div><div class="analysis-stat-value chaos">${scarabEvValue}</div><div style="font-size:10px;color:var(--text-3)">Expected Value per scarab received</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Profit Realized</div><div class="analysis-stat-value ${currentLeagueProfitClass}">${currentLeagueProfitValue}</div><div style="font-size:10px;color:var(--text-3)">Realized profit totals from current league</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Current-League Data Share <span class="analysis-info-tip stat-tip" data-tip="Shows how much of the current data model comes from the active league.&#10;Early in a league, carryover data may still be used until enough new-league data replaces it." aria-label="Current-league data share details" tabindex="0">?</span></div><div class="analysis-stat-value ${currentLeagueShareClass}">${currentLeagueShareValue}</div><div style="font-size:10px;color:var(--text-3)">${currentLeagueShareHint}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Weight stability <span class="analysis-info-tip stat-tip" data-tip="Measures how evenly scarab weights are distributed.&#10;Higher values mean results are less concentrated in a few scarabs." aria-label="Weight stability details" tabindex="0">?</span></div><div class="analysis-stat-value ${weightStabilityClass}">${weightStabilityPct.toFixed(0)}%</div><div style="font-size:10px;color:var(--text-3)">${weightStabilityHint}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Weight confidence <span class="analysis-info-tip stat-tip" data-tip="Confidence threshold: 95% interval with ±20% relative error per scarab.&#10;This card shows the share of scarab weights that meet that threshold." aria-label="Confidence formula details" tabindex="0">?</span></div><div class="analysis-stat-value ${weightConfidenceClass}">${weightConfidencePct.toFixed(2)}%</div><div style="font-size:10px;color:var(--text-3)">${weightConfidenceHint}</div></div>
+    <div class="analysis-stat-card"><div class="analysis-stat-label">Jackpot Dependence <span class="analysis-info-tip stat-tip" data-tip="Measures how much of your EV comes from premium scarabs.&#10;Higher values mean more expected profit is tied to big hits, so returns may feel swingier in smaller runs." aria-label="Jackpot dependence details" tabindex="0">?</span></div><div class="analysis-stat-value">${jackpotReliancePct.toFixed(1)}%</div><div style="font-size:10px;color:var(--text-3)">${jackpotDependenceHint}</div></div>
   `;
 
   window._analysisWeightAllData = weightData.map(d => ({ ...d }));
@@ -3208,30 +3535,44 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
 
   syncAnalysisWeightView();
 
-  // Ninja EV: harmonic mean of all scarab prices (same as app logic)
-  const ninjaEntries = Object.keys(state.ninjaPrices || {}).filter(n => state.ninjaPrices[n] > 0).map(n => ({ chaosEa: state.ninjaPrices[n] }));
-  const ninjaEv = ninjaEntries.length >= 2 ? calcEV(ninjaEntries) : null;
+  const forceLifetimeDev = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('dev') === '1';
+    } catch (e) {
+      return false;
+    }
+  })();
+  const showLifetimeSection = hasMultiLeagueData || forceLifetimeDev;
+  const lifetimeSection = document.getElementById('analysisEvCompare')?.closest('.analysis-section');
+  if (lifetimeSection) {
+    lifetimeSection.style.display = showLifetimeSection ? '' : 'none';
+    lifetimeSection.classList.add('analysis-section-lifetime');
+  }
+  if (!showLifetimeSection) {
+    document.getElementById('analysisEvCompare').innerHTML = '';
+    return;
+  }
 
   document.getElementById('analysisEvCompare').innerHTML = `
     <div class="analysis-ev-card">
-              <div class="label">Realized avg per trade (trades)</div>
-      <div class="value chaos">${realAvgPerTrade.toFixed(2)}c</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Total output ÷ total trades</div>
+      <div class="label">Sessions Submitted</div>
+      <div class="value">${lifetimeSessionCount.toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Accepted session logs.</div>
     </div>
     <div class="analysis-ev-card">
-      <div class="label">Observed EV (weight \u00D7 market)</div>
-      <div class="value">${(state.ninjaPrices && Object.keys(state.ninjaPrices).length) ? (observedEv.toFixed(2) + 'c') : '\u2014'}</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Observed weights \u00D7 current market prices</div>
+      <div class="label">Total Scarabs Vendored</div>
+      <div class="value">${lifetimeConsumed.toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Lifetime across all leagues</div>
     </div>
     <div class="analysis-ev-card">
-      <div class="label">Market EV (harmonic)</div>
-      <div class="value">${ninjaEv != null ? ninjaEv.toFixed(2) + 'c' : '\u2014'}</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Harmonic EV from market prices.</div>
+      <div class="label">Total Scarabs Received</div>
+      <div class="value">${lifetimeReceived.toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Lifetime across all leagues</div>
     </div>
     <div class="analysis-ev-card">
-      <div class="label">Real vs market EV</div>
-      <div class="value ${ninjaEv != null && realAvgPerTrade >= ninjaEv ? 'green' : ninjaEv != null ? 'amber' : ''}">${ninjaEv != null ? ((realAvgPerTrade - ninjaEv) >= 0 ? '+' : '') + (realAvgPerTrade - ninjaEv).toFixed(2) + 'c' : '\u2014'}</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Realized minus theoretical</div>
+      <div class="label">Total Profit Realized</div>
+      <div class="value">${Number.isFinite(lifetimeProfitDiv) ? ((lifetimeProfitDiv >= 0 ? '+' : '') + lifetimeProfitDiv.toFixed(1) + 'd') : '—'}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:2px">Cumulative realized profit.</div>
     </div>
   `;
 
@@ -3382,14 +3723,17 @@ function renderAnalysisWeightTable() {
     el.innerHTML = `<div style="padding:12px;color:var(--text-3)">${q ? 'No scarabs match the current filter.' : 'No output scarab data.'}</div>`;
     return;
   }
-  const rows = data.map(d => `
+  const rows = data.map(d => {
+    const pctText = d.pct.toFixed(3);
+    return `
     <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 82px 76px 82px 84px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:6px;">
       <div style="overflow:hidden;min-width:0"><span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mobileScarabName(d.name)}</span></div>
-      <span style="text-align:right;font-variant-numeric:tabular-nums">${d.count.toLocaleString()}</span>
-      <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${d.pct.toFixed(1)}%</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:550;color:var(--text-2)">${d.count.toLocaleString()}</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:550;color:var(--text-2)">${pctText}%</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '\u2014'}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--chaos)">${d.evContrib.toFixed(2)}c</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   el.innerHTML = rows;
   applyScarabModifierTooltips(document.getElementById('tab-analysis'));
 }
@@ -5381,7 +5725,4 @@ Object.defineProperty(window, '_bulkImageFile', {
   get() { return state._bulkImageFile; },
   set(v) { state._bulkImageFile = v; }
 });
-
-
-
 
