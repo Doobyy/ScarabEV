@@ -141,8 +141,6 @@ body {
   transition: background 0.2s, color 0.2s;
   font-kerning: normal;
   font-optical-sizing: auto;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 [data-theme="dark"] body {
   background: var(--bg-outer);
@@ -150,8 +148,7 @@ body {
   background-repeat: no-repeat;
 }
 :root:not([data-theme="dark"]) body {
-  font-weight: 500;
-  -webkit-font-smoothing: subpixel-antialiased;
+  font-weight: 400;
 }
 
 /* Light mode: match Vendor-tab title/label readability across the app */
@@ -192,7 +189,6 @@ body {
 :root:not([data-theme="dark"]) :is(
   b,
   strong,
-  .nav-tab,
   .btn,
   .view-toggle button,
   .copy-btn-sm,
@@ -342,8 +338,6 @@ body {
 .changelog-content {
   flex: 1; overflow-y: auto; padding: 18px; font-size: 12px;
   line-height: 1.72; color: var(--text-2);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
   scrollbar-width: thin;
   scrollbar-color: #6f92bb #cdd9e7;
 }
@@ -358,9 +352,8 @@ body {
 :root:not([data-theme="dark"]) .changelog-drawer { background: #d8e2ee; }
 :root:not([data-theme="dark"]) .changelog-header { background: #c8d5e5; }
 :root:not([data-theme="dark"]) .changelog-content { background: #d8e2ee; }
-:root:not([data-theme="dark"]) .changelog-content { -webkit-font-smoothing: subpixel-antialiased; }
 :root:not([data-theme="dark"]) .changelog-content li,
-:root:not([data-theme="dark"]) .changelog-content p { font-weight: 500; }
+:root:not([data-theme="dark"]) .changelog-content p { font-weight: 450; }
 :root:not([data-theme="dark"]) .changelog-content li .cl-key,
 :root:not([data-theme="dark"]) .changelog-content h3 { font-weight: 900; }
 .changelog-content h2 {
@@ -809,6 +802,44 @@ body {
 .analysis-stats-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
 .analysis-stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
 .analysis-stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.analysis-info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  margin-left: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-3);
+  cursor: help;
+  vertical-align: middle;
+}
+.analysis-info-tip:hover { color: var(--text); border-color: var(--accent); }
+.analysis-info-tip.stat-tip { position: relative; }
+.analysis-stat-tooltip {
+  position: fixed;
+  z-index: 10020;
+  padding: 8px 12px;
+  background: var(--header-bg);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.25;
+  border-radius: 4px;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+
+  width: fit-content;
+      max-width: min(510px, 80vw);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+}
+.analysis-stat-tooltip.show { opacity: 1; visibility: visible; }
 .analysis-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
 .analysis-stat-value.green { color: var(--green); }
 .analysis-stat-value.amber { color: var(--amber); }
@@ -909,6 +940,48 @@ body.graph-palette-ruby {
 .analysis-ev-card .value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .analysis-ev-card .value.green { color: var(--green); }
 .analysis-ev-card .value.amber { color: var(--amber); }
+.analysis-section-lifetime .analysis-ev-card .label { color: color-mix(in srgb, var(--text-2) 78%, var(--text-3) 22%); }
+.analysis-section-lifetime .analysis-ev-card .value { color: color-mix(in srgb, var(--text) 72%, var(--text-2) 28%); font-weight: 640; }
+.analysis-section-lifetime .analysis-ev-card > div[style*="font-size:10px"] { color: color-mix(in srgb, var(--text-2) 78%, var(--text-3) 22%) !important; }
+
+/* Light-mode analysis text contrast tune for sharper readability */
+:root:not([data-theme="dark"]) .analysis-sub,
+:root:not([data-theme="dark"]) .analysis-empty,
+:root:not([data-theme="dark"]) .analysis-empty p,
+:root:not([data-theme="dark"]) .analysis-section-desc,
+:root:not([data-theme="dark"]) .analysis-chart-y-label,
+:root:not([data-theme="dark"]) .analysis-chart-x-label,
+:root:not([data-theme="dark"]) .analysis-chart-note,
+:root:not([data-theme="dark"]) .analysis-stat-label,
+:root:not([data-theme="dark"]) .analysis-ev-card .label,
+:root:not([data-theme="dark"]) .analysis-head-search,
+:root:not([data-theme="dark"]) .analysis-head-search::placeholder,
+:root:not([data-theme="dark"]) .analysis-info-tip,
+:root:not([data-theme="dark"]) .analysis-stat-card > div[style*="font-size:10px;color:var(--text-3)"],
+:root:not([data-theme="dark"]) .analysis-section-lifetime .analysis-ev-card .label,
+:root:not([data-theme="dark"]) .analysis-section-lifetime .analysis-ev-card > div[style*="font-size:10px"] {
+  color: color-mix(in srgb, var(--text-2) 84%, var(--text-3) 16%) !important;
+}
+
+/* Light-mode numeric emphasis for card values */
+:root:not([data-theme="dark"]) .stat-value,
+:root:not([data-theme="dark"]) .analysis-stat-value,
+:root:not([data-theme="dark"]) .analysis-ev-card .value,
+:root:not([data-theme="dark"]) .estimator-card-value,
+:root:not([data-theme="dark"]) .atlas-hero-val {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+:root:not([data-theme="dark"]) .analysis-stat-value.green,
+:root:not([data-theme="dark"]) .analysis-stat-value.amber,
+:root:not([data-theme="dark"]) .analysis-stat-value.red,
+:root:not([data-theme="dark"]) .analysis-stat-value.chaos {
+  filter: none;
+}
+:root:not([data-theme="dark"]) .analysis-stat-value.green { color: color-mix(in srgb, var(--green) 82%, var(--text) 18%); }
+:root:not([data-theme="dark"]) .analysis-stat-value.amber { color: color-mix(in srgb, var(--amber) 84%, var(--text) 16%); }
+:root:not([data-theme="dark"]) .analysis-stat-value.red { color: color-mix(in srgb, var(--red) 84%, var(--text) 16%); }
+:root:not([data-theme="dark"]) .analysis-stat-value.chaos { color: color-mix(in srgb, var(--chaos) 84%, var(--text) 16%); }
 
 /* Subtle readability bump for fine-print/helper copy (no layout changes). */
 .stat-sub,
@@ -3207,7 +3280,7 @@ body.graph-palette-ruby {
   <div class="tab-pane" id="tab-analysis">
     <div class="analysis-intro">
       <div class="analysis-title">Session Data Analysis</div>
-          <div class="analysis-sub">Aggregated stats from all logged sessions: observed 3:1 weight distribution, real-world returns vs market EV, and profit breakdown.</div>
+          <div class="analysis-sub">A health check for the observed 3:1 scarab dataset — showing how much data has been logged, how stable the scarab weights look, how much of the model is current-league based, and how confident we are in the results.</div>
     </div>
     <div id="analysisEmpty" class="analysis-empty" style="display:none">
       <p>No session data yet. Log sessions on the <strong>Session Logger</strong> tab to see analytics here.</p>
@@ -3215,8 +3288,8 @@ body.graph-palette-ruby {
     <div id="analysisContent" style="display:none">
       <div class="analysis-stats-bar" id="analysisStatsBar"></div>
       <div class="analysis-section">
-        <div class="analysis-section-title">Real vs Market EV</div>
-        <div class="analysis-section-desc">Average value per vendor trade from your sessions vs theoretical EV from current market prices.</div>
+        <div class="analysis-section-title">Lifetime Totals</div>
+        <div class="analysis-section-desc">Cumulative totals across all leagues from submitted sessions.</div>
         <div id="analysisEvCompare" class="analysis-ev-compare"></div>
       </div>
       <div class="analysis-section">
