@@ -15,6 +15,8 @@ const REQUIRED_SNAPSHOT_WRITES = ["ev", "atlas", "price"];
 const FAILURE_LOG_PREFIX = `${CACHE_PREFIX}:failure-log`;
 const FAILURE_LOG_RETENTION_DAYS = 30;
 const FAILURE_LOG_MAX_EVENTS_PER_DAY = 500;
+const PRICE_HISTORY_GUARD_MIN_DAYS = 5;
+const PRICE_HISTORY_GUARD_FLOOR_DAYS = 3;
 
 const POLICY = {
   currentLeague: {
@@ -736,6 +738,10 @@ async function snapshotLeagueForDate(env, league, today) {
     const priceKey = `price-history-${league.toLowerCase()}`;
     const priceStored = await env.EV_HISTORY.get(priceKey);
     const priceHistory = priceStored ? JSON.parse(priceStored) : {};
+    const previousPriceHistory = priceHistory && typeof priceHistory === "object"
+      ? JSON.parse(JSON.stringify(priceHistory))
+      : {};
+    const previousDistinctDays = countPriceHistoryDistinctDays(previousPriceHistory);
     const priceCutoff = new Date();
     priceCutoff.setDate(priceCutoff.getDate() - 7);
     const priceCutoffStr = priceCutoff.toISOString().slice(0, 10);
@@ -768,6 +774,36 @@ async function snapshotLeagueForDate(env, league, today) {
         .map((date) => ({ date, price: byDate[date] }))
         .filter((e) => e.date >= priceCutoffStr);
     }
+
+    const nextDistinctDays = countPriceHistoryDistinctDays(priceHistory);
+    const shrinkGuardFloor = Math.max(
+      PRICE_HISTORY_GUARD_FLOOR_DAYS,
+      previousDistinctDays - 3
+    );
+    const suspiciousShrink = previousDistinctDays >= PRICE_HISTORY_GUARD_MIN_DAYS
+      && nextDistinctDays < shrinkGuardFloor;
+    if (suspiciousShrink) {
+      await logFailureEvent(env, "price_history_shrink_guard", "Price history write blocked due to suspicious history-depth drop.", {
+        league,
+        date: today,
+        previousDistinctDays,
+        nextDistinctDays,
+        shrinkGuardFloor
+      });
+      return { ok: false, error: "price_history_shrink_guard" };
+    }
+
+    // Keep a rolling backup of the prior state before mutating primary history.
+    if (previousDistinctDays > 0) {
+      const backupKey = `price-history-backup-${league.toLowerCase()}`;
+      await env.EV_HISTORY.put(backupKey, JSON.stringify({
+        capturedAt: new Date().toISOString(),
+        league,
+        previousDistinctDays,
+        data: previousPriceHistory
+      }));
+    }
+
     await env.EV_HISTORY.put(priceKey, JSON.stringify(priceHistory));
     return {
       ok: true,
@@ -833,6 +869,19 @@ function formatDateKeyUtc(date) {
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
   const d = String(date.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function countPriceHistoryDistinctDays(history) {
+  if (!history || typeof history !== "object") return 0;
+  const dates = new Set();
+  for (const seriesRaw of Object.values(history)) {
+    const series = Array.isArray(seriesRaw) ? seriesRaw : [];
+    for (const entry of series) {
+      const date = String(entry?.date || "");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) dates.add(date);
+    }
+  }
+  return dates.size;
 }
 
 async function saveSnapshotRetryState(env, date, failures, retryCount) {
