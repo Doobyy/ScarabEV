@@ -154,6 +154,6 @@ busy('importBtn',false);
 setTimeout(()=>showBulkProgress(false),2200);
 }
 }
-async function loadScarabs(){const sc=currentScope();const q=['status=draft,active,retired'];if(sc.seasonId)q.push('seasonId='+encodeURIComponent(sc.seasonId));const r=await api('/admin/scarabs?'+q.join('&'));if(r.res.status!==200||!r.json){status('listStatus','Load failed ('+r.res.status+').','err');return;}state.scarabsAutoLoaded=true;state.scarabs=r.json.items||[];const validIds=new Set(state.scarabs.map((s)=>s.id));state.selectedIds=new Set([...state.selectedIds].filter((id)=>validIds.has(id)));filterScarabs();const scopeTxt=sc.seasonId?('workspace "'+sc.seasonId+'"'):'all scarabs';status('listStatus','Loaded '+state.scarabs.length+' scarabs from '+scopeTxt+'.','ok');}
+async function loadScarabs(){const sc=currentScope();const q=['status=draft,active,retired'];if(sc.seasonId)q.push('seasonId='+encodeURIComponent(sc.seasonId));const r=await api('/admin/scarabs?'+q.join('&'));if(r.res.status!==200||!r.json){status('listStatus','Load failed ('+r.res.status+').','err');return false;}state.scarabsAutoLoaded=true;state.scarabs=r.json.items||[];const validIds=new Set(state.scarabs.map((s)=>s.id));state.selectedIds=new Set([...state.selectedIds].filter((id)=>validIds.has(id)));filterScarabs();const scopeTxt=sc.seasonId?('workspace "'+sc.seasonId+'"'):'all scarabs';status('listStatus','Loaded '+state.scarabs.length+' scarabs from '+scopeTxt+'.','ok');return true;}
 
 `;

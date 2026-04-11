@@ -20,7 +20,7 @@ function renderBulkToolsScarabList(){
     el.textContent='No scarab data loaded.';
     return;
   }
-  const names=[...new Set(rows.map((r)=>String((r&&r.name)||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const names=[...new Set(rows.map((r)=>String((r&&r.currentText&&r.currentText.name)||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   el.innerHTML=names.map((name)=>'<div>'+escHtml(name)+'</div>').join('');
 }
 
