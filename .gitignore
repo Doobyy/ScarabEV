@@ -20,3 +20,7 @@ backend/.tmp-cookies.txt
 .wrangler/
 workers/market-worker/.wrangler/
 AGENTS.md
+**/node_modules/
+**/*.log
+**/*.tmp
+**/*.cache

@@ -1,0 +1,8 @@
+# Keep ripgrep focused on source and config, not caches/artifacts.
+**/node_modules/
+.temp/
+.wrangler/
+workers/**/.wrangler/
+**/*.log
+**/*.tmp
+**/*.cache
