@@ -744,10 +744,29 @@ async function snapshotLeagueForDate(env, league, today) {
       const name = line.name;
       const price = line.chaosValue ?? line.chaosEquivalent ?? line.primaryValue ?? null;
       if (!name || !price || price <= 0) continue;
-      if (!priceHistory[name]) priceHistory[name] = [];
-      if (priceHistory[name].some((e) => e.date === today)) continue;
-      priceHistory[name].push({ date: today, price: Number(price.toFixed(4)) });
-      priceHistory[name] = priceHistory[name].filter((e) => e.date >= priceCutoffStr);
+      const existing = Array.isArray(priceHistory[name]) ? priceHistory[name] : [];
+      const byDate = {};
+      for (const entry of existing) {
+        const date = String(entry?.date || "");
+        const val = Number(entry?.price);
+        if (!date || !Number.isFinite(val) || val <= 0) continue;
+        byDate[date] = Number(val.toFixed(4));
+      }
+
+      // Backfill from upstream sparkline so our own stored history can recover
+      // when prior KV history is missing or sparse.
+      const sparklineSeries = deriveDailyPriceSeriesFromSparkline(line, today);
+      for (const point of sparklineSeries) {
+        byDate[point.date] = point.price;
+      }
+
+      // Always stamp today's observed market price from this snapshot.
+      byDate[today] = Number(Number(price).toFixed(4));
+
+      priceHistory[name] = Object.keys(byDate)
+        .sort((a, b) => a.localeCompare(b))
+        .map((date) => ({ date, price: byDate[date] }))
+        .filter((e) => e.date >= priceCutoffStr);
     }
     await env.EV_HISTORY.put(priceKey, JSON.stringify(priceHistory));
     return {
@@ -766,6 +785,54 @@ async function snapshotLeagueForDate(env, league, today) {
     await logFailureEvent(env, "snapshot_exception", "Snapshot failed with exception.", { league, date: today, error: String(e?.message || e || "snapshot_failed") });
     return { ok: false, error: String(e?.message || e || "snapshot_failed") };
   }
+}
+
+function deriveDailyPriceSeriesFromSparkline(line, todayKey) {
+  const spark = line?.sparkline;
+  const data = Array.isArray(spark?.data) ? spark.data : null;
+  const totalChange = Number(spark?.totalChange);
+  const currentPrice = Number(line?.chaosValue ?? line?.chaosEquivalent ?? line?.primaryValue ?? NaN);
+  if (!data || data.length < 2 || !Number.isFinite(totalChange) || !Number.isFinite(currentPrice) || currentPrice <= 0) {
+    return [];
+  }
+  const denom = 1 + (totalChange / 100);
+  if (!Number.isFinite(denom) || denom <= 0) return [];
+  const baseline = currentPrice / denom;
+  if (!Number.isFinite(baseline) || baseline <= 0) return [];
+
+  const end = parseDateKeyUtc(todayKey);
+  if (!end) return [];
+  const series = [];
+  for (let i = 0; i < data.length; i++) {
+    const pct = Number(data[i]);
+    if (!Number.isFinite(pct)) continue;
+    const d = new Date(end.getTime());
+    d.setUTCDate(d.getUTCDate() - (data.length - 1 - i));
+    const pointPrice = baseline * (1 + (pct / 100));
+    if (!Number.isFinite(pointPrice) || pointPrice <= 0) continue;
+    series.push({
+      date: formatDateKeyUtc(d),
+      price: Number(pointPrice.toFixed(4))
+    });
+  }
+  return series;
+}
+
+function parseDateKeyUtc(key) {
+  const m = String(key || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, mo - 1, d));
+}
+
+function formatDateKeyUtc(date) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 async function saveSnapshotRetryState(env, date, failures, retryCount) {
