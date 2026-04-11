@@ -3761,13 +3761,8 @@ const GEMINI_MODEL_LITE = 'gemini-2.5-flash-lite';
 const DEFAULT_GEMINI_API_KEY = '';
 
 const BULK_MISMATCH_LOG_KEY = 'poepool-bulk-mismatch-log';
+const BULK_MISMATCH_QUEUE_KEY = 'poepool-bulk-mismatch-queue';
 const BULK_NAME_MAP_STORAGE_KEY = 'poepool-bulk-name-map';
-
-const BULK_DEFAULT_NAME_MAP_URL = './js/data/bulk-name-map.json';
-
- // shared defaults loaded from JSON file
-    // user overrides stored in localStorage
-         // effective map = defaults merged with user overrides
 
 function normalizeBulkNameMap(obj) {
   const normalized = {};
@@ -3786,46 +3781,106 @@ function recomputeBulkNameMap() {
 
 async function loadBulkDefaultNameMap() {
   let merged = {};
-  try {
-    const res = await fetch(BULK_DEFAULT_NAME_MAP_URL, { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      merged = normalizeBulkNameMap(data);
-    }
-  } catch (e) {
-    // Optional file; ignore if missing or invalid.
-  }
   if (WORKER_URL) {
     try {
       const remoteRes = await fetch(`${WORKER_URL}?type=BulkNameMap`, { cache: 'no-store' });
       if (remoteRes.ok) {
         const remoteData = await remoteRes.json();
         const remoteMap = normalizeBulkNameMap(remoteData && remoteData.map ? remoteData.map : {});
-        merged = { ...merged, ...remoteMap };
+        merged = remoteMap;
       }
     } catch (e) {
-      // Remote override is optional; ignore if unavailable.
+      // Remote map is optional; fall back to user overrides only.
     }
   }
   state.BULK_DEFAULT_NAME_MAP = merged;
   recomputeBulkNameMap();
 }
 
+function readBulkMismatchQueue() {
+  try {
+    const raw = localStorage.getItem(BULK_MISMATCH_QUEUE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeBulkMismatchQueue(rows) {
+  try {
+    localStorage.setItem(BULK_MISMATCH_QUEUE_KEY, JSON.stringify(Array.isArray(rows) ? rows : []));
+  } catch (e) {
+    // Ignore queue persistence errors.
+  }
+}
+
+async function flushBulkMismatchQueue() {
+  if (!WORKER_URL) return false;
+  const rows = readBulkMismatchQueue();
+  if (!rows.length) return true;
+  try {
+    const res = await fetch(`${WORKER_URL}?type=BulkMismatchLog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows })
+    });
+    if (!res.ok) return false;
+    const json = await res.json().catch(() => null);
+    if (!json || !json.ok) return false;
+    writeBulkMismatchQueue([]);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function flushBulkMismatchQueueOnExit() {
+  if (!WORKER_URL) return;
+  const rows = readBulkMismatchQueue();
+  if (!rows.length) return;
+  try {
+    void fetch(`${WORKER_URL}?type=BulkMismatchLog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+      keepalive: true
+    });
+  } catch (e) {
+    // Ignore exit-flush errors; queue remains for next visit retry.
+  }
+}
+
 function logBulkMismatch(rawName, qty, source) {
+  const name = String(rawName || '');
+  if (!name) return;
   try {
     const existing = localStorage.getItem(BULK_MISMATCH_LOG_KEY);
     const arr = Array.isArray(JSON.parse(existing)) ? JSON.parse(existing) : [];
-    const name = String(rawName || '').trim().toLowerCase();
-    if (arr.some(e => String(e.rawName || '').trim().toLowerCase() === name)) return;
-    arr.push({
-      rawName: String(rawName || ''),
+    if (!arr.some(e => String(e.rawName || '') === name)) {
+      arr.push({
+        rawName: name,
+        qty: Number.isFinite(qty) ? qty : null,
+        source: source || 'unknown',
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem(BULK_MISMATCH_LOG_KEY, JSON.stringify(arr));
+    }
+  } catch (e) {
+    // Swallow logging errors; analyzer should never fail because of logging.
+  }
+  try {
+    const queue = readBulkMismatchQueue();
+    if (queue.some(e => String(e.rawName || '') === name)) return;
+    queue.push({
+      rawName: name,
       qty: Number.isFinite(qty) ? qty : null,
       source: source || 'unknown',
       timestamp: new Date().toISOString()
     });
-    localStorage.setItem(BULK_MISMATCH_LOG_KEY, JSON.stringify(arr));
+    writeBulkMismatchQueue(queue);
   } catch (e) {
-    // Swallow logging errors; analyzer should never fail because of logging.
+    // Swallow queue errors; analyzer should never fail because of logging.
   }
 }
 
@@ -5252,6 +5307,8 @@ function atlasToggleLeftovers() {
 // Kick off initial wiring
 initBulkGeminiKey();
 loadBulkNameMap();
+void flushBulkMismatchQueue();
+window.addEventListener('pagehide', flushBulkMismatchQueueOnExit);
 
 // Bulk developer UI is disabled on the public app.
 (() => {

@@ -784,7 +784,7 @@ async function handleBulkMismatchLog(request, env) {
     }
   };
   const normalizeRow = (row) => {
-    const rawName = String(row?.rawName || "").trim();
+    const rawName = String(row?.rawName || "");
     const source = String(row?.source || "unknown").trim().slice(0, 40);
     const qtyNum = Number(row?.qty);
     return {
@@ -802,21 +802,29 @@ async function handleBulkMismatchLog(request, env) {
     } catch (_error) {
       return errorResponse("invalid_body", "Invalid mismatch payload.", 400, "bulk-mismatch-log");
     }
-    const row = normalizeRow(payload);
-    if (!row.rawName) {
+    const incoming = Array.isArray(payload?.rows) ? payload.rows : [payload];
+    const normalizedRows = incoming
+      .map((entry) => normalizeRow(entry))
+      .filter((row) => String(row.rawName || "").trim().length > 0);
+    if (!normalizedRows.length) {
       return errorResponse("invalid_payload", "Missing rawName.", 400, "bulk-mismatch-log");
     }
     const rows = await readRows();
-    const key = row.rawName.toLowerCase();
-    const existingIdx = rows.findIndex((entry) => String(entry?.rawName || "").trim().toLowerCase() === key);
-    if (existingIdx >= 0) {
-      rows[existingIdx] = row;
-    } else {
+    const seen = new Set(rows.map((entry) => String(entry?.rawName || "")));
+    let added = 0;
+    for (const row of normalizedRows) {
+      const key = String(row.rawName || "");
+      if (seen.has(key)) continue;
       rows.push(row);
+      seen.add(key);
+      added += 1;
+    }
+    if (added <= 0) {
+      return withCors(jsonResponse({ ok: true, count: Math.min(rows.length, BULK_MISMATCH_LOG_MAX), added: 0 }));
     }
     const trimmed = rows.slice(-BULK_MISMATCH_LOG_MAX);
     await env.EV_HISTORY.put(BULK_MISMATCH_LOG_KEY, JSON.stringify(trimmed));
-    return withCors(jsonResponse({ ok: true, count: trimmed.length }));
+    return withCors(jsonResponse({ ok: true, count: trimmed.length, added }));
   }
 
   if (request.method === "GET") {

@@ -66,7 +66,7 @@ export const state = {
   // Bulk buy analyzer
   _bulkImageFile: null,
   _bulkSource: null,         // 'image' or 'csv'
-  BULK_DEFAULT_NAME_MAP: {}, // shared defaults loaded from JSON file
+  BULK_DEFAULT_NAME_MAP: {}, // shared defaults loaded from backend worker map
   BULK_USER_NAME_MAP: {},    // user overrides stored in localStorage
   BULK_NAME_MAP: {},         // effective map = defaults merged with user overrides
 };
