@@ -125,7 +125,45 @@ export interface TokenRouteHelpers extends BaseRouteHelpers {
 }
 
 export interface OpsRouteHelpers extends BaseRouteHelpers {
-  listBackupSnapshots: (db: D1Database, limit: number) => Promise<unknown[]>;
+  listBackupSnapshots: (db: D1Database, backupR2: R2Bucket | undefined, limit: number) => Promise<unknown[]>;
+  getLatestBackupCoverage: (
+    db: D1Database,
+    backupR2: R2Bucket | undefined
+  ) => Promise<{
+    snapshotId: string;
+    createdAt: string;
+    source: "inline" | "external" | "unavailable";
+    hasMarketWorkerBackup: boolean;
+    totalMarketKeys: number;
+    missingScopes: string[];
+    validationOk: boolean;
+    validationErrors: string[];
+    scopes: Array<{
+      scope: string;
+      keyCount: number;
+    }>;
+    capped: boolean;
+  } | null>;
+  getMarketBackupSmokeStatus: (
+    config: RuntimeConfig
+  ) => Promise<{
+    ok: boolean;
+    testedAt: string | null;
+    sourceKey: string | null;
+    bytes: number;
+    elapsedMs: number;
+    error: string | null;
+  }>;
+  runMarketBackupSmokeTest: (
+    config: RuntimeConfig
+  ) => Promise<{
+    ok: boolean;
+    testedAt: string | null;
+    sourceKey: string | null;
+    bytes: number;
+    elapsedMs: number;
+    error: string | null;
+  }>;
   computeBackupStorageUsage: (
     bucket: R2Bucket | undefined,
     prefix: string
@@ -135,6 +173,17 @@ export interface OpsRouteHelpers extends BaseRouteHelpers {
     triggerType: "manual" | "scheduled",
     initiatedByUserId: string | null
   ) => Promise<{ id: string; status: "ok" | "failed"; itemCount: number } | null>;
+  restoreBackupSnapshot: (
+    deps: RouteDeps,
+    snapshotId: string,
+    scopes: readonly string[]
+  ) => Promise<{
+    snapshotId: string;
+    restoredKeys: number;
+    skippedKeys: number;
+    scopes: string[];
+    source: "inline" | "external";
+  }>;
   getCloudflareUsageSummary: (
     config: RuntimeConfig
   ) => Promise<{
@@ -163,12 +212,50 @@ export interface OpsRouteHelpers extends BaseRouteHelpers {
       context: Record<string, unknown>;
     }>;
   }>;
+  getBackupFailureLogs: (
+    db: D1Database,
+    days: number
+  ) => Promise<{
+    days: number;
+    count: number;
+    events: Array<{
+      date: string;
+      at: string | null;
+      source: string;
+      code: string;
+      message: string;
+      severity: string;
+      context: Record<string, unknown>;
+    }>;
+  }>;
   runMarketManualRetry: (
     action: string
   ) => Promise<{
     action: string;
     elapsedMs: number;
   }>;
+  getMarketBulkNameMap: (
+    config: RuntimeConfig
+  ) => Promise<{
+    map: Record<string, string>;
+    updatedAt: string | null;
+  }>;
+  setMarketBulkNameMap: (
+    config: RuntimeConfig,
+    map: Record<string, unknown>
+  ) => Promise<{
+    map: Record<string, string>;
+    updatedAt: string | null;
+  }>;
+  getMarketBulkMismatchLog: (
+    config: RuntimeConfig
+  ) => Promise<{
+    rows: Array<{ rawName: string; qty: number | null; source: string; timestamp: string }>;
+    count: number;
+  }>;
+  clearMarketBulkMismatchLog: (
+    config: RuntimeConfig
+  ) => Promise<void>;
 }
 
 export type OperationalAlertType = "auth_failure" | "publish_failure" | "api_error";

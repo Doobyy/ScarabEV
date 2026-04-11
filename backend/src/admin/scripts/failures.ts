@@ -101,6 +101,48 @@ function failureGuidance(code,context){
       next:'Inspect error details in context and retry after fixing root cause.'
     };
   }
+  if(c==='backup_snapshot_failed'){
+    return {
+      what:'Backend backup snapshot failed before completing coverage/write.',
+      next:'Check context error detail, fix root cause, then run backup again.'
+    };
+  }
+  if(c==='backup_snapshot_coverage_missing'){
+    return {
+      what:'Backup finished but market-worker backup coverage is incomplete.',
+      next:'Review missing scopes/total keys in context, then rerun backup after fixing source coverage.'
+    };
+  }
+  if(c==='backup_smoke_failed'){
+    return {
+      what:'Automated backup smoke restore test failed.',
+      next:'Inspect smoke error/source key, fix restore path, then rerun smoke test.'
+    };
+  }
+  if(c==='price_history_backfill_fallback_enabled'){
+    return {
+      what:'Emergency sparkline backfill fallback was manually enabled.',
+      next:'Use only during incidents; monitor logs and disable once normal history writes recover.'
+    };
+  }
+  if(c==='price_history_backfill_fallback_used'){
+    return {
+      what:'Price history was backfilled from upstream sparkline fallback.',
+      next:'Treat as degraded mode; verify normal history writes and disable fallback when stable.'
+    };
+  }
+  if(c==='price_history_backfill_fallback_expired'){
+    return {
+      what:'Emergency sparkline backfill fallback window expired and was auto-disabled.',
+      next:'Confirm history writes are healthy; re-enable only if recovery is still required.'
+    };
+  }
+  if(c==='price_history_backfill_fallback_disabled'){
+    return {
+      what:'Emergency sparkline backfill fallback was manually disabled.',
+      next:'Normal mode restored; continue monitoring history depth for regressions.'
+    };
+  }
   if(stage==='fetch_weights'){
     return {
       what:'Weighted inputs fetch failed during the weights stage.',
@@ -204,27 +246,46 @@ async function clearFailureLogs(buttonEl){
   }
 }
 
-async function runManualRetryAction(action,label,buttonEl){
+async function runManualRetryAction(action,label,buttonEl,statusTargetId){
   const target=String(action||'').trim().toLowerCase();
+  const statusId=String(statusTargetId||'healthStatus');
   if(!target)return false;
   if(state.manualRetryBusy)return false;
   state.manualRetryBusy=true;
   setManualRetryBusy(buttonEl,true,label||target);
-  status('healthStatus','Running '+(label||target)+'...','warn');
+  const startedAt=Date.now();
+  status(statusId,'Running '+(label||target)+'...','warn');
+  const ticker=setInterval(()=>{
+    try{
+      const secs=Math.max(0,Math.floor((Date.now()-startedAt)/1000));
+      if(buttonEl&&typeof buttonEl==='object')buttonEl.textContent='Running... '+secs+'s';
+      status(statusId,'Running '+(label||target)+'... '+secs+'s','warn');
+    }catch(e){}
+  },1000);
   toast((label||target)+' started');
   try{
     const r=await api('/admin/ops/retry',{
       method:'POST',
-      body:JSON.stringify({action:target})
+      body:JSON.stringify({action:target}),
+      timeoutMs:70000
     });
+    if(r.res.status===0){
+      status(statusId,(label||target)+' timed out or network failed after '+Math.max(1,Math.floor((Date.now()-startedAt)/1000))+'s.','err');
+      toast((label||target)+' timed out');
+      return false;
+    }
     if(r.res.status!==200||!r.json||!r.json.ok){
-      status('healthStatus','Manual retry failed: '+formatApiFailure(r.res,r.json,r.text),'err');
+      status(statusId,'Manual retry failed: '+formatApiFailure(r.res,r.json,r.text),'err');
       toast((label||target)+' failed');
       return false;
     }
     const took=Math.max(0,Number(r.json.elapsedMs)||0);
-    status('healthStatus',(label||target)+' completed in '+took+'ms.','ok');
+    status(statusId,(label||target)+' completed in '+took+'ms.','ok');
     toast((label||target)+' completed');
+    // Force next health read to bypass short-lived market bundle cache.
+    if(typeof marketHealthCacheAt!=='undefined') marketHealthCacheAt=0;
+    if(typeof marketHealthCache!=='undefined') marketHealthCache=null;
+    if(typeof marketHealthInFlight!=='undefined') marketHealthInFlight=null;
     if(typeof loadHealthOverview==='function'){
       await loadHealthOverview({quiet:true});
     }
@@ -233,13 +294,41 @@ async function runManualRetryAction(action,label,buttonEl){
     }
     return true;
   }catch(e){
-    status('healthStatus','Manual retry failed: '+formatThrownError(e),'err');
+    status(statusId,'Manual retry failed: '+formatThrownError(e),'err');
     toast((label||target)+' failed');
     return false;
   }finally{
+    clearInterval(ticker);
     state.manualRetryBusy=false;
     setManualRetryBusy(buttonEl,false,label||target);
   }
+}
+
+async function runSnapshotRetryAction(buttonEl){
+  const snap=(state&&state.healthLastResults&&state.healthLastResults.snapshot)||{};
+  const telemetry=(snap&&snap.telemetry&&typeof snap.telemetry==='object')?snap.telemetry:{};
+  const status=String(telemetry.status||'').toLowerCase();
+  const pendingCount=Array.isArray(telemetry.pendingLeagues)?telemetry.pendingLeagues.length:0;
+  const shouldRetry=status.includes('retry')||pendingCount>0;
+  const action=shouldRetry?'snapshot-retry':'snapshot-run';
+  const label=shouldRetry?'Snapshot retry':'Snapshot run';
+  return runManualRetryAction(action,label,buttonEl);
+}
+
+async function runPriceHistoryBackfillEnable(buttonEl){
+  const ok=await runManualRetryAction('price-history-backfill-enable-once','Price history backfill enable',buttonEl,'failureStatus');
+  if(ok&&typeof loadFailureLogs==='function'){
+    await loadFailureLogs({quiet:true});
+  }
+  return ok;
+}
+
+async function runPriceHistoryBackfillDisable(buttonEl){
+  const ok=await runManualRetryAction('price-history-backfill-disable','Price history backfill disable',buttonEl,'failureStatus');
+  if(ok&&typeof loadFailureLogs==='function'){
+    await loadFailureLogs({quiet:true});
+  }
+  return ok;
 }
 
 `;

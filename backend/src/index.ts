@@ -729,6 +729,7 @@ interface BackupSnapshotSummary {
   status: "ok" | "failed";
   itemCount: number;
   externalKey: string | null;
+  bytes: number | null;
   errorMessage: string | null;
   createdAt: string;
 }
@@ -798,6 +799,112 @@ interface MarketManualRetryResponse {
   error?: string;
 }
 
+interface MarketBulkNameMapResponse {
+  ok?: boolean;
+  map?: Record<string, string>;
+  updatedAt?: string | null;
+  error?: string;
+}
+
+interface MarketBulkMismatchLogResponse {
+  ok?: boolean;
+  count?: number;
+  rows?: Array<{
+    rawName?: string;
+    qty?: number | null;
+    source?: string;
+    timestamp?: string;
+  }>;
+  error?: string;
+}
+
+interface MarketBackupCoverageResponse {
+  generatedAt?: string;
+  totalKeys?: number;
+  capped?: boolean;
+  maxKeys?: number;
+  scopes?: Array<{
+    scope?: string;
+    keyCount?: number;
+    sampleKeys?: string[];
+  }>;
+}
+
+interface MarketBackupExportResponse {
+  ok?: boolean;
+  mode?: "summary" | "full";
+  scopes?: string[];
+  coverage?: MarketBackupCoverageResponse;
+  dataByKey?: Record<string, string>;
+}
+
+interface MarketBackupImportResponse {
+  ok?: boolean;
+  dryRun?: boolean;
+  scopes?: string[];
+  restoredKeys?: number;
+  skippedKeys?: number;
+}
+
+interface MarketBackupSmokeStatusResponse {
+  ok?: boolean;
+  status?: {
+    ok?: boolean;
+    testedAt?: string;
+    sourceKey?: string | null;
+    bytes?: number;
+    elapsedMs?: number;
+    error?: string | null;
+  } | null;
+}
+
+interface MarketBackupSmokeTestResponse {
+  ok?: boolean;
+  status?: {
+    ok?: boolean;
+    testedAt?: string;
+    sourceKey?: string | null;
+    bytes?: number;
+    elapsedMs?: number;
+    error?: string | null;
+  } | null;
+}
+
+interface BackupCoverageSummary {
+  snapshotId: string;
+  createdAt: string;
+  source: "inline" | "external" | "unavailable";
+  hasMarketWorkerBackup: boolean;
+  totalMarketKeys: number;
+  missingScopes: string[];
+  validationOk: boolean;
+  validationErrors: string[];
+  scopes: Array<{
+    scope: string;
+    keyCount: number;
+  }>;
+  capped: boolean;
+}
+
+const MARKET_BACKUP_SCOPES = [
+  "price-history",
+  "price-history-backup",
+  "ev-history",
+  "atlas-ev-history",
+  "snapshot-state",
+  "failure-logs"
+] as const;
+const MARKET_BACKUP_REQUIRED_SCOPES = [
+  "price-history",
+  "price-history-backup",
+  "ev-history",
+  "atlas-ev-history",
+  "snapshot-state"
+] as const;
+const BACKUP_INLINE_PAYLOAD_MAX_BYTES = 900_000;
+const MARKET_WORKER_REQUEST_TIMEOUT_MS = 65_000;
+const MARKET_WORKER_MANUAL_RETRY_TIMEOUT_MS = 12_000;
+
 function getMarketWorkerAdminHeaders(config: RuntimeConfig): Record<string, string> {
   const token = String(config.marketWorkerAdminToken || "").trim();
   if (!token) {
@@ -809,13 +916,42 @@ function getMarketWorkerAdminHeaders(config: RuntimeConfig): Record<string, stri
   };
 }
 
-async function listBackupSnapshots(db: D1Database, limit = 10): Promise<BackupSnapshotSummary[]> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const ctl = new AbortController();
+  const timeout = Math.max(500, Number.isFinite(timeoutMs) ? Math.floor(timeoutMs) : MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => {
+    try {
+      ctl.abort();
+    } catch {
+      // no-op
+    }
+  }, timeout);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: ctl.signal
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("request_timeout");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function listBackupSnapshots(
+  db: D1Database,
+  backupR2: R2Bucket | undefined,
+  limit = 10
+): Promise<BackupSnapshotSummary[]> {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 10;
   const rows = await db
     .prepare(
       `
       SELECT id, trigger_type, initiated_by_user_id, status, item_count, error_message, created_at
-           , external_key
+           , external_key, LENGTH(COALESCE(payload_json, '')) AS payload_bytes
       FROM backup_snapshots
       ORDER BY created_at DESC, id DESC
       LIMIT ?1
@@ -829,20 +965,38 @@ async function listBackupSnapshots(db: D1Database, limit = 10): Promise<BackupSn
       status: "ok" | "failed";
       item_count: number;
       external_key: string | null;
+      payload_bytes: number | null;
       error_message: string | null;
       created_at: string;
     }>();
-
-  return rows.results.map((row) => ({
+  const results = rows.results.map((row) => ({
     id: row.id,
     triggerType: row.trigger_type,
     initiatedByUserId: row.initiated_by_user_id,
     status: row.status,
     itemCount: row.item_count,
     externalKey: typeof row.external_key === "string" ? row.external_key : null,
+    bytes: Math.max(0, Number(row.payload_bytes) || 0),
     errorMessage: row.error_message,
     createdAt: row.created_at
   }));
+  if (!backupR2) {
+    return results;
+  }
+  await Promise.all(
+    results.map(async (row) => {
+      if (!row.externalKey) return;
+      try {
+        const object = await backupR2.head(row.externalKey);
+        if (object && Number.isFinite(object.size)) {
+          row.bytes = Math.max(0, Number(object.size) || 0);
+        }
+      } catch {
+        // Keep inline byte estimate when object head is unavailable.
+      }
+    })
+  );
+  return results;
 }
 
 async function computeBackupStorageUsage(
@@ -1029,7 +1183,7 @@ async function getMarketFailureLogs(daysRaw: number, config: RuntimeConfig): Pro
   const days = Math.max(1, Math.min(30, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : 30));
   const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=FailureLogs&days=${days}`;
   const headers = getMarketWorkerAdminHeaders(config);
-  const res = await fetch(url, { method: "GET", headers });
+  const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`market_failure_logs_request_failed:${res.status}:${body.slice(0, 160)}`);
@@ -1054,6 +1208,176 @@ async function getMarketFailureLogs(daysRaw: number, config: RuntimeConfig): Pro
   };
 }
 
+async function getBackupFailureLogs(db: D1Database, daysRaw: number): Promise<{
+  days: number;
+  count: number;
+  events: Array<{
+    date: string;
+    at: string | null;
+    source: string;
+    code: string;
+    message: string;
+    severity: string;
+    context: Record<string, unknown>;
+  }>;
+}> {
+  const days = Math.max(1, Math.min(30, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : 30));
+  const cutoffIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await db
+    .prepare(
+      `
+      SELECT id, trigger_type, initiated_by_user_id, item_count, error_message, created_at, status, payload_json, external_key
+      FROM backup_snapshots
+      WHERE created_at >= ?1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 500
+    `
+    )
+    .bind(cutoffIso)
+    .all<{
+      id: string;
+      trigger_type: string;
+      initiated_by_user_id: string | null;
+      item_count: number | null;
+      error_message: string | null;
+      created_at: string;
+      status: string;
+      payload_json: string | null;
+      external_key: string | null;
+    }>();
+
+  const events: Array<{
+    date: string;
+    at: string | null;
+    source: string;
+    code: string;
+    message: string;
+    severity: string;
+    context: Record<string, unknown>;
+  }> = [];
+  const coverageBySnapshot = new Map<string, {
+    totalKeys: number;
+    missingScopes: string[];
+    hasMarketWorkerBackup: boolean;
+    validationOk: boolean;
+    validationErrors: string[];
+    coverageMissing: boolean;
+  }>();
+  let newestGoodCoverageAt: string | null = null;
+
+  for (const row of rows.results) {
+    const status = String(row.status || "").toLowerCase();
+    if (status !== "ok") continue;
+    let payload: Record<string, unknown> | null = null;
+    try {
+      const parsed = JSON.parse(String(row.payload_json || "{}"));
+      if (parsed && typeof parsed === "object") payload = parsed as Record<string, unknown>;
+    } catch {
+      payload = null;
+    }
+    const marketBackup = payload?.marketWorkerBackup && typeof payload.marketWorkerBackup === "object"
+      ? payload.marketWorkerBackup as {
+        coverage?: {
+          totalKeys?: number;
+          scopes?: Array<{ scope?: string; keyCount?: number }>;
+        };
+      }
+      : null;
+    const coverage = marketBackup?.coverage && typeof marketBackup.coverage === "object" ? marketBackup.coverage : null;
+    const scopeRows = Array.isArray(coverage?.scopes) ? coverage.scopes : [];
+    const keyedScopes = new Set(
+      scopeRows
+        .map((entry) => ({
+          scope: String(entry?.scope || ""),
+          keyCount: Math.max(0, Number(entry?.keyCount) || 0)
+        }))
+        .filter((entry) => entry.scope.length > 0 && entry.keyCount > 0)
+        .map((entry) => entry.scope)
+    );
+    const missingScopes = MARKET_BACKUP_REQUIRED_SCOPES.filter((scope) => !keyedScopes.has(scope));
+    const totalKeys = Math.max(0, Number(coverage?.totalKeys) || 0);
+    const validation = payload?.marketWorkerBackupValidation && typeof payload.marketWorkerBackupValidation === "object"
+      ? payload.marketWorkerBackupValidation as { ok?: boolean; errors?: string[] }
+      : null;
+    const validationErrors = Array.isArray(validation?.errors) ? validation.errors.map((entry) => String(entry || "")).filter(Boolean) : [];
+    const validationOk = validation?.ok !== false;
+    const coverageMissing = !marketBackup || totalKeys <= 0 || missingScopes.length > 0 || !validationOk;
+    coverageBySnapshot.set(row.id, {
+      totalKeys,
+      missingScopes,
+      hasMarketWorkerBackup: !!marketBackup,
+      validationOk,
+      validationErrors,
+      coverageMissing
+    });
+    if (!coverageMissing) {
+      const createdAt = String(row.created_at || "");
+      if (createdAt && (!newestGoodCoverageAt || createdAt > newestGoodCoverageAt)) {
+        newestGoodCoverageAt = createdAt;
+      }
+    }
+  }
+
+  for (const row of rows.results) {
+    const baseContext = {
+      snapshotId: row.id,
+      triggerType: String(row.trigger_type || "unknown"),
+      initiatedByUserId: row.initiated_by_user_id,
+      itemCount: Number(row.item_count) || 0,
+      externalKey: row.external_key ? String(row.external_key) : null
+    };
+    const status = String(row.status || "").toLowerCase();
+    if (status === "failed") {
+      events.push({
+        date: String(row.created_at || "").slice(0, 10),
+        at: row.created_at ? String(row.created_at) : null,
+        source: "backend-backup",
+        code: "backup_snapshot_failed",
+        message: String(row.error_message || "Backup snapshot failed."),
+        severity: "error",
+        context: baseContext
+      });
+      continue;
+    }
+    if (status !== "ok") {
+      continue;
+    }
+
+    const coverageInfo = coverageBySnapshot.get(row.id);
+    const totalKeys = Math.max(0, Number(coverageInfo?.totalKeys) || 0);
+    const missingScopes = Array.isArray(coverageInfo?.missingScopes) ? coverageInfo!.missingScopes : [];
+    const validationErrors = Array.isArray(coverageInfo?.validationErrors) ? coverageInfo!.validationErrors : [];
+    const hasMarketWorkerBackup = !!coverageInfo?.hasMarketWorkerBackup;
+    const validationOk = coverageInfo?.validationOk !== false;
+    const coverageMissing = !!coverageInfo?.coverageMissing;
+    const createdAt = String(row.created_at || "");
+    const legacyCoverageNoise = !!(coverageMissing && newestGoodCoverageAt && createdAt && createdAt < newestGoodCoverageAt);
+    if (coverageMissing && !legacyCoverageNoise) {
+      events.push({
+        date: String(row.created_at || "").slice(0, 10),
+        at: row.created_at ? String(row.created_at) : null,
+        source: "backend-backup",
+        code: "backup_snapshot_coverage_missing",
+        message: "Backup snapshot completed but market-worker coverage is incomplete.",
+        severity: "warn",
+        context: {
+          ...baseContext,
+          totalKeys,
+          missingScopes,
+          hasMarketWorkerBackup,
+          validationOk,
+          validationErrors
+        }
+      });
+    }
+  }
+  return {
+    days,
+    count: events.length,
+    events
+  };
+}
+
 async function runMarketManualRetry(actionRaw: string, config: RuntimeConfig): Promise<{
   action: string;
   elapsedMs: number;
@@ -1066,12 +1390,14 @@ async function runMarketManualRetry(actionRaw: string, config: RuntimeConfig): P
     "cache-current-market",
     "cache-standard-market",
     "cache-all",
-    "clear-failure-logs"
+    "clear-failure-logs",
+    "price-history-backfill-enable-once",
+    "price-history-backfill-disable"
   ]);
   if (!allowed.has(action)) throw new Error(`manual_retry_invalid_action:${action}`);
   const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=ManualRetry&action=${encodeURIComponent(action)}`;
   const headers = getMarketWorkerAdminHeaders(config);
-  const res = await fetch(url, { method: "GET", headers });
+  const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_MANUAL_RETRY_TIMEOUT_MS);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`manual_retry_request_failed:${res.status}:${body.slice(0, 160)}`);
@@ -1083,6 +1409,485 @@ async function runMarketManualRetry(actionRaw: string, config: RuntimeConfig): P
   return {
     action: String(payload.action || action),
     elapsedMs: Math.max(0, Number(payload.elapsedMs) || 0)
+  };
+}
+
+async function getMarketBulkNameMap(config: RuntimeConfig): Promise<{
+  map: Record<string, string>;
+  updatedAt: string | null;
+}> {
+  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkNameMap";
+  const res = await fetchWithTimeout(url, { method: "GET" }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_bulk_name_map_get_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketBulkNameMapResponse;
+  if (!payload || payload.ok !== true) {
+    throw new Error(`market_bulk_name_map_get_invalid:${String(payload?.error || "unknown_error")}`);
+  }
+  const mapRaw = payload.map && typeof payload.map === "object" ? payload.map : {};
+  const map: Record<string, string> = {};
+  for (const [rawKey, rawValue] of Object.entries(mapRaw)) {
+    const key = String(rawKey || "").trim().toLowerCase();
+    const value = String(rawValue || "").trim();
+    if (!key || !value) continue;
+    map[key] = value;
+  }
+  return {
+    map,
+    updatedAt: payload.updatedAt ? String(payload.updatedAt) : null
+  };
+}
+
+async function setMarketBulkNameMap(
+  config: RuntimeConfig,
+  mapInput: Record<string, unknown>
+): Promise<{
+  map: Record<string, string>;
+  updatedAt: string | null;
+}> {
+  const map: Record<string, string> = {};
+  for (const [rawKey, rawValue] of Object.entries(mapInput || {})) {
+    const key = String(rawKey || "").trim().toLowerCase();
+    const value = String(rawValue || "").trim();
+    if (!key || !value) continue;
+    map[key] = value;
+  }
+  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkNameMap";
+  const headers = {
+    ...getMarketWorkerAdminHeaders(config),
+    "content-type": "application/json"
+  };
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ map })
+  }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  const text = await res.text().catch(() => "");
+  let payload: MarketBulkNameMapResponse | null = null;
+  try {
+    payload = JSON.parse(text) as MarketBulkNameMapResponse;
+  } catch {
+    payload = null;
+  }
+  if (!res.ok || !payload || payload.ok !== true) {
+    throw new Error(`market_bulk_name_map_set_failed:${res.status}:${text.slice(0, 160)}`);
+  }
+  const returnedRaw = payload.map && typeof payload.map === "object" ? payload.map : {};
+  const returned: Record<string, string> = {};
+  for (const [rawKey, rawValue] of Object.entries(returnedRaw)) {
+    const key = String(rawKey || "").trim().toLowerCase();
+    const value = String(rawValue || "").trim();
+    if (!key || !value) continue;
+    returned[key] = value;
+  }
+  return {
+    map: returned,
+    updatedAt: payload.updatedAt ? String(payload.updatedAt) : null
+  };
+}
+
+async function getMarketBulkMismatchLog(config: RuntimeConfig): Promise<{
+  rows: Array<{ rawName: string; qty: number | null; source: string; timestamp: string }>;
+  count: number;
+}> {
+  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkMismatchLog";
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_bulk_mismatch_get_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketBulkMismatchLogResponse;
+  if (!payload || payload.ok !== true || !Array.isArray(payload.rows)) {
+    throw new Error(`market_bulk_mismatch_get_invalid:${String(payload?.error || "unknown_error")}`);
+  }
+  const rows = payload.rows.map((row) => ({
+    rawName: String(row?.rawName || "").trim(),
+    qty: Number.isFinite(Number(row?.qty)) ? Math.max(0, Number(row?.qty) || 0) : null,
+    source: String(row?.source || "unknown").trim() || "unknown",
+    timestamp: String(row?.timestamp || "")
+  })).filter((row) => row.rawName.length > 0);
+  return {
+    rows,
+    count: Math.max(0, Number(payload.count) || rows.length)
+  };
+}
+
+async function clearMarketBulkMismatchLog(config: RuntimeConfig): Promise<void> {
+  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkMismatchLog";
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetchWithTimeout(url, { method: "DELETE", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_bulk_mismatch_clear_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+}
+
+function validateMarketBackupData(
+  exportPayload: {
+    coverage: {
+      totalKeys: number;
+      scopes: Array<{ scope: string; keyCount: number; sampleKeys: string[] }>;
+    };
+    dataByKey: Record<string, string>;
+  }
+): {
+  ok: boolean;
+  errors: string[];
+  missingRequiredScopes: string[];
+} {
+  const scopeRows = Array.isArray(exportPayload.coverage?.scopes) ? exportPayload.coverage.scopes : [];
+  const keyedScopes = new Set(
+    scopeRows
+      .map((entry) => ({
+        scope: String(entry?.scope || ""),
+        keyCount: Math.max(0, Number(entry?.keyCount) || 0)
+      }))
+      .filter((entry) => entry.scope.length > 0 && entry.keyCount > 0)
+      .map((entry) => entry.scope)
+  );
+  const missingRequiredScopes = MARKET_BACKUP_REQUIRED_SCOPES.filter((scope) => !keyedScopes.has(scope));
+  const errors: string[] = [];
+  if (missingRequiredScopes.length > 0) {
+    errors.push(`missing_required_scopes:${missingRequiredScopes.join(",")}`);
+  }
+  if (!exportPayload.coverage || Math.max(0, Number(exportPayload.coverage.totalKeys) || 0) <= 0) {
+    errors.push("total_keys_zero");
+  }
+  const dataByKey = exportPayload.dataByKey && typeof exportPayload.dataByKey === "object" ? exportPayload.dataByKey : {};
+  const parseJson = (value: unknown): unknown | null => {
+    try {
+      return JSON.parse(String(value || ""));
+    } catch {
+      return null;
+    }
+  };
+  const entries = Object.entries(dataByKey);
+  for (const [key, raw] of entries) {
+    const parsed = parseJson(raw);
+    if (parsed === null) {
+      errors.push(`invalid_json:${key}`);
+      continue;
+    }
+    if (key.startsWith("ev-history-") || key.startsWith("atlas-ev-history-")) {
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        errors.push(`invalid_series:${key}`);
+      }
+    } else if (key.startsWith("price-history-") || key.startsWith("price-history-backup-")) {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.keys(parsed as Record<string, unknown>).length === 0) {
+        errors.push(`invalid_price_map:${key}`);
+      }
+    } else if (key.startsWith(`${"market-cache-v2"}:snapshot-`)) {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        errors.push(`invalid_snapshot_state:${key}`);
+      }
+    }
+    if (errors.length >= 20) break;
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    missingRequiredScopes
+  };
+}
+
+async function getMarketBackupSmokeStatus(config: RuntimeConfig): Promise<{
+  ok: boolean;
+  testedAt: string | null;
+  sourceKey: string | null;
+  bytes: number;
+  elapsedMs: number;
+  error: string | null;
+}> {
+  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupSmokeStatus";
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_backup_smoke_status_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketBackupSmokeStatusResponse;
+  const status = payload?.status || null;
+  return {
+    ok: !!status?.ok,
+    testedAt: status?.testedAt ? String(status.testedAt) : null,
+    sourceKey: status?.sourceKey ? String(status.sourceKey) : null,
+    bytes: Math.max(0, Number(status?.bytes) || 0),
+    elapsedMs: Math.max(0, Number(status?.elapsedMs) || 0),
+    error: status?.error ? String(status.error) : null
+  };
+}
+
+async function runMarketBackupSmokeTest(config: RuntimeConfig): Promise<{
+  ok: boolean;
+  testedAt: string | null;
+  sourceKey: string | null;
+  bytes: number;
+  elapsedMs: number;
+  error: string | null;
+}> {
+  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupSmokeTest";
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  const text = await res.text().catch(() => "");
+  let payload: MarketBackupSmokeTestResponse | null = null;
+  try {
+    payload = JSON.parse(text) as MarketBackupSmokeTestResponse;
+  } catch {
+    payload = null;
+  }
+  const status = payload?.status || null;
+  if (!res.ok && !status) {
+    throw new Error(`market_backup_smoke_test_failed:${res.status}:${text.slice(0, 160)}`);
+  }
+  return {
+    ok: !!status?.ok && !!res.ok,
+    testedAt: status?.testedAt ? String(status.testedAt) : null,
+    sourceKey: status?.sourceKey ? String(status.sourceKey) : null,
+    bytes: Math.max(0, Number(status?.bytes) || 0),
+    elapsedMs: Math.max(0, Number(status?.elapsedMs) || 0),
+    error: status?.error ? String(status.error) : (!res.ok ? `http_${res.status}` : null)
+  };
+}
+
+async function getMarketBackupExport(
+  config: RuntimeConfig,
+  mode: "summary" | "full",
+  scopes: readonly string[] = MARKET_BACKUP_SCOPES
+): Promise<{
+  scopes: string[];
+  coverage: {
+    generatedAt: string;
+    totalKeys: number;
+    capped: boolean;
+    maxKeys: number;
+    scopes: Array<{ scope: string; keyCount: number; sampleKeys: string[] }>;
+  };
+  dataByKey: Record<string, string>;
+}> {
+  const requestedScopes = [...new Set(scopes.map((scope) => String(scope || "").trim().toLowerCase()).filter(Boolean))];
+  const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupExport&mode=${mode}&scopes=${encodeURIComponent(requestedScopes.join(","))}`;
+  const headers = getMarketWorkerAdminHeaders(config);
+  const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_backup_export_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketBackupExportResponse;
+  if (!payload || payload.ok !== true || !payload.coverage) {
+    throw new Error("market_backup_export_invalid_payload");
+  }
+  const scopeRows = Array.isArray(payload.coverage.scopes) ? payload.coverage.scopes : [];
+  const normalizedScopes = scopeRows.map((entry) => ({
+    scope: String(entry?.scope || ""),
+    keyCount: Math.max(0, Number(entry?.keyCount) || 0),
+    sampleKeys: Array.isArray(entry?.sampleKeys) ? entry.sampleKeys.map((s) => String(s || "")).filter(Boolean).slice(0, 5) : []
+  }));
+  return {
+    scopes: Array.isArray(payload.scopes) ? payload.scopes.map((scope) => String(scope || "")).filter(Boolean) : requestedScopes,
+    coverage: {
+      generatedAt: String(payload.coverage.generatedAt || new Date().toISOString()),
+      totalKeys: Math.max(0, Number(payload.coverage.totalKeys) || 0),
+      capped: !!payload.coverage.capped,
+      maxKeys: Math.max(1, Number(payload.coverage.maxKeys) || 1),
+      scopes: normalizedScopes
+    },
+    dataByKey: payload.dataByKey && typeof payload.dataByKey === "object" ? payload.dataByKey : {}
+  };
+}
+
+async function runMarketBackupImport(
+  config: RuntimeConfig,
+  dataByKey: Record<string, string>,
+  scopes: readonly string[]
+): Promise<{ restoredKeys: number; skippedKeys: number; scopes: string[] }> {
+  const selectedScopes = [...new Set(scopes.map((scope) => String(scope || "").trim().toLowerCase()).filter(Boolean))];
+  const headers = {
+    ...getMarketWorkerAdminHeaders(config),
+    "content-type": "application/json"
+  };
+  const res = await fetchWithTimeout("https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupImport", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      scopes: selectedScopes,
+      dataByKey
+    })
+  }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`market_backup_import_failed:${res.status}:${body.slice(0, 160)}`);
+  }
+  const payload = (await res.json()) as MarketBackupImportResponse;
+  if (!payload || payload.ok !== true) {
+    throw new Error("market_backup_import_invalid_payload");
+  }
+  return {
+    restoredKeys: Math.max(0, Number(payload.restoredKeys) || 0),
+    skippedKeys: Math.max(0, Number(payload.skippedKeys) || 0),
+    scopes: Array.isArray(payload.scopes) ? payload.scopes.map((scope) => String(scope || "")).filter(Boolean) : selectedScopes
+  };
+}
+
+function buildBackupCoverageSummary(
+  snapshotId: string,
+  createdAt: string,
+  payload: Record<string, unknown> | null,
+  source: "inline" | "external" | "unavailable"
+): BackupCoverageSummary {
+  const backup = payload?.marketWorkerBackup && typeof payload.marketWorkerBackup === "object"
+    ? payload.marketWorkerBackup as {
+      coverage?: {
+        totalKeys?: number;
+        capped?: boolean;
+        scopes?: Array<{ scope?: string; keyCount?: number }>;
+      };
+    }
+    : null;
+  const coverage = backup?.coverage && typeof backup.coverage === "object" ? backup.coverage : null;
+  const scopeRows = Array.isArray(coverage?.scopes) ? coverage.scopes : [];
+  const normalizedScopes = scopeRows
+    .map((entry) => ({
+      scope: String(entry?.scope || ""),
+      keyCount: Math.max(0, Number(entry?.keyCount) || 0)
+    }))
+    .filter((entry) => entry.scope.length > 0);
+  const presentSet = new Set(normalizedScopes.filter((entry) => entry.keyCount > 0).map((entry) => entry.scope));
+  const missingScopes = MARKET_BACKUP_REQUIRED_SCOPES.filter((scope) => !presentSet.has(scope));
+  const validation = payload?.marketWorkerBackupValidation && typeof payload.marketWorkerBackupValidation === "object"
+    ? payload.marketWorkerBackupValidation as { ok?: boolean; errors?: string[] }
+    : null;
+  const validationOk = !!backup && validation?.ok !== false;
+  const validationErrors = Array.isArray(validation?.errors)
+    ? validation.errors.map((entry) => String(entry || "")).filter(Boolean)
+    : [];
+  return {
+    snapshotId,
+    createdAt,
+    source,
+    hasMarketWorkerBackup: !!backup,
+    totalMarketKeys: Math.max(0, Number(coverage?.totalKeys) || normalizedScopes.reduce((sum, entry) => sum + entry.keyCount, 0)),
+    missingScopes,
+    validationOk,
+    validationErrors,
+    scopes: normalizedScopes,
+    capped: !!coverage?.capped
+  };
+}
+
+async function loadBackupPayload(
+  db: D1Database,
+  backupR2: R2Bucket | undefined,
+  snapshotId: string
+): Promise<{ payload: Record<string, unknown>; source: "inline" | "external" }> {
+  const row = await db
+    .prepare(
+      `
+      SELECT id, status, payload_json, external_key
+      FROM backup_snapshots
+      WHERE id = ?1
+      LIMIT 1
+    `
+    )
+    .bind(snapshotId)
+    .first<{
+      id: string;
+      status: string;
+      payload_json: string | null;
+      external_key: string | null;
+    }>();
+  if (!row) {
+    throw new Error("snapshot_not_found");
+  }
+  if (String(row.status || "").toLowerCase() !== "ok") {
+    throw new Error("snapshot_not_restorable");
+  }
+
+  if (row.external_key) {
+    if (!backupR2) throw new Error("backup_external_storage_unavailable");
+    const object = await backupR2.get(row.external_key);
+    if (!object) throw new Error("backup_external_object_not_found");
+    const text = await object.text();
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") throw new Error("backup_external_payload_invalid");
+    return {
+      payload: parsed,
+      source: "external"
+    };
+  }
+
+  const inlineRaw = String(row.payload_json || "{}");
+  const parsed = JSON.parse(inlineRaw) as Record<string, unknown>;
+  if (!parsed || typeof parsed !== "object") throw new Error("backup_inline_payload_invalid");
+  return {
+    payload: parsed,
+    source: "inline"
+  };
+}
+
+async function getLatestBackupCoverage(
+  db: D1Database,
+  backupR2: R2Bucket | undefined
+): Promise<BackupCoverageSummary | null> {
+  const latest = await db
+    .prepare(
+      `
+      SELECT id, created_at
+      FROM backup_snapshots
+      WHERE status = 'ok'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `
+    )
+    .first<{ id: string; created_at: string }>();
+  if (!latest) return null;
+  try {
+    const loaded = await loadBackupPayload(db, backupR2, latest.id);
+    return buildBackupCoverageSummary(latest.id, latest.created_at, loaded.payload, loaded.source);
+  } catch (_error) {
+    return buildBackupCoverageSummary(latest.id, latest.created_at, null, "unavailable");
+  }
+}
+
+async function restoreBackupSnapshot(
+  deps: RouteDeps,
+  snapshotId: string,
+  scopes: readonly string[]
+): Promise<{
+  snapshotId: string;
+  restoredKeys: number;
+  skippedKeys: number;
+  scopes: string[];
+  source: "inline" | "external";
+}> {
+  if (!deps.db) {
+    throw new Error("backup_unavailable");
+  }
+  const requestedScopes = [...new Set(scopes.map((scope) => String(scope || "").trim().toLowerCase()).filter(Boolean))];
+  const safeScopes = requestedScopes.length
+    ? requestedScopes.filter((scope) => (MARKET_BACKUP_SCOPES as readonly string[]).includes(scope))
+    : [...MARKET_BACKUP_SCOPES];
+  if (!safeScopes.length) throw new Error("restore_invalid_scopes");
+
+  const loaded = await loadBackupPayload(deps.db, deps.backupR2, snapshotId);
+  const marketBackup = loaded.payload.marketWorkerBackup && typeof loaded.payload.marketWorkerBackup === "object"
+    ? loaded.payload.marketWorkerBackup as { dataByKey?: Record<string, string> }
+    : null;
+  const dataByKey = marketBackup?.dataByKey && typeof marketBackup.dataByKey === "object"
+    ? marketBackup.dataByKey
+    : {};
+  if (!Object.keys(dataByKey).length) {
+    throw new Error("restore_market_backup_missing_data");
+  }
+  const restored = await runMarketBackupImport(deps.config, dataByKey, safeScopes);
+  return {
+    snapshotId,
+    restoredKeys: restored.restoredKeys,
+    skippedKeys: restored.skippedKeys,
+    scopes: restored.scopes,
+    source: loaded.source
   };
 }
 
@@ -1121,20 +1926,44 @@ async function runBackupSnapshot(
   const nowIso = deps.now().toISOString();
   const snapshotId = crypto.randomUUID();
   try {
-    const payloadRows = await collectBackupRows(deps.db);
-    const totalItems = Object.values(payloadRows).reduce((acc, rows) => acc + rows.length, 0);
+    const [payloadRows, marketBackup] = await Promise.all([
+      collectBackupRows(deps.db),
+      getMarketBackupExport(deps.config, "full", MARKET_BACKUP_SCOPES)
+    ]);
+    const backupValidation = validateMarketBackupData(marketBackup);
+    if (!backupValidation.ok) {
+      throw new Error(`market_backup_validation_failed:${backupValidation.errors.join("|").slice(0, 700)}`);
+    }
+    const d1ItemCount = Object.values(payloadRows).reduce((acc, rows) => acc + rows.length, 0);
+    const marketItemCount = Math.max(0, Number(marketBackup.coverage.totalKeys) || 0);
+    const totalItems = d1ItemCount + marketItemCount;
     const payload = {
-      schemaVersion: "block8_v1",
+      schemaVersion: "block9_v1",
       capturedAt: nowIso,
       environment: deps.config.appEnv,
-      rows: payloadRows
+      summary: {
+        d1ItemCount,
+        marketItemCount
+      },
+      rows: payloadRows,
+      marketWorkerBackup: {
+        scopes: marketBackup.scopes,
+        coverage: marketBackup.coverage,
+        dataByKey: marketBackup.dataByKey
+      },
+      marketWorkerBackupValidation: {
+        ok: backupValidation.ok,
+        errors: backupValidation.errors,
+        missingRequiredScopes: backupValidation.missingRequiredScopes
+      }
     };
+    const payloadText = JSON.stringify(payload);
 
     let externalKey: string | null = null;
     if (deps.backupR2) {
       const compactTs = nowIso.replace(/[-:.TZ]/g, "").slice(0, 14);
       externalKey = `${deps.config.backupObjectPrefix}/${deps.config.appEnv}/${compactTs}_${snapshotId}.json`;
-      await deps.backupR2.put(externalKey, JSON.stringify(payload), {
+      await deps.backupR2.put(externalKey, payloadText, {
         httpMetadata: {
           contentType: "application/json"
         }
@@ -1142,6 +1971,33 @@ async function runBackupSnapshot(
     } else if (deps.config.backupRequireExternal) {
       throw new Error("backup_external_required_but_not_configured");
     }
+
+    if (payloadText.length > BACKUP_INLINE_PAYLOAD_MAX_BYTES && !externalKey) {
+      throw new Error("backup_payload_too_large_without_external");
+    }
+    const inlinePayload = payloadText.length <= BACKUP_INLINE_PAYLOAD_MAX_BYTES
+      ? payloadText
+      : JSON.stringify({
+        schemaVersion: "block9_v1",
+        capturedAt: nowIso,
+        environment: deps.config.appEnv,
+        summary: {
+          d1ItemCount,
+          marketItemCount
+        },
+        marketWorkerBackup: {
+          scopes: marketBackup.scopes,
+          coverage: marketBackup.coverage,
+          dataByKey: {}
+        },
+        marketWorkerBackupValidation: {
+          ok: backupValidation.ok,
+          errors: backupValidation.errors,
+          missingRequiredScopes: backupValidation.missingRequiredScopes
+        },
+        externalized: true,
+        note: "Full backup payload stored in external object."
+      });
 
     await deps.db
       .prepare(
@@ -1159,7 +2015,7 @@ async function runBackupSnapshot(
         ) VALUES (?1, ?2, ?3, 'ok', ?4, ?5, ?6, NULL, ?7)
       `
       )
-      .bind(snapshotId, triggerType, initiatedByUserId, totalItems, externalKey, JSON.stringify(payload), nowIso)
+      .bind(snapshotId, triggerType, initiatedByUserId, totalItems, externalKey, inlinePayload, nowIso)
       .run();
 
     const cutoffIso = new Date(deps.now().getTime() - deps.config.backupRetentionDays * 24 * 60 * 60 * 1000).toISOString();
@@ -1180,6 +2036,7 @@ async function runBackupSnapshot(
       status: "ok",
       itemCount: totalItems,
       externalKey,
+      bytes: payloadText.length,
       errorMessage: null,
       createdAt: nowIso
     };
@@ -1211,6 +2068,7 @@ async function runBackupSnapshot(
       status: "failed",
       itemCount: 0,
       externalKey: null,
+      bytes: 0,
       errorMessage: err.message,
       createdAt: nowIso
     };
@@ -1324,12 +2182,21 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     authenticateRequest,
     writeAudit,
     requireRoleOrResponse,
-    listBackupSnapshots,
+    listBackupSnapshots: (db: D1Database, backupR2: R2Bucket | undefined, limit: number) => listBackupSnapshots(db, backupR2, limit),
+    getLatestBackupCoverage,
+    getMarketBackupSmokeStatus: (config: RuntimeConfig) => getMarketBackupSmokeStatus(config),
+    runMarketBackupSmokeTest: (config: RuntimeConfig) => runMarketBackupSmokeTest(config),
     computeBackupStorageUsage,
     runBackupSnapshot,
+    restoreBackupSnapshot,
     getCloudflareUsageSummary,
     getMarketFailureLogs: (days: number) => getMarketFailureLogs(days, deps.config),
+    getBackupFailureLogs: (db: D1Database, days: number) => getBackupFailureLogs(db, days),
     runMarketManualRetry: (action: string) => runMarketManualRetry(action, deps.config),
+    getMarketBulkNameMap: (config: RuntimeConfig) => getMarketBulkNameMap(config),
+    setMarketBulkNameMap: (config: RuntimeConfig, map: Record<string, unknown>) => setMarketBulkNameMap(config, map),
+    getMarketBulkMismatchLog: (config: RuntimeConfig) => getMarketBulkMismatchLog(config),
+    clearMarketBulkMismatchLog: (config: RuntimeConfig) => clearMarketBulkMismatchLog(config),
     jsonResponse,
     withBaseHeaders,
     parseNullableString,
@@ -1460,7 +2327,28 @@ export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRunt
         return;
       }
 
-      if (snapshot.status === "ok") {
+        if (snapshot.status === "ok") {
+        try {
+          const smoke = await runMarketBackupSmokeTest(runtimeDeps.config);
+          if (!smoke.ok) {
+            logWarn(runtimeDeps.config, "backup.smoke_failed", {
+              snapshotId: snapshot.id,
+              testedAt: smoke.testedAt,
+              error: smoke.error
+            });
+          } else {
+            logInfo(runtimeDeps.config, "backup.smoke_passed", {
+              snapshotId: snapshot.id,
+              testedAt: smoke.testedAt,
+              elapsedMs: smoke.elapsedMs
+            });
+          }
+        } catch (error) {
+          logWarn(runtimeDeps.config, "backup.smoke_unavailable", {
+            snapshotId: snapshot.id,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
         logInfo(runtimeDeps.config, "backup.completed", {
           snapshotId: snapshot.id,
           itemCount: snapshot.itemCount

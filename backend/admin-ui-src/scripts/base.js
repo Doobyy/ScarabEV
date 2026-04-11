@@ -12,7 +12,7 @@ const state={
   user:null,scarabs:[],filtered:[],selected:null,selectedId:null,creating:false,
   tokensByName:{},draftTokensByScarabId:{},latestDraftEntries:[],sets:[],selectedIds:new Set(),
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
-  captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,
+  captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,bulkToolsAutoLoaded:false,
   sessionDupes:[],sessionSignals:[],healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
   failureLogsAutoLoaded:false,failureLogs:[],manualRetryBusy:false
 };
@@ -63,8 +63,8 @@ function toggleTheme(){const dark=document.documentElement.getAttribute('data-th
 
 function switchPanel(name){
   state.activePanel=name;
-  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',failures:'Failure Logs',regex:'Regex Lab',recomb:'Recombinator Lab'};
-  ['scarab','sessions','health','failures','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
+  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',failures:'Failure Logs',bulktools:'Bulk Tools',regex:'Regex Lab',recomb:'Recombinator Lab'};
+  ['scarab','sessions','health','failures','bulktools','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
   document.querySelectorAll('.navbtn').forEach((b)=>b.classList.toggle('active',b.dataset.panel===name));
   $('panelTitle').textContent=(labels[name]||'Dashboard')+' | Staging-first control plane';
   closeMobileNav();
@@ -81,7 +81,30 @@ function closeMobileNav(){if(!isMobileNav())return;setMobileNavOpen(false);}
 
 function setAuthUi(ok){$('login').classList.toggle('hidden',ok);$('app').classList.toggle('hidden',!ok);$('topBar').classList.toggle('hidden',!ok);$('sessionTxt').textContent=ok?('Signed in: '+state.user.username):'Signed out';if(ok)closeMobileNav();}
 function csrf(){const p=document.cookie.split(';').map((v)=>v.trim()).find((v)=>v.startsWith('scarabev_csrf='));return p?decodeURIComponent(p.slice(14)):'';}
-async function api(path,opt={}){const m=opt.method||'GET';const h=opt.headers||{};if(opt.body&&!h['content-type'])h['content-type']='application/json';if(m!=='GET'&&m!=='HEAD')h['x-csrf-token']=csrf();const r=await fetch(path,{method:m,headers:h,body:opt.body,credentials:'include'});const txt=await r.text();let j=null;try{j=JSON.parse(txt);}catch(e){}return{res:r,json:j,text:txt};}
+async function api(path,opt={}){
+  const m=opt.method||'GET';
+  const h=opt.headers||{};
+  if(opt.body&&!h['content-type'])h['content-type']='application/json';
+  if(m!=='GET'&&m!=='HEAD')h['x-csrf-token']=csrf();
+  const timeoutMs=Number(opt.timeoutMs);
+  const useTimeout=Number.isFinite(timeoutMs)&&timeoutMs>0;
+  const ctl=(useTimeout&&typeof AbortController!=='undefined')?new AbortController():null;
+  let timer=null;
+  if(ctl){
+    timer=setTimeout(()=>{try{ctl.abort();}catch(e){}},Math.max(500,Math.floor(timeoutMs)));
+  }
+  try{
+    const r=await fetch(path,{method:m,headers:h,body:opt.body,credentials:'include',signal:ctl?ctl.signal:undefined});
+    const txt=await r.text();
+    let j=null;try{j=JSON.parse(txt);}catch(e){}
+    return{res:r,json:j,text:txt};
+  }catch(e){
+    const msg=String((e&&e.message)||e||'request_failed');
+    return{res:{status:0,ok:false},json:null,text:msg};
+  }finally{
+    if(timer)clearTimeout(timer);
+  }
+}
 
 function badge(s){const c=s==='active'?'active':(s==='retired'?'retired':'draft');return '<span class="badge '+c+'">'+s+'</span>';}
 function escRegex(s){return String(s).replace(/[.*+?^{}()|[\\]\\$]/g,'\\$&');}

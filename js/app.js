@@ -3785,20 +3785,30 @@ function recomputeBulkNameMap() {
 }
 
 async function loadBulkDefaultNameMap() {
+  let merged = {};
   try {
     const res = await fetch(BULK_DEFAULT_NAME_MAP_URL, { cache: 'no-store' });
-    if (!res.ok) return;
-    const data = await res.json();
-    state.BULK_DEFAULT_NAME_MAP = normalizeBulkNameMap(data);
-    recomputeBulkNameMap();
-
-    // If dev panel is open (or user is in dev mode), refresh textarea to show defaults.
-    if (typeof isBulkDevMode === 'function' && isBulkDevMode()) {
-      try { exportBulkNameMapToInput(); } catch (e) {}
+    if (res.ok) {
+      const data = await res.json();
+      merged = normalizeBulkNameMap(data);
     }
   } catch (e) {
     // Optional file; ignore if missing or invalid.
   }
+  if (WORKER_URL) {
+    try {
+      const remoteRes = await fetch(`${WORKER_URL}?type=BulkNameMap`, { cache: 'no-store' });
+      if (remoteRes.ok) {
+        const remoteData = await remoteRes.json();
+        const remoteMap = normalizeBulkNameMap(remoteData && remoteData.map ? remoteData.map : {});
+        merged = { ...merged, ...remoteMap };
+      }
+    } catch (e) {
+      // Remote override is optional; ignore if unavailable.
+    }
+  }
+  state.BULK_DEFAULT_NAME_MAP = merged;
+  recomputeBulkNameMap();
 }
 
 function logBulkMismatch(rawName, qty, source) {
@@ -3909,12 +3919,7 @@ function refreshBulkDebug() {
 }
 
 function isBulkDevMode() {
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    return params.get('dev') === '1';
-  } catch (e) {
-    return false;
-  }
+  return false;
 }
 
 function toggleBulkDebug() {
@@ -5248,9 +5253,8 @@ function atlasToggleLeftovers() {
 initBulkGeminiKey();
 loadBulkNameMap();
 
-// Hide bulk developer UI for normal users (enable with ?dev=1).
+// Bulk developer UI is disabled on the public app.
 (() => {
-  if (isBulkDevMode()) return;
   const devPanel = document.getElementById('bulkDevPanel');
   const devToggle = devPanel ? devPanel.previousElementSibling : null;
   if (devToggle && devToggle.style) devToggle.style.display = 'none';

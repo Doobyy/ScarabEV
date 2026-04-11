@@ -3425,55 +3425,6 @@ body.graph-palette-ruby {
       <div class="bulk-unmatched-list" id="bulkUnmatchedList"></div>
     </div>
 
-    <div class="bulk-debug-toggle" onclick="toggleBulkDev()">
-          <span class="bulk-debug-toggle-icon">&#9656;</span>
-      <span>Developer tools</span>
-    </div>
-    <div id="bulkDevPanel" style="display:none;margin-top:6px">
-      <div class="bulk-debug-toggle" onclick="toggleBulkDebug()">
-          <span class="bulk-debug-toggle-icon">&#9656;</span>
-        <span>Bulk analyzer debug</span>
-      </div>
-      <div id="bulkDebugPanel" class="bulk-debug-panel">
-        <div class="bulk-debug-header">
-          <div class="bulk-debug-title">Mismatch log &amp; name map</div>
-          <div class="bulk-debug-actions">
-            <button type="button" class="bulk-debug-btn" onclick="refreshBulkDebug()">Refresh</button>
-            <button type="button" class="bulk-debug-btn" onclick="clearBulkMismatchLog()">Clear mismatch log</button>
-          </div>
-        </div>
-        <div class="bulk-debug-body">
-          <div>
-            <div class="bulk-debug-title" style="margin-bottom:4px">Recent mismatches</div>
-            <div id="bulkDebugLog" class="bulk-debug-log">
-              <div class="bulk-debug-empty">No mismatches logged yet.</div>
-            </div>
-          </div>
-          <div>
-            <div class="bulk-debug-title" style="margin-bottom:4px">Bulk name map (JSON)</div>
-            <textarea id="bulkNameMapInput" class="bulk-debug-map-input" placeholder='{\n  "horned of bloodlines": "Horned Scarab of Bloodlines"\n}' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_name_map_input" data-lpignore="true"></textarea>
-            <div class="bulk-debug-map-hint">
-            Lowercase keys -> canonical scarab names. Stored locally only.
-              <button type="button" class="bulk-debug-btn" style="margin-left:6px" onclick="saveBulkNameMapFromInput()">Save map</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bulk-debug-toggle" style="margin-top:8px" onclick="toggleBulkScarabList()">
-          <span class="bulk-debug-toggle-icon">&#9656;</span>
-        <span>Scarab reference list</span>
-      </div>
-      <div id="bulkScarabPanel" class="bulk-debug-panel">
-        <div class="bulk-debug-header">
-          <div class="bulk-debug-title">Canonical scarab names</div>
-        </div>
-        <div id="bulkScarabList" class="bulk-debug-log">
-          <div class="bulk-debug-empty">No data yet.</div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
   <!-- ---------------------------- FAQ TAB ---------------------------- -->

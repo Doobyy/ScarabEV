@@ -9,6 +9,11 @@ function fmtBytes(n){
   if(v>=kb)return (v/kb).toFixed(1)+' KB';
   return v+' B';
 }
+function fmtBackupBytes(n){
+  const v=Number(n);
+  if(!Number.isFinite(v)||v<0)return '-';
+  return fmtBytes(v);
+}
 
 function renderOpsStorageSummary(storage){
   const el=$('opsStorageSummary');
@@ -31,17 +36,105 @@ function renderOpsBackups(items){
   for(const x of items){
     const tr=document.createElement('tr');
     const key=x.externalKey||'local-only';
+    const runType=String(x.triggerType||'-');
+    const statusText=String(x.status||'-');
+    const quality=(statusText==='ok')?'clean':'failed';
+    const sizeTxt=fmtBackupBytes(x.bytes);
     tr.innerHTML=''
       +'<td class="mono ops-id" title="'+escHtml(String(x.id||''))+'">'+escHtml(String(x.id||''))+'</td>'
       +'<td class="mono">'+escHtml(formatAdminTime(x.createdAt))+'</td>'
+      +'<td class="mono">'+escHtml(runType+' | '+quality+' | '+statusText)+'</td>'
+      +'<td class="mono">'+escHtml(sizeTxt)+'</td>'
       +'<td><div class="ops-path" title="'+escHtml(String(key))+'">'+escHtml(String(key))+'</div></td>'
       +'<td><div class="ops-actions"><button class="btn ghost mini" type="button" data-copy="'+escHtml(String(x.id||''))+'">Copy ID</button><button class="btn ghost mini" type="button" data-copy="'+escHtml(String(key))+'">Copy Path</button></div></td>';
     rows.appendChild(tr);
   }
   rows.querySelectorAll('button[data-copy]').forEach((btn)=>{btn.onclick=async()=>{try{await navigator.clipboard.writeText(btn.dataset.copy||'');toast('Copied');}catch(e){toast('Copy failed');}};});
 }
-async function opsListBackups(opts){const quiet=!!(opts&&opts.quiet);busy('opsListBtn',true);try{const r=await api('/admin/ops/backups?limit=10');if(r.res.status!==200||!r.json){if(!quiet)status('opsStatus','List backups failed ('+r.res.status+'). Owner role may be required.','err');return false;}const items=Array.isArray(r.json.items)?r.json.items:[];state.backupsAutoLoaded=true;renderOpsBackups(items);renderOpsStorageSummary(r.json.storageUsage||null);$('opsSummary').textContent='Backups: '+items.length+' latest snapshot(s).';if(!quiet)status('opsStatus','Backup list refreshed.','ok');return true;}finally{busy('opsListBtn',false);}}
-async function opsRunBackup(){busy('opsRunBtn',true);status('opsStatus','Running backup...','warn');try{const r=await api('/admin/ops/backups/run',{method:'POST',body:'{}'});if(r.res.status!==201||!r.json){const detail=(r.json&&r.json.error)?(' ['+r.json.error+']'):'';status('opsStatus','Run backup failed ('+r.res.status+').'+detail+' Owner role may be required.','err');return;}status('opsStatus','Backup created: '+r.json.backup.id+'. Refreshing list...','warn');await opsListBackups({quiet:true});status('opsStatus','Backup created and list refreshed: '+r.json.backup.id,'ok');toast('Backup snapshot created');}finally{busy('opsRunBtn',false);}}
+async function opsListBackups(opts){const quiet=!!(opts&&opts.quiet);const showBusy=!quiet;if(showBusy)busy('opsListBtn',true);try{const r=await api('/admin/ops/backups?limit=10');if(r.res.status!==200||!r.json){if(!quiet)status('opsStatus','List backups failed ('+r.res.status+'). Owner role may be required.','err');return null;}const items=Array.isArray(r.json.items)?r.json.items:[];state.backupsAutoLoaded=true;renderOpsBackups(items);renderOpsStorageSummary(r.json.storageUsage||null);$('opsSummary').textContent='Backups: '+items.length+' latest snapshot(s), with per-run status and size.';if(!quiet)status('opsStatus','Backup list refreshed.','ok');return items;}finally{if(showBusy)busy('opsListBtn',false);}}
+function collectBackupIds(items){
+  const ids=new Set();
+  if(Array.isArray(items)){
+    for(const x of items){
+      const id=String((x&&x.id)||'').trim();
+      if(id)ids.add(id);
+    }
+  }
+  return ids;
+}
+function findConfirmedBackup(items,beforeIds,expectedId){
+  if(!Array.isArray(items)||!items.length)return null;
+  const target=String(expectedId||'').trim();
+  if(target){
+    return items.find((x)=>String((x&&x.id)||'').trim()===target)||null;
+  }
+  for(const x of items){
+    const id=String((x&&x.id)||'').trim();
+    if(id&&!beforeIds.has(id))return x;
+  }
+  return null;
+}
+async function waitForBackupConfirmation(beforeIds,expectedId,timeoutMs){
+  const startedAt=Date.now();
+  const maxMs=Math.max(10000,Number(timeoutMs)||90000);
+  let attempts=0;
+  while((Date.now()-startedAt)<maxMs){
+    attempts+=1;
+    const secs=Math.max(0,Math.floor((Date.now()-startedAt)/1000));
+    status('opsStatus','Verifying backup completion... check '+attempts+' ('+secs+'s)','warn');
+    const items=await opsListBackups({quiet:true});
+    const confirmed=findConfirmedBackup(items,beforeIds,expectedId);
+    if(confirmed){
+      return confirmed;
+    }
+    await new Promise((resolve)=>setTimeout(resolve,2000));
+  }
+  return null;
+}
+async function opsRunBackup(){
+  busy('opsRunBtn',true);
+  const runBtn=$('opsRunBtn');
+  const prevBtnText=runBtn?String(runBtn.textContent||'Run Backup'):'Run Backup';
+  const beforeItems=await opsListBackups({quiet:true});
+  const beforeIds=collectBackupIds(beforeItems);
+  let expectedId='';
+  let responseDetail='';
+  status('opsStatus','Submitting backup request...','warn');
+  if(runBtn)runBtn.textContent='Submitting...';
+  try{
+    const r=await api('/admin/ops/backups/run',{method:'POST',body:'{}',timeoutMs:12000});
+    if(r.res.status===201&&r.json&&r.json.backup&&r.json.backup.id){
+      expectedId=String(r.json.backup.id||'').trim();
+    }else if(r.res.status===0){
+      responseDetail='request timeout/network';
+    }else{
+      const detail=(r.json&&r.json.error)?String(r.json.error):String((r.text&&String(r.text).trim())||('http_'+r.res.status));
+      responseDetail='request '+r.res.status+' ('+detail+')';
+    }
+    if(runBtn)runBtn.textContent='Verifying...';
+    const confirmed=await waitForBackupConfirmation(beforeIds,expectedId,90000);
+    if(confirmed){
+      const statusText=String(confirmed.status||'-');
+      const base='Backup completed on server: '+String(confirmed.id||'-')+' | '+statusText+' | '+fmtBackupBytes(confirmed.bytes)+'.';
+      if(statusText==='ok'){
+        status('opsStatus',base,'ok');
+        toast('Backup completed');
+      }else{
+        status('opsStatus',base+' Check run status/details before proceeding.','err');
+        toast('Backup completed with issues');
+      }
+      return;
+    }
+    if(responseDetail){
+      status('opsStatus','Could not confirm new backup within 90s ('+responseDetail+'). Refresh and verify latest row.','warn');
+      return;
+    }
+    status('opsStatus','Backup request accepted but confirmation timed out at 90s. Refresh and verify latest row.','warn');
+  }finally{
+    if(runBtn)runBtn.textContent=prevBtnText;
+    busy('opsRunBtn',false);
+  }
+}
 async function login(){busy('loginBtn',true);try{const r=await api('/admin/auth/login',{method:'POST',body:JSON.stringify({username:$('username').value.trim(),password:$('password').value})});if(r.res.status!==200||!r.json){status('authStatus','Login failed ('+r.res.status+').','err');return;}state.user=r.json.user;setAuthUi(true);status('authStatus','Login successful.','ok');toast('Signed in');await loadAll();await loadHealthOverview({quiet:true});}finally{busy('loginBtn',false);}}
 async function logout(){await api('/admin/auth/logout',{method:'POST',body:'{}'});state.user=null;setAuthUi(false);status('authStatus','Signed out.','ok');toast('Signed out');}
 

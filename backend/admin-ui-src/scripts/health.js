@@ -642,7 +642,7 @@ function healthCard(id,title,level,detail,meta,checks,debug){
   const isOpen=!!(state.healthOpenCards&&state.healthOpenCards[id]);
   const actions=(()=>{
     if(id==='healthSnapshot'){
-      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('snapshot-retry','Snapshot retry',this)\">Retry Snapshot</button>";
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runSnapshotRetryAction(this)\">Retry Snapshot</button>";
     }
     if(id==='healthWorker'){
       return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-league','League cache refresh',this)\">Refresh League Cache</button>";
@@ -775,12 +775,51 @@ async function checkHealthBackups(){
   if(!item){
     return {level:'warn',detail:'No backup snapshots found.',meta:'Consider running a backup'+usageTxt};
   }
-  const age=humanAge(msSince(item.createdAt));
+  const latestCoverage=(r.json.latestCoverage&&typeof r.json.latestCoverage==='object')?r.json.latestCoverage:null;
+  const smoke=(r.json.backupSmokeStatus&&typeof r.json.backupSmokeStatus==='object')?r.json.backupSmokeStatus:null;
+  const smokeErr=(r.json&&r.json.backupSmokeStatusError)?String(r.json.backupSmokeStatusError):'';
+  const ageMs=msSince(item.createdAt);
+  const age=humanAge(ageMs);
   const ok=String(item.status||'').toLowerCase()==='ok';
+  const stale=Number.isFinite(ageMs)&&ageMs>(36*60*60*1000);
+  const missingScopes=latestCoverage&&Array.isArray(latestCoverage.missingScopes)
+    ?latestCoverage.missingScopes.map((s)=>String(s||'')).filter(Boolean)
+    :[];
+  const hasMarketBackup=!!(latestCoverage&&latestCoverage.hasMarketWorkerBackup);
+  const capped=!!(latestCoverage&&latestCoverage.capped);
+  const marketKeys=Math.max(0,Number(latestCoverage&&latestCoverage.totalMarketKeys)||0);
+  const validationOk=!(latestCoverage&&latestCoverage.validationOk===false);
+  const validationErrors=latestCoverage&&Array.isArray(latestCoverage.validationErrors)
+    ?latestCoverage.validationErrors.map((s)=>String(s||'')).filter(Boolean)
+    :[];
+  const source=String(latestCoverage&&latestCoverage.source||'-');
+  const smokeAge=smoke&&smoke.testedAt?humanAge(msSince(smoke.testedAt)):'not run';
+  const smokeMeta=smoke
+    ?(' | Smoke '+(smoke.ok?'pass':'fail')+' '+smokeAge)
+    :(smokeErr?(' | Smoke unavailable: '+smokeErr):' | Smoke unavailable');
+  const coverageMeta=latestCoverage
+    ?(' | Market keys '+marketKeys.toLocaleString()+' | Source '+source+(capped?' | Export capped':'')+(validationOk?'':' | Validation failed'))
+    :' | Market coverage unavailable';
+  const level=(!ok||!hasMarketBackup||missingScopes.length||!validationOk||(smoke&&smoke.ok===false))
+    ?'err'
+    :(stale||capped||!smoke?'warn':'ok');
+  const detail=(!ok)
+    ?'Latest backup snapshot is not OK.'
+    :(!hasMarketBackup
+      ?'Latest backup is missing market-worker dataset coverage.'
+      :(missingScopes.length
+        ?('Latest backup is missing backup scopes: '+missingScopes.join(', ')+'.')
+        :(!validationOk
+          ?('Latest backup validation failed: '+validationErrors.join('; '))
+          :((smoke&&smoke.ok===false)
+            ?'Latest backup smoke restore failed.'
+            :(stale
+              ?'Latest backup snapshot is stale.'
+              :'Latest backup snapshot is healthy.')))));
   return {
-    level:ok?'ok':'warn',
-    detail:ok?'Latest backup snapshot is healthy.':'Latest backup snapshot is not OK.',
-    meta:'Last '+formatAdminTime(item.createdAt)+' ('+age+') | Status '+String(item.status||'-')+usageTxt+' | '+took+'ms'
+    level,
+    detail,
+    meta:'Last '+formatAdminTime(item.createdAt)+' ('+age+') | Status '+String(item.status||'-')+coverageMeta+smokeMeta+usageTxt+' | '+took+'ms'
   };
 }
 
@@ -963,6 +1002,7 @@ async function getMarketHealthBundle(){
                 :'Daily snapshot status is partial.'))),
         meta:'Status '+String(snapshotData.status||'unknown')+' | Date '+String(snapshotData.date||'unknown')+' | '+pullTook+'ms',
         telemetry:{
+          status:String(snapshotData.status||''),
           date:snapshotData.date||null,
           targetLeagues:Array.isArray(snapshotData.targetLeagues)?snapshotData.targetLeagues:[],
           completedLeagues:Array.isArray(snapshotData.completedLeagues)?snapshotData.completedLeagues:[],

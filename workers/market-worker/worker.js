@@ -17,6 +17,23 @@ const FAILURE_LOG_RETENTION_DAYS = 30;
 const FAILURE_LOG_MAX_EVENTS_PER_DAY = 500;
 const PRICE_HISTORY_GUARD_MIN_DAYS = 5;
 const PRICE_HISTORY_GUARD_FLOOR_DAYS = 3;
+const BACKUP_SCOPE_PREFIXES = {
+  "price-history": "price-history-",
+  "price-history-backup": "price-history-backup-",
+  "ev-history": "ev-history-",
+  "atlas-ev-history": "atlas-ev-history-",
+  "snapshot-state": `${CACHE_PREFIX}:snapshot-`,
+  "failure-logs": `${FAILURE_LOG_PREFIX}:`
+};
+const BACKUP_SCOPE_LIST = Object.keys(BACKUP_SCOPE_PREFIXES);
+const BACKUP_EXPORT_MAX_KEYS = 1200;
+const BACKUP_SMOKE_STATUS_KEY = `${CACHE_PREFIX}:backup-smoke-status`;
+const BACKUP_SMOKE_TEMP_PREFIX = `${CACHE_PREFIX}:backup-smoke-temp`;
+const PRICE_HISTORY_BACKFILL_FALLBACK_KEY = `${CACHE_PREFIX}:price-history-backfill-fallback`;
+const PRICE_HISTORY_BACKFILL_FALLBACK_MAX_MS = 6 * 60 * 60 * 1000;
+const BULK_NAME_MAP_KEY = `${CACHE_PREFIX}:bulk-name-map`;
+const BULK_MISMATCH_LOG_KEY = `${CACHE_PREFIX}:bulk-mismatch-log`;
+const BULK_MISMATCH_LOG_MAX = 500;
 
 const POLICY = {
   currentLeague: {
@@ -57,7 +74,7 @@ export default {
   }
 };
 
-async function handleRequest(request, env) {
+async function handleRequest(request, env, ctx) {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders() });
   }
@@ -71,7 +88,13 @@ async function handleRequest(request, env) {
   if (type === "AtlasEVHistory") return handleAtlasEVHistory(league, env);
   if (type === "SnapshotStatus") return handleSnapshotStatus(env);
   if (type === "FailureLogs") return handleFailureLogs(request, url, env);
-  if (type === "ManualRetry") return handleManualRetry(request, url, env);
+  if (type === "ManualRetry") return handleManualRetry(request, url, env, ctx);
+  if (type === "BackupExport") return handleBackupExport(request, url, env);
+  if (type === "BackupImport") return handleBackupImport(request, env);
+  if (type === "BackupSmokeStatus") return handleBackupSmokeStatus(request, env);
+  if (type === "BackupSmokeTest") return handleBackupSmokeTest(request, env);
+  if (type === "BulkNameMap") return handleBulkNameMap(request, env);
+  if (type === "BulkMismatchLog") return handleBulkMismatchLog(request, env);
   if (type === "CurrentLeague") return handleCurrentLeague(env);
 
   if (type === "Scarab" || type === "Currency") {
@@ -537,7 +560,7 @@ async function handleFailureLogs(request, url, env) {
   return withCors(jsonResponse({ ok: true, days, count: events.length, events }));
 }
 
-async function handleManualRetry(request, url, env) {
+async function handleManualRetry(request, url, env, ctx) {
   const authFailure = requireAdminOpsToken(request, env);
   if (authFailure) return authFailure;
   const action = String(url.searchParams.get("action") || "").trim().toLowerCase();
@@ -545,19 +568,60 @@ async function handleManualRetry(request, url, env) {
   const startedAt = Date.now();
   try {
     if (action === "snapshot-retry") {
-      const pending = await getPendingSnapshotRetryState(env);
-      if (pending.leagues.length) {
-        await runDailyEVSnapshot(env, {
-          leagues: pending.leagues,
-          retryCount: pending.retryCount + 1
-        });
-      } else {
+      const runSnapshotRetry = async () => {
+        const pending = await getPendingSnapshotRetryState(env);
+        if (pending.leagues.length) {
+          await runDailyEVSnapshot(env, {
+            leagues: pending.leagues,
+            retryCount: pending.retryCount + 1
+          });
+          return;
+        }
         const incomplete = await getIncompleteSnapshotLeaguesForToday(env);
         if (incomplete.length) {
           await runDailyEVSnapshot(env, { leagues: incomplete, retryCount: 0 });
         }
+      };
+      if (ctx && typeof ctx.waitUntil === "function") {
+        ctx.waitUntil((async () => {
+          try {
+            await runSnapshotRetry();
+          } catch (error) {
+            await logFailureEvent(env, "manual_retry_failed", "Manual retry action failed.", {
+              action,
+              error: String(error?.message || error || "manual_retry_failed")
+            });
+          }
+        })());
+        return withCors(jsonResponse({
+          ok: true,
+          action,
+          accepted: true,
+          queued: true,
+          elapsedMs: Math.max(0, Date.now() - startedAt)
+        }));
       }
+      await runSnapshotRetry();
     } else if (action === "snapshot-run") {
+      if (ctx && typeof ctx.waitUntil === "function") {
+        ctx.waitUntil((async () => {
+          try {
+            await runDailyEVSnapshot(env);
+          } catch (error) {
+            await logFailureEvent(env, "manual_retry_failed", "Manual retry action failed.", {
+              action,
+              error: String(error?.message || error || "manual_retry_failed")
+            });
+          }
+        })());
+        return withCors(jsonResponse({
+          ok: true,
+          action,
+          accepted: true,
+          queued: true,
+          elapsedMs: Math.max(0, Date.now() - startedAt)
+        }));
+      }
       await runDailyEVSnapshot(env);
     } else if (action === "cache-current-league") {
       await refreshCurrentLeagueCache(env);
@@ -573,6 +637,30 @@ async function handleManualRetry(request, url, env) {
       ]);
     } else if (action === "clear-failure-logs") {
       await clearFailureLogs(env);
+    } else if (action === "price-history-backfill-enable-once") {
+      if (!env?.EV_HISTORY) throw new Error("kv_not_configured");
+      const enabledAt = Date.now();
+      const expiresAt = enabledAt + PRICE_HISTORY_BACKFILL_FALLBACK_MAX_MS;
+      await env.EV_HISTORY.put(PRICE_HISTORY_BACKFILL_FALLBACK_KEY, JSON.stringify({
+        enabled: true,
+        enabledAt,
+        expiresAt,
+        mode: "once-window"
+      }));
+      await logFailureEvent(env, "price_history_backfill_fallback_enabled", "Emergency price-history sparkline backfill fallback enabled.", {
+        enabledAt: new Date(enabledAt).toISOString(),
+        expiresAt: new Date(expiresAt).toISOString()
+      }, {
+        severity: "warn"
+      });
+    } else if (action === "price-history-backfill-disable") {
+      if (!env?.EV_HISTORY) throw new Error("kv_not_configured");
+      await env.EV_HISTORY.delete(PRICE_HISTORY_BACKFILL_FALLBACK_KEY);
+      await logFailureEvent(env, "price_history_backfill_fallback_disabled", "Emergency price-history sparkline backfill fallback disabled.", {
+        disabledAt: new Date().toISOString()
+      }, {
+        severity: "warn"
+      });
     } else {
       return errorResponse("invalid_action", `Unsupported action: ${action}`, 400, "manual-retry");
     }
@@ -587,6 +675,432 @@ async function handleManualRetry(request, url, env) {
       error: String(error?.message || error || "manual_retry_failed")
     });
     return errorResponse("manual_retry_failed", String(error?.message || error || "manual_retry_failed"), 500, "manual-retry");
+  }
+}
+
+function parseBackupScopes(raw) {
+  if (!raw || typeof raw !== "string") {
+    return [...BACKUP_SCOPE_LIST];
+  }
+  const parsed = raw
+    .split(",")
+    .map((entry) => String(entry || "").trim().toLowerCase())
+    .filter(Boolean);
+  const unique = [...new Set(parsed.filter((scope) => BACKUP_SCOPE_LIST.includes(scope)))];
+  return unique.length ? unique : [...BACKUP_SCOPE_LIST];
+}
+
+function getBackupScopeForKey(key) {
+  const normalized = String(key || "");
+  for (const scope of BACKUP_SCOPE_LIST) {
+    const prefix = BACKUP_SCOPE_PREFIXES[scope];
+    if (normalized.startsWith(prefix)) return scope;
+  }
+  return null;
+}
+
+function normalizeBulkNameMap(mapRaw) {
+  const out = {};
+  if (!mapRaw || typeof mapRaw !== "object" || Array.isArray(mapRaw)) return out;
+  for (const [rawKey, rawValue] of Object.entries(mapRaw)) {
+    const key = String(rawKey || "").trim().toLowerCase();
+    if (!key) continue;
+    const value = String(rawValue || "").trim();
+    if (!value) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+async function handleBulkNameMap(request, env) {
+  if (!env?.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "bulk-name-map");
+
+  if (request.method === "GET") {
+    try {
+      const raw = await env.EV_HISTORY.get(BULK_NAME_MAP_KEY);
+      if (!raw) {
+        return withCors(jsonResponse({
+          ok: true,
+          map: {},
+          updatedAt: null,
+          source: "empty"
+        }));
+      }
+      const parsed = JSON.parse(raw);
+      const map = normalizeBulkNameMap(parsed?.map || {});
+      const updatedAt = parsed?.updatedAt ? String(parsed.updatedAt) : null;
+      return withCors(jsonResponse({
+        ok: true,
+        map,
+        updatedAt,
+        source: "kv"
+      }));
+    } catch (_error) {
+      return withCors(jsonResponse({
+        ok: true,
+        map: {},
+        updatedAt: null,
+        source: "invalid"
+      }));
+    }
+  }
+
+  if (request.method === "POST") {
+    const authFailure = requireAdminOpsToken(request, env);
+    if (authFailure) return authFailure;
+    let mapInput = {};
+    try {
+      const payload = await request.json();
+      mapInput = payload && typeof payload === "object" ? payload.map : {};
+    } catch (_error) {
+      return errorResponse("invalid_body", "Invalid bulk name map payload.", 400, "bulk-name-map");
+    }
+    const normalized = normalizeBulkNameMap(mapInput);
+    const record = {
+      updatedAt: new Date().toISOString(),
+      map: normalized
+    };
+    await env.EV_HISTORY.put(BULK_NAME_MAP_KEY, JSON.stringify(record));
+    return withCors(jsonResponse({
+      ok: true,
+      map: normalized,
+      updatedAt: record.updatedAt
+    }));
+  }
+
+  return errorResponse("method_not_allowed", "Unsupported method.", 405, "bulk-name-map");
+}
+
+async function handleBulkMismatchLog(request, env) {
+  if (!env?.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "bulk-mismatch-log");
+
+  const readRows = async () => {
+    try {
+      const raw = await env.EV_HISTORY.get(BULK_MISMATCH_LOG_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  const normalizeRow = (row) => {
+    const rawName = String(row?.rawName || "").trim();
+    const source = String(row?.source || "unknown").trim().slice(0, 40);
+    const qtyNum = Number(row?.qty);
+    return {
+      rawName: rawName.slice(0, 160),
+      qty: Number.isFinite(qtyNum) ? Math.max(0, Math.min(1_000_000, Math.floor(qtyNum))) : null,
+      source: source || "unknown",
+      timestamp: row?.timestamp ? String(row.timestamp) : new Date().toISOString()
+    };
+  };
+
+  if (request.method === "POST") {
+    let payload = {};
+    try {
+      payload = await request.json();
+    } catch (_error) {
+      return errorResponse("invalid_body", "Invalid mismatch payload.", 400, "bulk-mismatch-log");
+    }
+    const row = normalizeRow(payload);
+    if (!row.rawName) {
+      return errorResponse("invalid_payload", "Missing rawName.", 400, "bulk-mismatch-log");
+    }
+    const rows = await readRows();
+    const key = row.rawName.toLowerCase();
+    const existingIdx = rows.findIndex((entry) => String(entry?.rawName || "").trim().toLowerCase() === key);
+    if (existingIdx >= 0) {
+      rows[existingIdx] = row;
+    } else {
+      rows.push(row);
+    }
+    const trimmed = rows.slice(-BULK_MISMATCH_LOG_MAX);
+    await env.EV_HISTORY.put(BULK_MISMATCH_LOG_KEY, JSON.stringify(trimmed));
+    return withCors(jsonResponse({ ok: true, count: trimmed.length }));
+  }
+
+  if (request.method === "GET") {
+    const authFailure = requireAdminOpsToken(request, env);
+    if (authFailure) return authFailure;
+    const rows = await readRows();
+    const latest = rows.map(normalizeRow).slice(-200).reverse();
+    return withCors(jsonResponse({
+      ok: true,
+      count: latest.length,
+      rows: latest
+    }));
+  }
+
+  if (request.method === "DELETE") {
+    const authFailure = requireAdminOpsToken(request, env);
+    if (authFailure) return authFailure;
+    await env.EV_HISTORY.delete(BULK_MISMATCH_LOG_KEY);
+    return withCors(jsonResponse({ ok: true, count: 0 }));
+  }
+
+  return errorResponse("method_not_allowed", "Unsupported method.", 405, "bulk-mismatch-log");
+}
+
+async function listKeysForPrefix(env, prefix, cap) {
+  const keys = [];
+  let cursor = undefined;
+  const limit = Math.max(10, Math.min(1000, cap));
+  while (keys.length < cap) {
+    const page = await env.EV_HISTORY.list({ prefix, cursor, limit });
+    for (const item of page.keys || []) {
+      const name = String(item?.name || "");
+      if (!name) continue;
+      keys.push(name);
+      if (keys.length >= cap) break;
+    }
+    if (!page.list_complete && page.cursor) {
+      cursor = page.cursor;
+      continue;
+    }
+    break;
+  }
+  return keys;
+}
+
+async function collectScopedBackupKeys(env, scopes, maxKeysRaw) {
+  const maxKeys = Math.max(1, Math.min(BACKUP_EXPORT_MAX_KEYS, Number(maxKeysRaw) || BACKUP_EXPORT_MAX_KEYS));
+  const result = {};
+  let total = 0;
+  for (const scope of scopes) {
+    const prefix = BACKUP_SCOPE_PREFIXES[scope];
+    const remaining = Math.max(0, maxKeys - total);
+    if (!prefix || remaining <= 0) {
+      result[scope] = [];
+      continue;
+    }
+    const keys = await listKeysForPrefix(env, prefix, remaining);
+    result[scope] = keys;
+    total += keys.length;
+  }
+  return {
+    keysByScope: result,
+    totalKeys: total,
+    capped: total >= maxKeys
+  };
+}
+
+async function readKeyValuesBatched(kv, keys, concurrency = 24) {
+  const list = Array.isArray(keys) ? keys.map((key) => String(key || "").trim()).filter(Boolean) : [];
+  const batchSize = Math.max(1, Math.min(64, Number(concurrency) || 24));
+  const out = {};
+  for (let i = 0; i < list.length; i += batchSize) {
+    const batch = list.slice(i, i + batchSize);
+    const pairs = await Promise.all(batch.map(async (key) => {
+      const raw = await kv.get(key);
+      return [key, raw];
+    }));
+    for (const [key, raw] of pairs) {
+      if (typeof raw === "string") out[key] = raw;
+    }
+  }
+  return out;
+}
+
+function buildBackupCoverage(keysByScope, generatedAt, capped, maxKeys) {
+  const scopes = BACKUP_SCOPE_LIST.map((scope) => {
+    const keys = Array.isArray(keysByScope?.[scope]) ? keysByScope[scope] : [];
+    return {
+      scope,
+      keyCount: keys.length,
+      sampleKeys: keys.slice(0, 5)
+    };
+  });
+  const totalKeys = scopes.reduce((sum, entry) => sum + (Number(entry.keyCount) || 0), 0);
+  return {
+    generatedAt,
+    totalKeys,
+    capped: !!capped,
+    maxKeys: Math.max(1, Number(maxKeys) || BACKUP_EXPORT_MAX_KEYS),
+    scopes
+  };
+}
+
+async function handleBackupExport(request, url, env) {
+  const authFailure = requireAdminOpsToken(request, env);
+  if (authFailure) return authFailure;
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "backup-export");
+
+  const mode = String(url.searchParams.get("mode") || "summary").trim().toLowerCase();
+  if (mode !== "summary" && mode !== "full") {
+    return errorResponse("invalid_mode", "Backup export mode must be summary or full.", 400, "backup-export");
+  }
+  const scopes = parseBackupScopes(url.searchParams.get("scopes"));
+  const maxKeys = Math.max(1, Math.min(BACKUP_EXPORT_MAX_KEYS, Number(url.searchParams.get("maxKeys")) || BACKUP_EXPORT_MAX_KEYS));
+  const generatedAt = new Date().toISOString();
+  const keyResult = await collectScopedBackupKeys(env, scopes, maxKeys);
+  const coverage = buildBackupCoverage(keyResult.keysByScope, generatedAt, keyResult.capped, maxKeys);
+  if (mode === "summary") {
+    return withCors(jsonResponse({
+      ok: true,
+      mode,
+      scopes,
+      coverage
+    }));
+  }
+
+  const dataByKey = {};
+  for (const scope of scopes) {
+    const keys = Array.isArray(keyResult.keysByScope?.[scope]) ? keyResult.keysByScope[scope] : [];
+    const scopedValues = await readKeyValuesBatched(env.EV_HISTORY, keys, 24);
+    Object.assign(dataByKey, scopedValues);
+  }
+  return withCors(jsonResponse({
+    ok: true,
+    mode,
+    scopes,
+    coverage,
+    dataByKey
+  }));
+}
+
+async function handleBackupImport(request, env) {
+  const authFailure = requireAdminOpsToken(request, env);
+  if (authFailure) return authFailure;
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "backup-import");
+  if (request.method !== "POST") {
+    return errorResponse("method_not_allowed", "Backup import requires POST.", 405, "backup-import");
+  }
+
+  let body = null;
+  try {
+    body = await request.json();
+  } catch (_e) {
+    return errorResponse("invalid_body", "Backup import body must be valid JSON.", 400, "backup-import");
+  }
+  const scopes = Array.isArray(body?.scopes)
+    ? [...new Set(body.scopes.map((scope) => String(scope || "").trim().toLowerCase()).filter((scope) => BACKUP_SCOPE_LIST.includes(scope)))]
+    : [...BACKUP_SCOPE_LIST];
+  const dryRun = !!body?.dryRun;
+  const dataByKey = body?.dataByKey && typeof body.dataByKey === "object" ? body.dataByKey : null;
+  if (!dataByKey || !Object.keys(dataByKey).length) {
+    return errorResponse("missing_data", "Backup import payload requires dataByKey entries.", 400, "backup-import");
+  }
+
+  let restoredKeys = 0;
+  let skippedKeys = 0;
+  for (const [keyRaw, valueRaw] of Object.entries(dataByKey)) {
+    const key = String(keyRaw || "").trim();
+    const scope = getBackupScopeForKey(key);
+    if (!key || !scope || !scopes.includes(scope)) {
+      skippedKeys += 1;
+      continue;
+    }
+    const value = typeof valueRaw === "string" ? valueRaw : JSON.stringify(valueRaw);
+    if (!dryRun) {
+      await env.EV_HISTORY.put(key, value);
+    }
+    restoredKeys += 1;
+  }
+  return withCors(jsonResponse({
+    ok: true,
+    dryRun,
+    scopes,
+    restoredKeys,
+    skippedKeys
+  }));
+}
+
+async function readSmokeSource(env) {
+  const candidates = [SNAPSHOT_STATUS_KEY, SNAPSHOT_RETRY_KEY];
+  for (const key of candidates) {
+    const raw = await env.EV_HISTORY.get(key);
+    if (typeof raw === "string" && raw.length > 0) {
+      return { key, raw };
+    }
+  }
+  const listed = await env.EV_HISTORY.list({
+    prefix: BACKUP_SCOPE_PREFIXES["snapshot-state"],
+    limit: 10
+  });
+  const keys = Array.isArray(listed?.keys) ? listed.keys.map((entry) => String(entry?.name || "")).filter(Boolean) : [];
+  for (const key of keys) {
+    const raw = await env.EV_HISTORY.get(key);
+    if (typeof raw === "string" && raw.length > 0) {
+      return { key, raw };
+    }
+  }
+  throw new Error("snapshot_state_source_missing");
+}
+
+async function handleBackupSmokeStatus(request, env) {
+  const authFailure = requireAdminOpsToken(request, env);
+  if (authFailure) return authFailure;
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "backup-smoke-status");
+  const raw = await env.EV_HISTORY.get(BACKUP_SMOKE_STATUS_KEY);
+  const status = parseJsonObject(raw);
+  return withCors(jsonResponse({
+    ok: true,
+    status: status || null
+  }));
+}
+
+async function handleBackupSmokeTest(request, env) {
+  const authFailure = requireAdminOpsToken(request, env);
+  if (authFailure) return authFailure;
+  if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "backup-smoke-test");
+  const startedAt = Date.now();
+  const testedAt = new Date(startedAt).toISOString();
+  let tempKey = "";
+  try {
+    const source = await readSmokeSource(env);
+    tempKey = `${BACKUP_SMOKE_TEMP_PREFIX}:${startedAt}`;
+    await env.EV_HISTORY.put(tempKey, source.raw);
+    const readback = await env.EV_HISTORY.get(tempKey);
+    const readbackOk = typeof readback === "string" && readback === source.raw;
+    await env.EV_HISTORY.delete(tempKey);
+    const status = {
+      ok: !!readbackOk,
+      testedAt,
+      sourceKey: source.key,
+      bytes: source.raw.length,
+      elapsedMs: Math.max(0, Date.now() - startedAt),
+      error: readbackOk ? null : "smoke_readback_mismatch"
+    };
+    await env.EV_HISTORY.put(BACKUP_SMOKE_STATUS_KEY, JSON.stringify(status));
+    if (!readbackOk) {
+      await logFailureEvent(env, "backup_smoke_failed", "Backup smoke restore readback mismatch.", {
+        sourceKey: source.key,
+        testedAt
+      }, {
+        severity: "warn"
+      });
+      return withCors(jsonResponse({
+        ok: false,
+        status
+      }, 500));
+    }
+    return withCors(jsonResponse({
+      ok: true,
+      status
+    }));
+  } catch (error) {
+    if (tempKey) {
+      try { await env.EV_HISTORY.delete(tempKey); } catch (_e) {}
+    }
+    const status = {
+      ok: false,
+      testedAt,
+      sourceKey: null,
+      bytes: 0,
+      elapsedMs: Math.max(0, Date.now() - startedAt),
+      error: String(error?.message || error || "backup_smoke_failed")
+    };
+    await env.EV_HISTORY.put(BACKUP_SMOKE_STATUS_KEY, JSON.stringify(status));
+    await logFailureEvent(env, "backup_smoke_failed", "Backup smoke restore test failed.", {
+      testedAt,
+      error: status.error
+    }, {
+      severity: "warn"
+    });
+    return withCors(jsonResponse({
+      ok: false,
+      status
+    }, 500));
   }
 }
 
@@ -742,9 +1256,20 @@ async function snapshotLeagueForDate(env, league, today) {
       ? JSON.parse(JSON.stringify(priceHistory))
       : {};
     const previousDistinctDays = countPriceHistoryDistinctDays(previousPriceHistory);
+    const backfillFallback = await getPriceHistoryBackfillFallbackState(env);
+    const backfillFallbackActive = !!backfillFallback?.enabled;
     const priceCutoff = new Date();
     priceCutoff.setDate(priceCutoff.getDate() - 7);
     const priceCutoffStr = priceCutoff.toISOString().slice(0, 10);
+    if (backfillFallbackActive) {
+      await logFailureEvent(env, "price_history_backfill_fallback_used", "Emergency price-history sparkline backfill fallback applied.", {
+        league,
+        date: today,
+        expiresAt: backfillFallback?.expiresAt ? new Date(backfillFallback.expiresAt).toISOString() : null
+      }, {
+        severity: "warn"
+      });
+    }
 
     for (const line of data.lines) {
       const name = line.name;
@@ -759,11 +1284,12 @@ async function snapshotLeagueForDate(env, league, today) {
         byDate[date] = Number(val.toFixed(4));
       }
 
-      // Backfill from upstream sparkline so our own stored history can recover
-      // when prior KV history is missing or sparse.
-      const sparklineSeries = deriveDailyPriceSeriesFromSparkline(line, today);
-      for (const point of sparklineSeries) {
-        byDate[point.date] = point.price;
+      if (backfillFallbackActive) {
+        // Emergency-only backfill mode: derive historical points from upstream sparkline.
+        const sparklineSeries = deriveDailyPriceSeriesFromSparkline(line, today);
+        for (const point of sparklineSeries) {
+          byDate[point.date] = point.price;
+        }
       }
 
       // Always stamp today's observed market price from this snapshot.
@@ -820,6 +1346,34 @@ async function snapshotLeagueForDate(env, league, today) {
   } catch (e) {
     await logFailureEvent(env, "snapshot_exception", "Snapshot failed with exception.", { league, date: today, error: String(e?.message || e || "snapshot_failed") });
     return { ok: false, error: String(e?.message || e || "snapshot_failed") };
+  }
+}
+
+async function getPriceHistoryBackfillFallbackState(env) {
+  if (!env?.EV_HISTORY) return { enabled: false, expiresAt: null };
+  try {
+    const raw = await env.EV_HISTORY.get(PRICE_HISTORY_BACKFILL_FALLBACK_KEY);
+    if (!raw) return { enabled: false, expiresAt: null };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      await env.EV_HISTORY.delete(PRICE_HISTORY_BACKFILL_FALLBACK_KEY);
+      return { enabled: false, expiresAt: null };
+    }
+    const enabled = parsed.enabled === true;
+    const expiresAt = Number(parsed.expiresAt) || 0;
+    const now = Date.now();
+    if (!enabled || !Number.isFinite(expiresAt) || expiresAt <= now) {
+      await env.EV_HISTORY.delete(PRICE_HISTORY_BACKFILL_FALLBACK_KEY);
+      await logFailureEvent(env, "price_history_backfill_fallback_expired", "Emergency price-history sparkline backfill fallback expired and was disabled.", {
+        expiredAt: Number.isFinite(expiresAt) && expiresAt > 0 ? new Date(expiresAt).toISOString() : null
+      }, {
+        severity: "warn"
+      });
+      return { enabled: false, expiresAt: null };
+    }
+    return { enabled: true, expiresAt };
+  } catch {
+    return { enabled: false, expiresAt: null };
   }
 }
 
@@ -1531,8 +2085,8 @@ function jsonResponse(body, status = 200) {
 function withCors(response) {
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, User-Agent");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, User-Agent, x-admin-token, x-manual-retry-token");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -1544,8 +2098,8 @@ function corsHeaders() {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, User-Agent, x-admin-token, x-manual-retry-token",
     "Cache-Control": "no-store"
   };
 }
