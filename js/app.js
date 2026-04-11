@@ -415,7 +415,17 @@ async function fetchPriceHistory() {
     if (!res.ok) return;
     const data = await res.json();
     if (data.prices && Object.keys(data.prices).length > 0) {
-      state._priceHistory = data.prices;
+      const incoming = data.prices;
+      const current = state._priceHistory && typeof state._priceHistory === 'object' ? state._priceHistory : {};
+      const merged = { ...current };
+      for (const [name, nextSeriesRaw] of Object.entries(incoming)) {
+        const nextSeries = Array.isArray(nextSeriesRaw) ? nextSeriesRaw : [];
+        const prevSeries = Array.isArray(current[name]) ? current[name] : [];
+        // Guard against regressions: keep whichever source has deeper history.
+        // This prevents a thin history payload from downgrading richer sparkline data.
+        merged[name] = nextSeries.length >= prevSeries.length ? nextSeries : prevSeries;
+      }
+      state._priceHistory = merged;
       if (state.ninjaLoaded) renderVendorTable();
       if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
       if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
