@@ -946,17 +946,21 @@ async function getMarketHealthBundle(){
     };
     const withPoeTelemetry=(base)=>Object.assign({},base||{},marketStatusTelemetry);
     const snapshotStatus=String(snapshotData&&snapshotData.status||'').toLowerCase();
-    const snapshotLevel=snapshotStatus==='success'?'ok':((snapshotStatus.includes('retry')||snapshotStatus==='partial')?'warn':(snapshotStatus?'err':'warn'));
+    const snapshotLevel=snapshotStatus==='success'?'ok'
+      :(snapshotStatus==='idle'?'ok'
+        :((snapshotStatus.includes('retry')||snapshotStatus.includes('partial'))?'warn':(snapshotStatus?'err':'warn')));
     const snapshotCard=(snapshotRes.ok&&snapshotData&&snapshotData.ok)
       ?{
         level:snapshotLevel,
         detail:snapshotStatus==='success'
           ?'Daily snapshot writes completed.'
-          :(snapshotStatus.includes('retry')
-            ?'Daily snapshot is still retrying.'
-            :(snapshotStatus.includes('failed')
-              ?'Daily snapshot failed for one or more leagues.'
-              :'Daily snapshot status is partial.')),
+          :(snapshotStatus==='idle'
+            ?'Daily snapshot is idle until the next scheduled run.'
+            :(snapshotStatus.includes('retry')
+              ?'Daily snapshot is still retrying.'
+              :(snapshotStatus.includes('failed')
+                ?'Daily snapshot failed for one or more leagues.'
+                :'Daily snapshot status is partial.'))),
         meta:'Status '+String(snapshotData.status||'unknown')+' | Date '+String(snapshotData.date||'unknown')+' | '+pullTook+'ms',
         telemetry:{
           date:snapshotData.date||null,
