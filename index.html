@@ -955,6 +955,7 @@ body.graph-palette-ruby {
 .analysis-weight-head .th[data-sort].sort-desc::after { content: '\25BC'; }
 .recv-mobile { display: none; }
 .recv-desktop { display: inline; }
+.analysis-group-desktop { display: inline; }
 .contrib-mobile { display: none; }
 .contrib-desktop { display: inline; }
 .analysis-ev-compare { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
@@ -2694,6 +2695,9 @@ body.graph-palette-ruby {
   }
   #analysisWeightTable .analysis-weight-row > div:first-child .scarab-name { display: none !important; }
   #analysisWeightTable .analysis-weight-row > div:first-child .scarab-name-mobile { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #analysisWeightHead .analysis-group-col,
+  #analysisWeightTable .analysis-weight-row > .analysis-group-col { display: none !important; }
+  .analysis-group-desktop { display: none; }
   .recv-desktop { display: none; }
   .recv-mobile { display: inline; }
   .contrib-desktop { display: none; }
@@ -3339,8 +3343,9 @@ body.graph-palette-ruby {
           <div id="analysisBarTooltip" class="analysis-tooltip"></div>
         </div>
         <div class="table-card" style="margin-top:12px">
-          <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 82px 76px 82px 84px;gap:6px" id="analysisWeightHead">
+          <div class="table-head analysis-weight-head" style="grid-template-columns:1fr 96px 82px 76px 82px 84px;gap:6px" id="analysisWeightHead">
             <div class="th th-search"><input type="text" id="analysis-filter" class="analysis-head-search" placeholder="SCARAB" oninput="setAnalysisWeightFilter(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="analysis_filter" data-lpignore="true"></div>
+            <div class="th right analysis-group-col" data-sort="group" onclick="sortAnalysisWeight('group')"><span class="analysis-group-desktop">Group</span></div>
             <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')"><span class="recv-desktop">Received</span><span class="recv-mobile">Recv</span></div>
             <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
             <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">COST/EA</div>

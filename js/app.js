@@ -3277,14 +3277,24 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
 
   // Weight distribution: build data array (sort by received desc initially)
   let observedEv = 0;
+  const scarabGroupByName = new Map();
+  const scarabGroupByNameLower = new Map();
+  for (const scarab of SCARAB_LIST) {
+    const scarabName = String(scarab?.name || '');
+    const scarabGroup = String(scarab?.group || '');
+    if (!scarabName) continue;
+    scarabGroupByName.set(scarabName, scarabGroup);
+    scarabGroupByNameLower.set(scarabName.toLowerCase(), scarabGroup);
+  }
   const weightData = Object.keys(receivedByScarab).map(name => {
     const count = receivedByScarab[name];
     const pct = totalReceived > 0 ? (count / totalReceived * 100) : 0;
     const weight = pct / 100;
     const ninjaPrice = state.ninjaPrices[name] ?? 0;
     const evContrib = weight * ninjaPrice;
+    const group = scarabGroupByName.get(name) || scarabGroupByNameLower.get(String(name || '').toLowerCase()) || '\u2014';
     observedEv += evContrib;
-    return { name, count, pct, weight, ninjaPrice, evContrib };
+    return { name, group, count, pct, weight, ninjaPrice, evContrib };
   });
 
   function quantileOf(nums, q) {
@@ -3532,10 +3542,11 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
 
   const head = document.getElementById('analysisWeightHead');
   if (head) {
-    head.style.gridTemplateColumns = '1fr 82px 76px 82px 84px';
+    head.style.gridTemplateColumns = '1fr 96px 82px 76px 82px 84px';
     head.style.gap = '6px';
     head.innerHTML = `
       <div class="th th-search"><input type="text" id="analysis-filter" class="analysis-head-search" placeholder="SCARAB" oninput="setAnalysisWeightFilter(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="analysis_filter" data-lpignore="true"></div>
+      <div class="th right analysis-group-col" data-sort="group" onclick="sortAnalysisWeight('group')"><span class="analysis-group-desktop">Group</span></div>
       <div class="th right" data-sort="received" onclick="sortAnalysisWeight('received')"><span class="recv-desktop">Received</span><span class="recv-mobile">Recv</span></div>
       <div class="th right" data-sort="pct" onclick="sortAnalysisWeight('pct')">Weight</div>
       <div class="th right" data-sort="ninja" onclick="sortAnalysisWeight('ninja')">COST/EA</div>
@@ -3593,6 +3604,7 @@ function getAnalysisSortLabel() {
   const key = s.key;
   const dir = s.dir;
   if (key === 'name') return 'Sorted by: Scarab name (' + (dir === 1 ? 'A-Z' : 'Z-A') + ')';
+  if (key === 'group') return 'Sorted by: Group (' + (dir === 1 ? 'A-Z' : 'Z-A') + ')';
   if (key === 'received') return 'Sorted by: Count received (' + (dir === -1 ? 'high to low' : 'low to high') + ')';
   if (key === 'pct') return 'Sorted by: Weight % (' + (dir === -1 ? 'high to low' : 'low to high') + ')';
   if (key === 'ninja') return 'Sorted by COST/EA (' + (dir === -1 ? 'high-LOW' : 'low-HIGH') + ')';
@@ -3660,6 +3672,11 @@ function matchesAnalysisWeightFilter(name, rawQuery) {
 function getAnalysisWeightComparator(key, dir) {
   return (a, b) => {
     if (key === 'name') return (a.name.localeCompare(b.name)) * dir;
+    if (key === 'group') {
+      const groupCmp = String(a.group || '').localeCompare(String(b.group || ''));
+      if (groupCmp !== 0) return groupCmp * dir;
+      return a.name.localeCompare(b.name) * dir;
+    }
     if (key === 'received') return (a.count - b.count) * dir;
     if (key === 'pct') return (a.pct - b.pct) * dir;
     if (key === 'ninja') return (a.ninjaPrice - b.ninjaPrice) * dir;
@@ -3719,7 +3736,7 @@ function sortAnalysisWeight(key) {
   const source = window._analysisWeightAllData;
   if (!source || !source.length) return;
   const prev = window._analysisWeightSort || { key: 'ninja', dir: -1 };
-  const dir = prev.key === key ? -prev.dir : (key === 'name' ? 1 : -1);
+  const dir = prev.key === key ? -prev.dir : ((key === 'name' || key === 'group') ? 1 : -1);
   window._analysisWeightSort = { key, dir };
   syncAnalysisWeightView();
 }
@@ -3736,8 +3753,9 @@ function renderAnalysisWeightTable() {
   const rows = data.map(d => {
     const pctText = d.pct.toFixed(3);
     return `
-    <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 82px 76px 82px 84px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:6px;">
+    <div class="analysis-weight-row" style="display:grid;grid-template-columns:1fr 96px 82px 76px 82px 84px;font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;gap:6px;">
       <div style="overflow:hidden;min-width:0"><span class="scarab-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span><span class="scarab-name-mobile" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mobileScarabName(d.name)}</span></div>
+      <span class="analysis-group-col" style="text-align:right;font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.group || '\u2014'}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:550;color:var(--text-2)">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:550;color:var(--text-2)">${pctText}%</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '\u2014'}</span>
