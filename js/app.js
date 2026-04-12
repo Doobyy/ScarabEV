@@ -3741,7 +3741,7 @@ function renderAnalysisWeightTable() {
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:550;color:var(--text-2)">${d.count.toLocaleString()}</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:550;color:var(--text-2)">${pctText}%</span>
       <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${d.ninjaPrice ? d.ninjaPrice.toFixed(2) + 'c' : '\u2014'}</span>
-      <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--chaos)">${d.evContrib.toFixed(2)}c</span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;color:var(--chaos)">${d.evContrib.toFixed(4)}c</span>
     </div>`;
   }).join('');
   el.innerHTML = rows;
