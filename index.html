@@ -249,6 +249,27 @@ body {
 [data-theme="dark"] .nav-tab:hover { color: rgba(222,236,252,0.9); }
 [data-theme="dark"] .nav-tab.active { color: #7fe3d4; }
 [data-theme="dark"] .nav-tab.ninja-tab.active { color: #7fe3d4; }
+.nav-icon-link {
+  text-decoration: none;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.nav-icon-link:hover { opacity: 0.8; }
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.twitch-icon {
+  width: 18px;
+  height: 18px;
+  fill: rgba(255,255,255,0.86);
+  display: block;
+}
 
 /* Dark mode toggle */
 .theme-toggle {
@@ -310,6 +331,7 @@ body {
   letter-spacing: 0.02em;
 }
 .changelog-btn:hover { color: #fff; border-color: rgba(255,255,255,0.35); }
+.changelog-label-short { display: none; }
 .changelog-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
@@ -2785,6 +2807,9 @@ body.graph-palette-ruby {
   .page { padding: 10px 8px 56px; }
   .topnav { padding: 0 8px; gap: 6px; }
   .nav-current-tab { max-width: 132px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-actions { gap: 4px; }
+  .changelog-label-full { display: none; }
+  .changelog-label-short { display: inline; }
 
   .ninja-banner { padding: 8px 10px; gap: 8px; flex-wrap: nowrap; align-items: center; }
   .ninja-status { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2892,8 +2917,15 @@ body.graph-palette-ruby {
   </div>
   <span class="nav-sep"></span>
   <span class="nav-current-tab" id="navCurrentTab">Scarab Vendor</span>
-  <a href="https://ko-fi.com/dooby0530" target="_blank" title="Support on Ko-fi" style="text-decoration:none;opacity:0.35;transition:opacity 0.15s;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.35'"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi" style="height:18px;width:auto;display:block"></a>
-  <button class="changelog-btn" onclick="toggleChangelog()">changelog</button>
+  <span class="nav-actions">
+    <a href="https://ko-fi.com/dooby0530" target="_blank" rel="noopener noreferrer" title="Support on Ko-fi" class="nav-icon-link"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi" style="height:18px;width:auto;display:block"></a>
+    <a href="https://www.twitch.tv/iamD00BY" target="_blank" rel="noopener noreferrer" title="Twitch" aria-label="Twitch" class="nav-icon-link">
+      <svg class="twitch-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M2 1v18h6v4l4-4h4l6-6V1H2zm18 11l-3 3h-5l-3 3v-3H6V3h14v9zM16 6h2v5h-2V6zm-5 0h2v5h-2V6z"/>
+      </svg>
+    </a>
+    <button class="changelog-btn" onclick="toggleChangelog()"><span class="changelog-label-full">changelog</span><span class="changelog-label-short">updates</span></button>
+  </span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
     <svg class="icon-sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="22" stroke-width="2.5" stroke-linecap="round"/><line x1="2" y1="12" x2="5" y2="12" stroke-width="2.5" stroke-linecap="round"/><line x1="19" y1="12" x2="22" y2="12" stroke-width="2.5" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34" stroke-width="2.5" stroke-linecap="round"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke-width="2.5" stroke-linecap="round"/><line x1="19.78" y1="4.22" x2="17.66" y2="6.34" stroke-width="2.5" stroke-linecap="round"/><line x1="6.34" y1="17.66" x2="4.22" y2="19.78" stroke-width="2.5" stroke-linecap="round"/></svg>
     <svg class="icon-moon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-width="0" /></svg>
