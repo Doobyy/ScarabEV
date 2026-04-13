@@ -8,6 +8,7 @@ const AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 const SNAPSHOT_RETRY_KEY = `${CACHE_PREFIX}:snapshot-retry`;
 const SNAPSHOT_STATUS_KEY = `${CACHE_PREFIX}:snapshot-status`;
+const SNAPSHOT_BACKSTOP_KEY = `${CACHE_PREFIX}:snapshot-backstop`;
 const SNAPSHOT_INLINE_ATTEMPTS = 3;
 const SNAPSHOT_RETRY_DELAY_MS = 15 * 60 * 1000;
 const SNAPSHOT_RETRY_MAX_ATTEMPTS = 24;
@@ -34,6 +35,9 @@ const PRICE_HISTORY_BACKFILL_FALLBACK_MAX_MS = 6 * 60 * 60 * 1000;
 const BULK_NAME_MAP_KEY = `${CACHE_PREFIX}:bulk-name-map`;
 const BULK_MISMATCH_LOG_KEY = `${CACHE_PREFIX}:bulk-mismatch-log`;
 const BULK_MISMATCH_LOG_MAX = 500;
+const SNAPSHOT_KICKOFF_HOUR_UTC = 18;
+const SNAPSHOT_KICKOFF_MINUTE_UTC = 0;
+const SNAPSHOT_BACKSTOP_GRACE_MS = 15 * 60 * 1000;
 
 const POLICY = {
   currentLeague: {
@@ -69,6 +73,7 @@ export default {
       if (utcMinute === 5) ctx.waitUntil(refreshStandardMarketBundle(env));
       if (utcMinute === 10) ctx.waitUntil(refreshCurrentLeagueCache(env));
       ctx.waitUntil(runPendingSnapshotRetry(env));
+      ctx.waitUntil(runSnapshotKickoffBackstop(env, now));
       return;
     }
   }
@@ -130,7 +135,27 @@ async function handleCurrentLeague(env) {
     return jsonWithMeta(state.data, buildMetaFromState(state, "live", "current-league"));
   }
   if (hasData && ageMs <= POLICY.currentLeague.maxStaleMs) {
-    return jsonWithMeta(state.data, buildMetaFromState(state, "stale", "current-league"));
+    if (now < Number(state?.nextRetryAt || 0)) {
+      return jsonWithMeta(state.data, buildMetaFromState(state, "stale", "current-league"));
+    }
+    const refreshed = await tryRefreshState(
+      env.EV_HISTORY,
+      KEY_CURRENT_LEAGUE,
+      state,
+      async () => ({ data: await fetchCurrentLeagueData() }),
+      now
+    );
+    if (refreshed.ok && refreshed.state?.data) {
+      return jsonWithMeta(refreshed.state.data, buildMetaFromState(refreshed.state, "live", "current-league"));
+    }
+    const fallbackState = refreshed.state || state;
+    const fallbackHasData = !!fallbackState?.data && Number.isFinite(fallbackState?.lastSuccessAt);
+    if (fallbackHasData) {
+      const fallbackAgeMs = now - Number(fallbackState.lastSuccessAt);
+      if (fallbackAgeMs <= POLICY.currentLeague.maxStaleMs) {
+        return jsonWithMeta(fallbackState.data, buildMetaFromState(fallbackState, "stale", "current-league"));
+      }
+    }
   }
 
   try {
@@ -202,7 +227,44 @@ async function handleCachedMarketProxy(league, type, env) {
   }
 
   if (hasData && ageMs <= policy.maxStaleMs) {
-    return jsonWithMeta(currentSelected, withMarketMeta(buildMetaFromState(state, "stale", "market"), state?.data));
+    if (now < Number(state?.nextRetryAt || 0)) {
+      return jsonWithMeta(currentSelected, withMarketMeta(buildMetaFromState(state, "stale", "market"), state?.data));
+    }
+    const refreshed = await tryRefreshState(
+      env.EV_HISTORY,
+      key,
+      state,
+      async (previousBundle) => {
+        const nextBundle = await buildMarketBundleForLeague(normalizedLeague, previousBundle || state?.data || null);
+        const nextSelected = selectMarketTypeFromBundle(nextBundle, normalizedType);
+        if (!isValidMarketPayload(nextSelected)) {
+          throw new Error("market_type_unavailable");
+        }
+        return { data: nextBundle };
+      },
+      now
+    );
+    if (refreshed.ok && refreshed.state) {
+      const refreshedSelected = selectMarketTypeFromBundle(refreshed.state.data, normalizedType);
+      if (isValidMarketPayload(refreshedSelected)) {
+        return jsonWithMeta(
+          refreshedSelected,
+          withMarketMeta(buildMetaFromState(refreshed.state, "live", "market"), refreshed.state.data)
+        );
+      }
+    }
+    const fallbackState = refreshed.state || state;
+    const fallbackSelected = selectMarketTypeFromBundle(fallbackState?.data, normalizedType);
+    const fallbackHasData = Number.isFinite(fallbackState?.lastSuccessAt) && isValidMarketPayload(fallbackSelected);
+    if (fallbackHasData) {
+      const fallbackAgeMs = now - Number(fallbackState.lastSuccessAt);
+      if (fallbackAgeMs <= policy.maxStaleMs) {
+        return jsonWithMeta(
+          fallbackSelected,
+          withMarketMeta(buildMetaFromState(fallbackState, "stale", "market"), fallbackState.data)
+        );
+      }
+    }
   }
 
   try {
@@ -1215,6 +1277,7 @@ async function snapshotLeagueForDate(env, league, today) {
     }
 
     const evKey = `ev-history-${league.toLowerCase()}`;
+    const atlasKey = `atlas-ev-history-${league.toLowerCase()}`;
     const evStored = await env.EV_HISTORY.get(evKey);
     const evHistory = evStored ? JSON.parse(evStored) : [];
     const evIdx = evHistory.findIndex((e) => e.date === today);
@@ -1230,34 +1293,25 @@ async function snapshotLeagueForDate(env, league, today) {
     const evCutoff = new Date();
     evCutoff.setDate(evCutoff.getDate() - 90);
     const evCutoffStr = evCutoff.toISOString().slice(0, 10);
-    await env.EV_HISTORY.put(evKey, JSON.stringify(evHistory.filter((e) => e.date >= evCutoffStr)));
+    const nextEvHistory = evHistory.filter((e) => e.date >= evCutoffStr);
 
-    let wroteAtlas = false;
-    if (
-      atlasSnapshot &&
-      Number.isFinite(atlasSnapshot.baselineEv) &&
-      Number.isFinite(atlasSnapshot.optimizedEv)
-    ) {
-      const atlasKey = `atlas-ev-history-${league.toLowerCase()}`;
-      const atlasStored = await env.EV_HISTORY.get(atlasKey);
-      const atlasHistory = atlasStored ? JSON.parse(atlasStored) : [];
-      const atlasIdx = atlasHistory.findIndex((e) => e.date === today);
-      const atlasEntry = {
-        date: today,
-        baselineEv: Number(atlasSnapshot.baselineEv.toFixed(4)),
-        optimizedEv: Number(atlasSnapshot.optimizedEv.toFixed(4))
-      };
-      if (atlasIdx >= 0) atlasHistory[atlasIdx] = { ...atlasHistory[atlasIdx], ...atlasEntry };
-      else atlasHistory.push(atlasEntry);
-
-      const atlasCutoff = new Date();
-      atlasCutoff.setDate(atlasCutoff.getDate() - 90);
-      const atlasCutoffStr = atlasCutoff.toISOString().slice(0, 10);
-      await env.EV_HISTORY.put(atlasKey, JSON.stringify(atlasHistory.filter((e) => e.date >= atlasCutoffStr)));
-      wroteAtlas = true;
-    }
+    const atlasStored = await env.EV_HISTORY.get(atlasKey);
+    const atlasHistory = atlasStored ? JSON.parse(atlasStored) : [];
+    const atlasIdx = atlasHistory.findIndex((e) => e.date === today);
+    const atlasEntry = {
+      date: today,
+      baselineEv: Number(atlasSnapshot.baselineEv.toFixed(4)),
+      optimizedEv: Number(atlasSnapshot.optimizedEv.toFixed(4))
+    };
+    if (atlasIdx >= 0) atlasHistory[atlasIdx] = { ...atlasHistory[atlasIdx], ...atlasEntry };
+    else atlasHistory.push(atlasEntry);
+    const atlasCutoff = new Date();
+    atlasCutoff.setDate(atlasCutoff.getDate() - 90);
+    const atlasCutoffStr = atlasCutoff.toISOString().slice(0, 10);
+    const nextAtlasHistory = atlasHistory.filter((e) => e.date >= atlasCutoffStr);
 
     const priceKey = `price-history-${league.toLowerCase()}`;
+    const backupKey = `price-history-backup-${league.toLowerCase()}`;
     const priceStored = await env.EV_HISTORY.get(priceKey);
     const priceHistory = priceStored ? JSON.parse(priceStored) : {};
     const previousPriceHistory = priceHistory && typeof priceHistory === "object"
@@ -1269,15 +1323,6 @@ async function snapshotLeagueForDate(env, league, today) {
     const priceCutoff = new Date();
     priceCutoff.setDate(priceCutoff.getDate() - 7);
     const priceCutoffStr = priceCutoff.toISOString().slice(0, 10);
-    if (backfillFallbackActive) {
-      await logFailureEvent(env, "price_history_backfill_fallback_used", "Emergency price-history sparkline backfill fallback applied.", {
-        league,
-        date: today,
-        expiresAt: backfillFallback?.expiresAt ? new Date(backfillFallback.expiresAt).toISOString() : null
-      }, {
-        severity: "warn"
-      });
-    }
 
     for (const line of data.lines) {
       const name = line.name;
@@ -1308,8 +1353,9 @@ async function snapshotLeagueForDate(env, league, today) {
         .map((date) => ({ date, price: byDate[date] }))
         .filter((e) => e.date >= priceCutoffStr);
     }
+    const nextPriceHistory = priceHistory;
 
-    const nextDistinctDays = countPriceHistoryDistinctDays(priceHistory);
+    const nextDistinctDays = countPriceHistoryDistinctDays(nextPriceHistory);
     const shrinkGuardFloor = Math.max(
       PRICE_HISTORY_GUARD_FLOOR_DAYS,
       previousDistinctDays - 3
@@ -1327,23 +1373,61 @@ async function snapshotLeagueForDate(env, league, today) {
       return { ok: false, error: "price_history_shrink_guard" };
     }
 
-    // Keep a rolling backup of the prior state before mutating primary history.
-    if (previousDistinctDays > 0) {
-      const backupKey = `price-history-backup-${league.toLowerCase()}`;
-      await env.EV_HISTORY.put(backupKey, JSON.stringify({
+    const backupPayload = previousDistinctDays > 0
+      ? JSON.stringify({
         capturedAt: new Date().toISOString(),
         league,
         previousDistinctDays,
         data: previousPriceHistory
-      }));
+      })
+      : null;
+    const backupStored = backupPayload ? await env.EV_HISTORY.get(backupKey) : null;
+
+    const committed = [];
+    try {
+      if (backupPayload) {
+        await env.EV_HISTORY.put(backupKey, backupPayload);
+        committed.push({ key: backupKey, previousRaw: backupStored });
+      }
+      await env.EV_HISTORY.put(evKey, JSON.stringify(nextEvHistory));
+      committed.push({ key: evKey, previousRaw: evStored });
+      await env.EV_HISTORY.put(atlasKey, JSON.stringify(nextAtlasHistory));
+      committed.push({ key: atlasKey, previousRaw: atlasStored });
+      await env.EV_HISTORY.put(priceKey, JSON.stringify(nextPriceHistory));
+      committed.push({ key: priceKey, previousRaw: priceStored });
+    } catch (commitError) {
+      for (let i = committed.length - 1; i >= 0; i--) {
+        const entry = committed[i];
+        try {
+          if (entry.previousRaw == null) await env.EV_HISTORY.delete(entry.key);
+          else await env.EV_HISTORY.put(entry.key, entry.previousRaw);
+        } catch (_rollbackError) {
+          // best effort rollback only
+        }
+      }
+      await logFailureEvent(env, "snapshot_commit_failed", "Snapshot failed during commit; attempted rollback.", {
+        league,
+        date: today,
+        error: String(commitError?.message || commitError || "commit_failed"),
+        revertedKeys: committed.map((entry) => entry.key)
+      });
+      return { ok: false, error: "snapshot_commit_failed" };
     }
 
-    await env.EV_HISTORY.put(priceKey, JSON.stringify(priceHistory));
+    if (backfillFallbackActive) {
+      await logFailureEvent(env, "price_history_backfill_fallback_used", "Emergency price-history sparkline backfill fallback applied.", {
+        league,
+        date: today,
+        expiresAt: backfillFallback?.expiresAt ? new Date(backfillFallback.expiresAt).toISOString() : null
+      }, {
+        severity: "warn"
+      });
+    }
     return {
       ok: true,
       writes: {
         ev: true,
-        atlas: wroteAtlas,
+        atlas: true,
         price: true
       },
       values: {
@@ -1629,6 +1713,43 @@ async function runPendingSnapshotRetry(env) {
     leagues: pendingLeagues,
     retryCount: (retryCount + 1)
   });
+}
+
+async function runSnapshotKickoffBackstop(env, nowDate = new Date()) {
+  if (!env?.EV_HISTORY) return;
+  const nowMs = nowDate instanceof Date ? nowDate.getTime() : Date.now();
+  if (!Number.isFinite(nowMs) || nowMs <= 0) return;
+
+  const kickoffAt = new Date(nowMs);
+  kickoffAt.setUTCHours(SNAPSHOT_KICKOFF_HOUR_UTC, SNAPSHOT_KICKOFF_MINUTE_UTC, 0, 0);
+  if (nowMs < (kickoffAt.getTime() + SNAPSHOT_BACKSTOP_GRACE_MS)) return;
+
+  const today = new Date(nowMs).toISOString().slice(0, 10);
+  const [rawBackstop, rawStatus, rawRetry] = await Promise.all([
+    env.EV_HISTORY.get(SNAPSHOT_BACKSTOP_KEY),
+    env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY),
+    env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY)
+  ]);
+  const backstop = parseJsonObject(rawBackstop);
+  if (String(backstop?.date || "") === today) return;
+
+  const status = parseJsonObject(rawStatus);
+  const retry = parseJsonObject(rawRetry);
+  const statusToday = status && String(status.date || "") === today ? status : null;
+  const retryToday = retry && String(retry.date || "") === today ? retry : null;
+  const statusHasStarted = !!statusToday && (
+    !!statusToday.lastAttemptAt
+    || (statusToday.leagues && typeof statusToday.leagues === "object" && Object.keys(statusToday.leagues).length > 0)
+    || (Array.isArray(statusToday.targetLeagues) && statusToday.targetLeagues.length > 0)
+  );
+  const retryHasStarted = !!retryToday;
+  if (statusHasStarted || retryHasStarted) return;
+
+  await env.EV_HISTORY.put(SNAPSHOT_BACKSTOP_KEY, JSON.stringify({
+    date: today,
+    triggeredAt: new Date(nowMs).toISOString()
+  }));
+  await runDailyEVSnapshot(env);
 }
 
 async function fetchCurrentChallengeLeaguePair() {
