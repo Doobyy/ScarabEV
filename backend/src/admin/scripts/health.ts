@@ -7,6 +7,8 @@ const MARKET_WORKER_HEALTHY_AGE_MS=75*60*1000;
 const MARKET_WORKER_WARN_AGE_MS=6*60*60*1000;
 const POE_PULL_HEALTHY_AGE_MS=10*60*1000;
 const POE_PULL_WARN_AGE_MS=30*60*1000;
+const SNAPSHOT_CADENCE_MS=24*60*60*1000;
+const SNAPSHOT_WARN_AGE_MS=48*60*60*1000;
 let marketHealthCacheAt=0;
 let marketHealthCache=null;
 let marketHealthInFlight=null;
@@ -179,15 +181,17 @@ function buildSnapshotChecks(card){
   const pending=Array.isArray(t.pendingLeagues)?t.pendingLeagues:[];
   const failed=Array.isArray(t.failedLeagues)?t.failedLeagues:[];
   const retries=Number(t.retryCount)||0;
+  const hasTelemetry=!!t.lastAttemptAt||target.length>0||completed.length>0||pending.length>0||failed.length>0;
+  const completedLevel=failed.length?'err':((pending.length||!target.length)?'warn':'ok');
   const rows=[
     {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
     {level:'ok',label:'Snapshot date',detail:String(t.date||'unknown')},
-    {level:'ok',label:'Target leagues',detail:target.length?target.join(', '):'none'},
-    {level:pending.length?'warn':'ok',label:'Completed writes',detail:completed.length+' / '+target.length+' leagues'},
+    {level:target.length?'ok':'warn',label:'Target leagues',detail:target.length?target.join(', '):'none'},
+    {level:completedLevel,label:'Completed writes',detail:completed.length+' / '+target.length+' leagues'},
     {level:pending.length?'warn':'ok',label:'Still retrying',detail:pending.length?pending.join(', '):'none'},
     {level:failed.length?'err':'ok',label:'Failed leagues',detail:failed.length?failed.join(', '):'none'},
-    {level:'ok',label:'Retry attempts',detail:String(retries)},
-    {level:'ok',label:'Last attempt',detail:t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported'},
+    {level:hasTelemetry?'ok':'warn',label:'Retry attempts',detail:String(retries)},
+    {level:t.lastAttemptAt?'ok':'warn',label:'Last attempt',detail:t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported'},
     {level:'ok',label:'Next retry',detail:t.nextRetryAt?formatAdminTime(t.nextRetryAt):'none scheduled'}
   ];
   function yesNoHtml(ok){
@@ -317,6 +321,36 @@ function withCacheSignalRows(id,checks,card){
         const m=buildAgeMeter(maxAgeMs,5*60*1000);
         if(!m)return m;
         m.live={mode:'cadence',lastSuccessAt:oldestSuccessIso||'',limitMs:5*60*1000,autoRefresh:true};
+        return m;
+      })()
+    });
+    return rows;
+  }
+  if(id==='healthSnapshot'){
+    const ageMs=msSince(telemetry.lastAttemptAt);
+    rows.push({
+      level:classifyAge(ageMs,SNAPSHOT_CADENCE_MS,SNAPSHOT_WARN_AGE_MS),
+      label:'Snapshot freshness signal',
+      detail:ageMs===null
+        ?'Last attempt unknown.'
+        :'Age '+humanAge(ageMs)+' ('+Math.round(ageMs/60000)+'m old, warn at '+Math.round(SNAPSHOT_WARN_AGE_MS/60000)+'m).',
+      meter:(()=>{
+        const m=buildAgeMeter(ageMs,SNAPSHOT_WARN_AGE_MS);
+        if(!m)return m;
+        m.live={mode:'freshness',lastSuccessAt:telemetry.lastAttemptAt||'',limitMs:SNAPSHOT_WARN_AGE_MS,autoRefresh:false};
+        return m;
+      })()
+    });
+    rows.push({
+      level:cadenceDriftLevel(ageMs,SNAPSHOT_CADENCE_MS,SNAPSHOT_WARN_AGE_MS),
+      label:'Cadence progress signal',
+      detail:ageMs===null
+        ?'Cannot verify daily cadence without last attempt timestamp.'
+        :'Cadence meter shows elapsed / target for daily snapshots.',
+      meter:(()=>{
+        const m=buildAgeMeter(ageMs,SNAPSHOT_CADENCE_MS);
+        if(!m)return m;
+        m.live={mode:'cadence',lastSuccessAt:telemetry.lastAttemptAt||'',limitMs:SNAPSHOT_CADENCE_MS,autoRefresh:true};
         return m;
       })()
     });
@@ -987,33 +1021,52 @@ async function getMarketHealthBundle(){
     };
     const withPoeTelemetry=(base)=>Object.assign({},base||{},marketStatusTelemetry);
     const snapshotStatus=String(snapshotData&&snapshotData.status||'').toLowerCase();
-    const snapshotLevel=snapshotStatus==='success'?'ok'
+    const snapshotTargetLeagues=Array.isArray(snapshotData&&snapshotData.targetLeagues)?snapshotData.targetLeagues:[];
+    const snapshotCompletedLeagues=Array.isArray(snapshotData&&snapshotData.completedLeagues)?snapshotData.completedLeagues:[];
+    const snapshotPendingLeagues=Array.isArray(snapshotData&&snapshotData.pendingLeagues)?snapshotData.pendingLeagues:[];
+    const snapshotFailedLeagues=Array.isArray(snapshotData&&snapshotData.failedLeagues)?snapshotData.failedLeagues:[];
+    const snapshotLeagues=(snapshotData&&snapshotData.leagues&&typeof snapshotData.leagues==='object')?snapshotData.leagues:{};
+    const snapshotRetryCount=Number(snapshotData&&snapshotData.retryCount)||0;
+    const snapshotLastAttemptAt=(snapshotData&&snapshotData.lastAttemptAt)||null;
+    const snapshotHasLeagueState=Object.keys(snapshotLeagues).length>0;
+    const snapshotHasTelemetry=!!snapshotLastAttemptAt
+      ||snapshotRetryCount>0
+      ||snapshotTargetLeagues.length>0
+      ||snapshotCompletedLeagues.length>0
+      ||snapshotPendingLeagues.length>0
+      ||snapshotFailedLeagues.length>0
+      ||snapshotHasLeagueState;
+    let snapshotLevel=snapshotStatus==='success'?'ok'
       :(snapshotStatus==='idle'?'ok'
         :((snapshotStatus.includes('retry')||snapshotStatus.includes('partial'))?'warn':(snapshotStatus?'err':'warn')));
+    if((snapshotStatus==='idle'||snapshotStatus==='success')&&!snapshotHasTelemetry){
+      snapshotLevel='warn';
+    }
+    const snapshotDetail=snapshotStatus==='success'
+      ?(snapshotHasTelemetry?'Daily snapshot writes completed.':'Daily snapshot reported success but telemetry is missing.')
+      :(snapshotStatus==='idle'
+        ?(snapshotHasTelemetry?'Daily snapshot is idle until the next scheduled run.':'Daily snapshot is idle but has no telemetry from the most recent run.')
+        :(snapshotStatus.includes('retry')
+          ?'Daily snapshot is still retrying.'
+          :(snapshotStatus.includes('failed')
+            ?'Daily snapshot failed for one or more leagues.'
+            :'Daily snapshot status is partial.')));
     const snapshotCard=(snapshotRes.ok&&snapshotData&&snapshotData.ok)
       ?{
         level:snapshotLevel,
-        detail:snapshotStatus==='success'
-          ?'Daily snapshot writes completed.'
-          :(snapshotStatus==='idle'
-            ?'Daily snapshot is idle until the next scheduled run.'
-            :(snapshotStatus.includes('retry')
-              ?'Daily snapshot is still retrying.'
-              :(snapshotStatus.includes('failed')
-                ?'Daily snapshot failed for one or more leagues.'
-                :'Daily snapshot status is partial.'))),
+        detail:snapshotDetail,
         meta:'Status '+String(snapshotData.status||'unknown')+' | Date '+String(snapshotData.date||'unknown')+' | '+pullTook+'ms',
         telemetry:{
           status:String(snapshotData.status||''),
           date:snapshotData.date||null,
-          targetLeagues:Array.isArray(snapshotData.targetLeagues)?snapshotData.targetLeagues:[],
-          completedLeagues:Array.isArray(snapshotData.completedLeagues)?snapshotData.completedLeagues:[],
-          pendingLeagues:Array.isArray(snapshotData.pendingLeagues)?snapshotData.pendingLeagues:[],
-          failedLeagues:Array.isArray(snapshotData.failedLeagues)?snapshotData.failedLeagues:[],
-          retryCount:Number(snapshotData.retryCount)||0,
+          targetLeagues:snapshotTargetLeagues,
+          completedLeagues:snapshotCompletedLeagues,
+          pendingLeagues:snapshotPendingLeagues,
+          failedLeagues:snapshotFailedLeagues,
+          retryCount:snapshotRetryCount,
           nextRetryAt:snapshotData.nextRetryAt||null,
-          lastAttemptAt:snapshotData.lastAttemptAt||null,
-          leagues:(snapshotData.leagues&&typeof snapshotData.leagues==='object')?snapshotData.leagues:{}
+          lastAttemptAt:snapshotLastAttemptAt,
+          leagues:snapshotLeagues
         }
       }
       :{
