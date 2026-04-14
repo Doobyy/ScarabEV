@@ -8,6 +8,7 @@ const AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 const SNAPSHOT_RETRY_KEY = `${CACHE_PREFIX}:snapshot-retry`;
 const SNAPSHOT_STATUS_KEY = `${CACHE_PREFIX}:snapshot-status`;
+const SNAPSHOT_LAST_SUCCESS_KEY = `${CACHE_PREFIX}:snapshot-last-success`;
 const SNAPSHOT_BACKSTOP_KEY = `${CACHE_PREFIX}:snapshot-backstop`;
 const SNAPSHOT_INLINE_ATTEMPTS = 3;
 const SNAPSHOT_RETRY_DELAY_MS = 15 * 60 * 1000;
@@ -515,59 +516,34 @@ async function handleAtlasEVHistory(league, env) {
 async function handleSnapshotStatus(env) {
   if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "snapshot-status");
   const today = new Date().toISOString().slice(0, 10);
-  const [rawStatus, rawRetry] = await Promise.all([
+  const [rawStatus, rawRetry, rawLastSuccess] = await Promise.all([
     env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY),
-    env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY)
+    env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY),
+    env.EV_HISTORY.get(SNAPSHOT_LAST_SUCCESS_KEY)
   ]);
   const status = parseJsonObject(rawStatus);
   const retry = parseJsonObject(rawRetry);
+  const lastSuccess = parseJsonObject(rawLastSuccess);
   const sameDayStatus = String(status?.date || "") === today ? status : null;
   const sameDayRetry = String(retry?.date || "") === today ? retry : null;
-  const leaguesMap = (sameDayStatus?.leagues && typeof sameDayStatus.leagues === "object")
-    ? sameDayStatus.leagues
-    : {};
-  const targetLeagues = Array.isArray(sameDayStatus?.targetLeagues)
-    ? sameDayStatus.targetLeagues.map((s) => String(s)).filter(Boolean)
-    : [];
-  const isLeagueSnapshotComplete = (value) => listMissingRequiredWrites((value && value.writes) || {}).length === 0;
-  const completedLeagues = Object.entries(leaguesMap)
-    .filter(([, value]) => String(value?.state || "") === "success" && isLeagueSnapshotComplete(value))
-    .map(([league]) => league);
-  const incompleteLeagues = Object.entries(leaguesMap)
-    .filter(([, value]) => String(value?.state || "") === "success" && !isLeagueSnapshotComplete(value))
-    .map(([league]) => league);
-  const failedLeagues = Object.entries(leaguesMap)
-    .filter(([, value]) => String(value?.state || "") === "failed")
-    .map(([league]) => league);
-  const failedSet = new Set([...failedLeagues, ...incompleteLeagues]);
-  const pendingLeagues = Array.isArray(sameDayRetry?.pendingLeagues)
-    ? sameDayRetry.pendingLeagues.map((s) => String(s)).filter(Boolean)
-    : targetLeagues.filter((league) => String(leaguesMap?.[league]?.state || "") === "retrying" && !failedSet.has(league));
-  const anyCompleted = completedLeagues.length > 0;
-  const anyPending = pendingLeagues.length > 0;
-  const anyFailed = failedSet.size > 0 || String(sameDayRetry?.status || "") === "failed";
-  let overallStatus = "idle";
-  if (targetLeagues.length) {
-    if (anyPending) overallStatus = anyCompleted ? "partial_retrying" : "retrying";
-    else if (anyFailed) overallStatus = anyCompleted ? "partial_failed" : "failed";
-    else if (completedLeagues.length === targetLeagues.length) overallStatus = "success";
-    else overallStatus = "partial";
-  }
+  const sameDaySummary = buildSnapshotHealthSummary(sameDayStatus, sameDayRetry, today);
+  const lastKnown = normalizeSnapshotSummary(lastSuccess);
 
   return withCors(jsonResponse({
     ok: true,
-    date: sameDayStatus?.date || today,
-    status: overallStatus,
-    targetLeagues,
-    completedLeagues,
-    pendingLeagues,
-    failedLeagues: [...failedSet],
-    incompleteLeagues,
-    retryCount: Number(sameDayRetry?.retryCount || 0),
-    nextRetryAt: sameDayRetry?.nextRetryAt || null,
-    lastAttemptAt: sameDayStatus?.lastAttemptAt || sameDayRetry?.lastAttemptAt || null,
+    date: sameDaySummary.date,
+    status: sameDaySummary.status,
+    targetLeagues: sameDaySummary.targetLeagues,
+    completedLeagues: sameDaySummary.completedLeagues,
+    pendingLeagues: sameDaySummary.pendingLeagues,
+    failedLeagues: sameDaySummary.failedLeagues,
+    incompleteLeagues: sameDaySummary.incompleteLeagues,
+    retryCount: sameDaySummary.retryCount,
+    nextRetryAt: sameDaySummary.nextRetryAt,
+    lastAttemptAt: sameDaySummary.lastAttemptAt,
     errors: sameDayRetry?.errors || {},
-    leagues: leaguesMap
+    leagues: sameDaySummary.leagues,
+    lastKnown
   }));
 }
 
@@ -1640,6 +1616,7 @@ async function runDailyEVSnapshot(env, opts = {}) {
 
   statusState.lastAttemptAt = new Date().toISOString();
   const exhausted = (Number(opts.retryCount) || 0) >= SNAPSHOT_RETRY_MAX_ATTEMPTS;
+  let lastSuccessSummary = null;
   if (failures.length) {
     await saveSnapshotRetryState(env, today, failures, Number(opts.retryCount) || 0);
     for (const failure of failures) {
@@ -1657,8 +1634,12 @@ async function runDailyEVSnapshot(env, opts = {}) {
   } else {
     await clearSnapshotRetryState(env, today);
     statusState.status = "success";
+    lastSuccessSummary = buildSnapshotHealthSummary(statusState, null, today);
   }
   await env.EV_HISTORY.put(SNAPSHOT_STATUS_KEY, JSON.stringify(statusState));
+  if (lastSuccessSummary) {
+    await env.EV_HISTORY.put(SNAPSHOT_LAST_SUCCESS_KEY, JSON.stringify(lastSuccessSummary));
+  }
 }
 
 async function runPendingSnapshotRetry(env) {
@@ -1788,6 +1769,60 @@ function parseJsonObject(raw) {
   } catch (_e) {
     return null;
   }
+}
+
+function buildSnapshotHealthSummary(statusObj, retryObj, fallbackDate) {
+  const safeDate = String(statusObj?.date || fallbackDate || new Date().toISOString().slice(0, 10));
+  const leaguesMap = (statusObj?.leagues && typeof statusObj.leagues === "object")
+    ? statusObj.leagues
+    : {};
+  const targetLeagues = Array.isArray(statusObj?.targetLeagues)
+    ? statusObj.targetLeagues.map((s) => String(s || "").trim()).filter(Boolean)
+    : [];
+  const isLeagueSnapshotComplete = (value) => listMissingRequiredWrites((value && value.writes) || {}).length === 0;
+  const completedLeagues = Object.entries(leaguesMap)
+    .filter(([, value]) => String(value?.state || "") === "success" && isLeagueSnapshotComplete(value))
+    .map(([league]) => league);
+  const incompleteLeagues = Object.entries(leaguesMap)
+    .filter(([, value]) => String(value?.state || "") === "success" && !isLeagueSnapshotComplete(value))
+    .map(([league]) => league);
+  const failedLeagues = Object.entries(leaguesMap)
+    .filter(([, value]) => String(value?.state || "") === "failed")
+    .map(([league]) => league);
+  const failedSet = new Set([...failedLeagues, ...incompleteLeagues]);
+  const pendingLeagues = Array.isArray(retryObj?.pendingLeagues)
+    ? retryObj.pendingLeagues.map((s) => String(s || "").trim()).filter(Boolean)
+    : targetLeagues.filter((league) => String(leaguesMap?.[league]?.state || "") === "retrying" && !failedSet.has(league));
+  const anyCompleted = completedLeagues.length > 0;
+  const anyPending = pendingLeagues.length > 0;
+  const anyFailed = failedSet.size > 0 || String(retryObj?.status || "") === "failed";
+  let overallStatus = "idle";
+  if (targetLeagues.length) {
+    if (anyPending) overallStatus = anyCompleted ? "partial_retrying" : "retrying";
+    else if (anyFailed) overallStatus = anyCompleted ? "partial_failed" : "failed";
+    else if (completedLeagues.length === targetLeagues.length) overallStatus = "success";
+    else overallStatus = "partial";
+  }
+  return {
+    date: safeDate,
+    status: overallStatus,
+    targetLeagues,
+    completedLeagues,
+    pendingLeagues,
+    failedLeagues: [...failedSet],
+    incompleteLeagues,
+    retryCount: Number(retryObj?.retryCount || 0),
+    nextRetryAt: retryObj?.nextRetryAt || null,
+    lastAttemptAt: statusObj?.lastAttemptAt || retryObj?.lastAttemptAt || null,
+    leagues: leaguesMap
+  };
+}
+
+function normalizeSnapshotSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  const normalized = buildSnapshotHealthSummary(value, value, value?.date || null);
+  if (String(normalized.status || "") !== "success") return null;
+  return normalized;
 }
 
 function listMissingRequiredWrites(writes) {
