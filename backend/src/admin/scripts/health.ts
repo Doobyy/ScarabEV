@@ -248,6 +248,15 @@ function formatMmSs(ms){
   return String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
 }
 
+function formatHhMmSs(ms){
+  const safe=Math.max(0,Math.round(Number(ms)||0));
+  const totalSec=Math.floor(safe/1000);
+  const hours=Math.floor(totalSec/3600);
+  const mins=Math.floor((totalSec%3600)/60);
+  const secs=totalSec%60;
+  return String(hours).padStart(2,'0')+':'+String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+}
+
 function pickOldestIso(a,b){
   const am=parseIsoMs(a);
   const bm=parseIsoMs(b);
@@ -337,6 +346,7 @@ function withCacheSignalRows(id,checks,card){
       meter:(()=>{
         const m=buildAgeMeter(ageMs,SNAPSHOT_WARN_AGE_MS);
         if(!m)return m;
+        m.timeFmt='hhmmss';
         m.live={mode:'freshness',lastSuccessAt:telemetry.lastAttemptAt||'',limitMs:SNAPSHOT_WARN_AGE_MS,autoRefresh:false};
         return m;
       })()
@@ -350,6 +360,7 @@ function withCacheSignalRows(id,checks,card){
       meter:(()=>{
         const m=buildAgeMeter(ageMs,SNAPSHOT_CADENCE_MS);
         if(!m)return m;
+        m.timeFmt='hhmmss';
         m.live={mode:'cadence',lastSuccessAt:telemetry.lastAttemptAt||'',limitMs:SNAPSHOT_CADENCE_MS,autoRefresh:true};
         return m;
       })()
@@ -397,7 +408,7 @@ function renderHealthChecks(checks){
       const meterHtml=meter
         ?('<div class="health-check-meter"'
           +(meter.live&&meter.live.lastSuccessAt&&Number.isFinite(Number(meter.live.limitMs))
-            ?(' data-live="1" data-mode="'+escHtml(String(meter.live.mode||''))+'" data-last-success-at="'+escHtml(String(meter.live.lastSuccessAt||''))+'" data-limit-ms="'+escHtml(String(Number(meter.live.limitMs)||0))+'" data-auto-refresh="'+(meter.live.autoRefresh?'1':'0')+'"')
+            ?(' data-live="1" data-mode="'+escHtml(String(meter.live.mode||''))+'" data-last-success-at="'+escHtml(String(meter.live.lastSuccessAt||''))+'" data-limit-ms="'+escHtml(String(Number(meter.live.limitMs)||0))+'" data-time-fmt="'+escHtml(String(meter.timeFmt||''))+'" data-auto-refresh="'+(meter.live.autoRefresh?'1':'0')+'"')
             :'')
           +'><div class="health-meter-track">'
           +'<div class="health-meter-fill health-meter-fill-'+lv+'" style="width:'+Math.max(0,Math.min(100,Number(meter.pct)||0)).toFixed(1)+'%;"></div>'
@@ -405,6 +416,8 @@ function renderHealthChecks(checks){
           +escHtml(
             (meter.timeFmt==='mmss'&&Number.isFinite(Number(meter.usedMs))&&Number.isFinite(Number(meter.limitMs)))
               ?(formatMmSs(Number(meter.usedMs)||0)+' / '+formatMmSs(Number(meter.limitMs)||0))
+              :(meter.timeFmt==='hhmmss'&&Number.isFinite(Number(meter.usedMs))&&Number.isFinite(Number(meter.limitMs)))
+                ?(formatHhMmSs(Number(meter.usedMs)||0)+' / '+formatHhMmSs(Number(meter.limitMs)||0))
               :((Number(meter.used)||0).toLocaleString()
                 +(meter.suffix||'')
                 +' / '
@@ -460,7 +473,9 @@ function tickHealthLiveMeters(){
     const fill=node.querySelector('.health-meter-fill');
     if(fill&&fill.style)fill.style.width=pct.toFixed(1)+'%';
     const label=node.querySelector('.health-meter-label');
-    if(label)label.textContent=formatMmSs(ageMs)+' / '+formatMmSs(limitMs);
+    const timeFmt=String(node.getAttribute('data-time-fmt')||'mmss').toLowerCase();
+    const fmt=timeFmt==='hhmmss'?formatHhMmSs:formatMmSs;
+    if(label)label.textContent=fmt(ageMs)+' / '+fmt(limitMs);
     const check=node.closest('.health-check');
     const detailText=check?check.querySelector('.health-check-detail-text'):null;
     const mode=String(node.getAttribute('data-mode')||'');
