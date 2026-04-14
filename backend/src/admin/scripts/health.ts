@@ -9,6 +9,8 @@ const POE_PULL_HEALTHY_AGE_MS=10*60*1000;
 const POE_PULL_WARN_AGE_MS=30*60*1000;
 const SNAPSHOT_CADENCE_MS=24*60*60*1000;
 const SNAPSHOT_WARN_AGE_MS=48*60*60*1000;
+const BACKUP_CADENCE_MS=24*60*60*1000;
+const BACKUP_WARN_AGE_MS=48*60*60*1000;
 let marketHealthCacheAt=0;
 let marketHealthCache=null;
 let marketHealthInFlight=null;
@@ -64,6 +66,16 @@ function extractLastSuccessText(meta){
   const s=String(meta||'');
   const m=s.match(/Last success\s+([^|]+)/i);
   return m&&m[1]?m[1].trim():null;
+}
+
+function fmtHealthBytes(n){
+  const v=Number(n);
+  if(!Number.isFinite(v)||v<0)return '-';
+  const kb=1024,mb=kb*1024,gb=mb*1024;
+  if(v>=gb)return (v/gb).toFixed(3)+' GB';
+  if(v>=mb)return (v/mb).toFixed(2)+' MB';
+  if(v>=kb)return (v/kb).toFixed(1)+' KB';
+  return v+' B';
 }
 
 function buildWorkerChecks(card){
@@ -218,6 +230,38 @@ function buildSnapshotChecks(card){
   return rows;
 }
 
+function buildBackupsChecks(card){
+  const detail=String((card&&card.detail)||'-');
+  const meta=String((card&&card.meta)||'-');
+  const t=card&&card.telemetry?card.telemetry:{};
+  const lastRunAt=t.latestCreatedAt?formatAdminTime(t.latestCreatedAt)+' ('+humanAge(msSince(t.latestCreatedAt))+')':'not reported';
+  const triggerType=String(t.latestTriggerType||'unknown');
+  const latestStatus=String(t.latestStatus||'unknown').toLowerCase();
+  const runQuality=(latestStatus==='ok')?'clean':'issue';
+  const retentionDays=Math.max(0,Number(t.retentionDays)||0);
+  const backupCount=Math.max(0,Number(t.backupCount)||0);
+  const storageAvailable=!!t.storageAvailable;
+  const storageBytes=Math.max(0,Number(t.storageTotalBytes)||0);
+  const storageObjects=Math.max(0,Number(t.storageObjectCount)||0);
+  const smokeOk=t.smokeOk===true?'pass':(t.smokeOk===false?'fail':'not run');
+  const smokeAt=t.smokeTestedAt?formatAdminTime(t.smokeTestedAt)+' ('+humanAge(msSince(t.smokeTestedAt))+')':'not reported';
+  const missingScopes=Array.isArray(t.coverageMissingScopes)?t.coverageMissingScopes:[];
+  const coverageHasMarketBackup=t.coverageHasMarketBackup!==false;
+  const rows=[
+    {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
+    {level:t.latestCreatedAt?'ok':'warn',label:'Last run',detail:lastRunAt},
+    {level:latestStatus==='ok'?'ok':'err',label:'Last run outcome',detail:triggerType+' | '+runQuality+' | '+latestStatus},
+    {level:t.latestBytes===null?'warn':'ok',label:'Last backup size',detail:fmtHealthBytes(t.latestBytes)},
+    {level:backupCount>0?'ok':'warn',label:'Backups stored',detail:backupCount.toLocaleString()},
+    {level:storageAvailable?'ok':'warn',label:'R2 usage',detail:storageAvailable?(fmtHealthBytes(storageBytes)+' | '+storageObjects.toLocaleString()+' objects'):'unavailable'},
+    {level:retentionDays>0?'ok':'warn',label:'Retention TTL',detail:retentionDays>0?(retentionDays+' days'):'not configured'},
+    {level:coverageHasMarketBackup&&!missingScopes.length?'ok':'err',label:'Coverage',detail:coverageHasMarketBackup?(missingScopes.length?('missing scopes: '+missingScopes.join(', ')):'market-worker dataset present'):'market-worker dataset missing'},
+    {level:t.smokeOk===false?'err':'ok',label:'Smoke restore',detail:smokeOk+' | '+smokeAt+(t.smokeError?(' | '+String(t.smokeError)):'')}
+  ];
+  if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
+  return rows;
+}
+
 function buildAgeMeter(ageMs,warnMs){
   if(ageMs===null||!Number.isFinite(ageMs)||!Number.isFinite(warnMs)||warnMs<=0){
     return null;
@@ -367,6 +411,38 @@ function withCacheSignalRows(id,checks,card){
     });
     return rows;
   }
+  if(id==='healthBackups'){
+    const ageMs=msSince(telemetry.latestCreatedAt);
+    rows.push({
+      level:classifyAge(ageMs,BACKUP_CADENCE_MS,BACKUP_WARN_AGE_MS),
+      label:'Backup freshness signal',
+      detail:ageMs===null
+        ?'Latest backup timestamp unknown.'
+        :'Age '+humanAge(ageMs)+' ('+formatHhMmSs(ageMs)+' old, warn at '+formatHhMmSs(BACKUP_WARN_AGE_MS)+').',
+      meter:(()=>{
+        const m=buildAgeMeter(ageMs,BACKUP_WARN_AGE_MS);
+        if(!m)return m;
+        m.timeFmt='hhmmss';
+        m.live={mode:'freshness',lastSuccessAt:telemetry.latestCreatedAt||'',limitMs:BACKUP_WARN_AGE_MS,autoRefresh:false};
+        return m;
+      })()
+    });
+    rows.push({
+      level:cadenceDriftLevel(ageMs,BACKUP_CADENCE_MS,BACKUP_WARN_AGE_MS),
+      label:'Cadence progress signal',
+      detail:ageMs===null
+        ?'Cannot verify daily cadence without latest backup timestamp.'
+        :'Cadence meter shows elapsed / target for daily backups.',
+      meter:(()=>{
+        const m=buildAgeMeter(ageMs,BACKUP_CADENCE_MS);
+        if(!m)return m;
+        m.timeFmt='hhmmss';
+        m.live={mode:'cadence',lastSuccessAt:telemetry.latestCreatedAt||'',limitMs:BACKUP_CADENCE_MS,autoRefresh:true};
+        return m;
+      })()
+    });
+    return rows;
+  }
   return rows;
 }
 
@@ -378,6 +454,7 @@ function enrichHealthCard(id,title,card){
     else if(id==='healthPoeNinja')checks=buildPoePullChecks(card);
     else if(id==='healthCloudflare')checks=buildCloudflareUsageChecks(card);
     else if(id==='healthSnapshot')checks=buildSnapshotChecks(card);
+    else if(id==='healthBackups')checks=buildBackupsChecks(card);
     else{
       checks=[];
       checks.push({level,label:'Overall result',detail:String((card&&card.detail)||'-')});
@@ -697,6 +774,9 @@ function healthCard(id,title,level,detail,meta,checks,debug){
     if(id==='healthSnapshot'){
       return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runSnapshotRetryAction(this)\">Retry Snapshot</button>";
     }
+    if(id==='healthBackups'){
+      return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runBackupFromHealthCard(this)\">Run Backup</button>";
+    }
     if(id==='healthWorker'){
       return "<button class=\"btn ghost mini subtle\" type=\"button\" onclick=\"event.stopPropagation();runManualRetryAction('cache-current-league','League cache refresh',this)\">Refresh League Cache</button>";
     }
@@ -750,6 +830,45 @@ function classifyMarketWorkerAge(ms){
 }
 function classifyPoePullAge(ms){
   return classifyAge(ms,POE_PULL_HEALTHY_AGE_MS,POE_PULL_WARN_AGE_MS);
+}
+
+async function runBackupFromHealthCard(buttonEl){
+  const btn=(buttonEl&&buttonEl.nodeType===1)?buttonEl:null;
+  const prevLabel=btn?String(btn.textContent||'Run Backup'):'Run Backup';
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='Running...';
+  }
+  status('healthStatus','Submitting backup snapshot request...','warn');
+  try{
+    const r=await api('/admin/ops/backups/run',{method:'POST',body:'{}',timeoutMs:12000});
+    const snap=(r.json&&r.json.snapshot&&typeof r.json.snapshot==='object')?r.json.snapshot:null;
+    if((r.res.status===201||r.res.status===500)&&snap){
+      const statusTxt=String(snap.status||'unknown').toLowerCase();
+      const triggerTxt=String(snap.triggerType||'manual');
+      const sizeTxt=fmtHealthBytes(snap.bytes);
+      status('healthStatus','Backup '+triggerTxt+' run '+statusTxt+' | '+sizeTxt,statusTxt==='ok'?'ok':'err');
+      toast(statusTxt==='ok'?'Backup completed':'Backup completed with issues');
+    }else if(r.res.status===401||r.res.status===403){
+      status('healthStatus','Backup run is owner-only and requires an authorized session.','warn');
+      toast('Backup run blocked');
+    }else{
+      const err=((r.json&&r.json.error)?String(r.json.error):('http_'+String(r.res.status||0)));
+      status('healthStatus','Backup run failed ('+err+').','err');
+      toast('Backup run failed');
+    }
+    if(typeof loadHealthOverview==='function'){
+      await loadHealthOverview({quiet:true});
+    }
+    if(typeof opsListBackups==='function'){
+      try{await opsListBackups({quiet:true});}catch(e){}
+    }
+  }finally{
+    if(btn){
+      btn.disabled=false;
+      btn.textContent=prevLabel;
+    }
+  }
 }
 
 function parseMetaAgeMs(meta){
@@ -817,16 +936,38 @@ async function checkHealthSessionApi(){
 
 async function checkHealthBackups(){
   const started=performance.now();
-  const r=await api('/admin/ops/backups?limit=1');
+  const r=await api('/admin/ops/backups?limit=200');
   const took=Math.round(performance.now()-started);
   if(r.res.status!==200||!r.json){
     return {level:'warn',detail:'Backup health unavailable (owner-only or API blocked).',meta:'Status '+r.res.status+' | '+took+'ms'};
   }
   const usage=r.json.storageUsage||null;
   const usageTxt=usage?(' | R2 '+((Number(usage.totalBytes)||0)/(1024*1024*1024)).toFixed(3)+' GB'):'';
-  const item=(Array.isArray(r.json.items)?r.json.items:[])[0]||null;
+  const items=Array.isArray(r.json.items)?r.json.items:[];
+  const item=items[0]||null;
+  const retentionDays=Math.max(0,Number(r.json.backupRetentionDays)||0);
   if(!item){
-    return {level:'warn',detail:'No backup snapshots found.',meta:'Consider running a backup'+usageTxt};
+    return {
+      level:'warn',
+      detail:'No backup snapshots found.',
+      meta:'Consider running a backup'+usageTxt,
+      telemetry:{
+        latestCreatedAt:null,
+        latestStatus:'',
+        latestTriggerType:'unknown',
+        latestBytes:null,
+        backupCount:0,
+        retentionDays,
+        storageAvailable:!!usage,
+        storageTotalBytes:Number(usage&&usage.totalBytes)||0,
+        storageObjectCount:Number(usage&&usage.objectCount)||0,
+        coverageHasMarketBackup:null,
+        coverageMissingScopes:[],
+        smokeOk:null,
+        smokeTestedAt:null,
+        smokeError:null
+      }
+    };
   }
   const latestCoverage=(r.json.latestCoverage&&typeof r.json.latestCoverage==='object')?r.json.latestCoverage:null;
   const smoke=(r.json.backupSmokeStatus&&typeof r.json.backupSmokeStatus==='object')?r.json.backupSmokeStatus:null;
@@ -872,7 +1013,23 @@ async function checkHealthBackups(){
   return {
     level,
     detail,
-    meta:'Last '+formatAdminTime(item.createdAt)+' ('+age+') | Status '+String(item.status||'-')+coverageMeta+smokeMeta+usageTxt+' | '+took+'ms'
+    meta:'Last '+formatAdminTime(item.createdAt)+' ('+age+') | Status '+String(item.status||'-')+coverageMeta+smokeMeta+usageTxt+' | '+took+'ms',
+    telemetry:{
+      latestCreatedAt:item.createdAt||null,
+      latestStatus:String(item.status||''),
+      latestTriggerType:String(item.triggerType||'unknown'),
+      latestBytes:Number.isFinite(Number(item.bytes))?Math.max(0,Number(item.bytes)):null,
+      backupCount:items.length,
+      retentionDays,
+      storageAvailable:!!usage,
+      storageTotalBytes:Number(usage&&usage.totalBytes)||0,
+      storageObjectCount:Number(usage&&usage.objectCount)||0,
+      coverageHasMarketBackup:hasMarketBackup,
+      coverageMissingScopes:missingScopes,
+      smokeOk:smoke?!!smoke.ok:null,
+      smokeTestedAt:smoke&&smoke.testedAt?smoke.testedAt:null,
+      smokeError:smokeErr||null
+    }
   };
 }
 
