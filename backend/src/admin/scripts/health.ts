@@ -342,7 +342,7 @@ function withCacheSignalRows(id,checks,card){
       label:'Snapshot freshness signal',
       detail:ageMs===null
         ?'Last attempt unknown.'
-        :'Age '+humanAge(ageMs)+' ('+Math.round(ageMs/60000)+'m old, warn at '+Math.round(SNAPSHOT_WARN_AGE_MS/60000)+'m).',
+        :'Age '+humanAge(ageMs)+' ('+formatHhMmSs(ageMs)+' old, warn at '+formatHhMmSs(SNAPSHOT_WARN_AGE_MS)+').',
       meter:(()=>{
         const m=buildAgeMeter(ageMs,SNAPSHOT_WARN_AGE_MS);
         if(!m)return m;
@@ -488,7 +488,9 @@ function tickHealthLiveMeters(){
           detailText.textContent='Over cadence by '+overdueMinutes+'m.';
         }
       }else if(mode==='freshness'){
-        detailText.textContent='Age '+humanAge(ageMs)+' ('+usedMinutes+'m old, warn at '+limitMinutes+'m).';
+        const timeFmt=String(node.getAttribute('data-time-fmt')||'mmss').toLowerCase();
+        if(timeFmt==='hhmmss') detailText.textContent='Age '+humanAge(ageMs)+' ('+formatHhMmSs(ageMs)+' old, warn at '+formatHhMmSs(limitMs)+').';
+        else detailText.textContent='Age '+humanAge(ageMs)+' ('+usedMinutes+'m old, warn at '+limitMinutes+'m).';
       }
     }
     if(node.getAttribute('data-auto-refresh')==='1'&&ageMs>=limitMs){
