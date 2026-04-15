@@ -9,6 +9,8 @@ const POE_PULL_HEALTHY_AGE_MS=10*60*1000;
 const POE_PULL_WARN_AGE_MS=30*60*1000;
 const SNAPSHOT_CADENCE_MS=24*60*60*1000;
 const SNAPSHOT_WARN_AGE_MS=48*60*60*1000;
+const SNAPSHOT_SCHEDULE_HOUR_UTC=18;
+const SNAPSHOT_SCHEDULE_MINUTE_UTC=0;
 const BACKUP_CADENCE_MS=24*60*60*1000;
 const BACKUP_WARN_AGE_MS=48*60*60*1000;
 let marketHealthCacheAt=0;
@@ -301,6 +303,27 @@ function formatHhMmSs(ms){
   return String(hours).padStart(2,'0')+':'+String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
 }
 
+function getSnapshotScheduleWindow(nowMs){
+  const now=Number.isFinite(Number(nowMs))?new Date(Number(nowMs)):new Date();
+  const currentMs=now.getTime();
+  const todayKickoff=new Date(currentMs);
+  todayKickoff.setUTCHours(SNAPSHOT_SCHEDULE_HOUR_UTC,SNAPSHOT_SCHEDULE_MINUTE_UTC,0,0);
+  const todayKickoffMs=todayKickoff.getTime();
+  let prevMs=todayKickoffMs;
+  let nextMs=todayKickoffMs+SNAPSHOT_CADENCE_MS;
+  if(currentMs<todayKickoffMs){
+    prevMs=todayKickoffMs-SNAPSHOT_CADENCE_MS;
+    nextMs=todayKickoffMs;
+  }
+  return {
+    prevIso:new Date(prevMs).toISOString(),
+    nextIso:new Date(nextMs).toISOString(),
+    elapsedMs:Math.max(0,currentMs-prevMs),
+    remainingMs:Math.max(0,nextMs-currentMs),
+    totalMs:SNAPSHOT_CADENCE_MS
+  };
+}
+
 function pickOldestIso(a,b){
   const am=parseIsoMs(a);
   const bm=parseIsoMs(b);
@@ -381,6 +404,7 @@ function withCacheSignalRows(id,checks,card){
   }
   if(id==='healthSnapshot'){
     const ageMs=msSince(telemetry.lastAttemptAt);
+    const schedule=getSnapshotScheduleWindow(Date.now());
     rows.push({
       level:classifyAge(ageMs,SNAPSHOT_CADENCE_MS,SNAPSHOT_WARN_AGE_MS),
       label:'Snapshot freshness signal',
@@ -396,16 +420,14 @@ function withCacheSignalRows(id,checks,card){
       })()
     });
     rows.push({
-      level:cadenceDriftLevel(ageMs,SNAPSHOT_CADENCE_MS,SNAPSHOT_WARN_AGE_MS),
+      level:schedule.remainingMs<=0?'warn':'ok',
       label:'Cadence progress signal',
-      detail:ageMs===null
-        ?'Cannot verify daily cadence without last attempt timestamp.'
-        :'Cadence meter shows elapsed / target for daily snapshots.',
+      detail:'Next scheduled snapshot '+formatAdminTime(schedule.nextIso)+' ('+formatHhMmSs(schedule.remainingMs)+' remaining).',
       meter:(()=>{
-        const m=buildAgeMeter(ageMs,SNAPSHOT_CADENCE_MS);
+        const m=buildAgeMeter(schedule.elapsedMs,schedule.totalMs);
         if(!m)return m;
         m.timeFmt='hhmmss';
-        m.live={mode:'cadence',lastSuccessAt:telemetry.lastAttemptAt||'',limitMs:SNAPSHOT_CADENCE_MS,autoRefresh:true};
+        m.live={mode:'snapshot-schedule',lastSuccessAt:schedule.prevIso,limitMs:schedule.totalMs,autoRefresh:true};
         return m;
       })()
     });
@@ -564,6 +586,10 @@ function tickHealthLiveMeters(){
           const overdueMinutes=Math.max(0,Math.floor((ageMs-limitMs)/60000));
           detailText.textContent='Over cadence by '+overdueMinutes+'m.';
         }
+      }else if(mode==='snapshot-schedule'){
+        const remainingMs=Math.max(0,limitMs-ageMs);
+        const nextAtIso=new Date(lastMs+limitMs).toISOString();
+        detailText.textContent='Next scheduled snapshot '+formatAdminTime(nextAtIso)+' ('+formatHhMmSs(remainingMs)+' remaining).';
       }else if(mode==='freshness'){
         const timeFmt=String(node.getAttribute('data-time-fmt')||'mmss').toLowerCase();
         if(timeFmt==='hhmmss') detailText.textContent='Age '+humanAge(ageMs)+' ('+formatHhMmSs(ageMs)+' old, warn at '+formatHhMmSs(limitMs)+').';
