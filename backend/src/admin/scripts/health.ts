@@ -1202,6 +1202,14 @@ async function getMarketHealthBundle(){
     const snapshotLeagues=(snapshotData&&snapshotData.leagues&&typeof snapshotData.leagues==='object')?snapshotData.leagues:{};
     const snapshotRetryCount=Number(snapshotData&&snapshotData.retryCount)||0;
     const snapshotLastAttemptAt=(snapshotData&&snapshotData.lastAttemptAt)||null;
+    const snapshotLastKnown=(snapshotData&&snapshotData.lastKnown&&typeof snapshotData.lastKnown==='object')?snapshotData.lastKnown:null;
+    const snapshotLastKnownTargetLeagues=Array.isArray(snapshotLastKnown&&snapshotLastKnown.targetLeagues)?snapshotLastKnown.targetLeagues:[];
+    const snapshotLastKnownCompletedLeagues=Array.isArray(snapshotLastKnown&&snapshotLastKnown.completedLeagues)?snapshotLastKnown.completedLeagues:[];
+    const snapshotLastKnownPendingLeagues=Array.isArray(snapshotLastKnown&&snapshotLastKnown.pendingLeagues)?snapshotLastKnown.pendingLeagues:[];
+    const snapshotLastKnownFailedLeagues=Array.isArray(snapshotLastKnown&&snapshotLastKnown.failedLeagues)?snapshotLastKnown.failedLeagues:[];
+    const snapshotLastKnownLeagues=(snapshotLastKnown&&snapshotLastKnown.leagues&&typeof snapshotLastKnown.leagues==='object')?snapshotLastKnown.leagues:{};
+    const snapshotLastKnownRetryCount=Number(snapshotLastKnown&&snapshotLastKnown.retryCount)||0;
+    const snapshotLastKnownLastAttemptAt=(snapshotLastKnown&&snapshotLastKnown.lastAttemptAt)||null;
     const snapshotHasLeagueState=Object.keys(snapshotLeagues).length>0;
     const snapshotHasTelemetry=!!snapshotLastAttemptAt
       ||snapshotRetryCount>0
@@ -1210,16 +1218,46 @@ async function getMarketHealthBundle(){
       ||snapshotPendingLeagues.length>0
       ||snapshotFailedLeagues.length>0
       ||snapshotHasLeagueState;
+    const snapshotLastKnownHasLeagueState=Object.keys(snapshotLastKnownLeagues).length>0;
+    const snapshotHasLastKnownTelemetry=!!snapshotLastKnownLastAttemptAt
+      ||snapshotLastKnownRetryCount>0
+      ||snapshotLastKnownTargetLeagues.length>0
+      ||snapshotLastKnownCompletedLeagues.length>0
+      ||snapshotLastKnownPendingLeagues.length>0
+      ||snapshotLastKnownFailedLeagues.length>0
+      ||snapshotLastKnownHasLeagueState;
+    const snapshotUseLastKnown=(!snapshotHasTelemetry)&&snapshotHasLastKnownTelemetry;
+    const snapshotEffectiveDate=snapshotUseLastKnown
+      ?((snapshotLastKnown&&snapshotLastKnown.date)||snapshotData.date||null)
+      :(snapshotData.date||null);
+    const snapshotEffectiveTargetLeagues=snapshotUseLastKnown?snapshotLastKnownTargetLeagues:snapshotTargetLeagues;
+    const snapshotEffectiveCompletedLeagues=snapshotUseLastKnown?snapshotLastKnownCompletedLeagues:snapshotCompletedLeagues;
+    const snapshotEffectivePendingLeagues=snapshotUseLastKnown?snapshotLastKnownPendingLeagues:snapshotPendingLeagues;
+    const snapshotEffectiveFailedLeagues=snapshotUseLastKnown?snapshotLastKnownFailedLeagues:snapshotFailedLeagues;
+    const snapshotEffectiveRetryCount=snapshotUseLastKnown?snapshotLastKnownRetryCount:snapshotRetryCount;
+    const snapshotEffectiveLastAttemptAt=snapshotUseLastKnown?snapshotLastKnownLastAttemptAt:snapshotLastAttemptAt;
+    const snapshotEffectiveLeagues=snapshotUseLastKnown?snapshotLastKnownLeagues:snapshotLeagues;
+    const snapshotEffectiveNextRetryAt=snapshotUseLastKnown
+      ?((snapshotLastKnown&&snapshotLastKnown.nextRetryAt)||null)
+      :(snapshotData.nextRetryAt||null);
     let snapshotLevel=snapshotStatus==='success'?'ok'
       :(snapshotStatus==='idle'?'ok'
         :((snapshotStatus.includes('retry')||snapshotStatus.includes('partial'))?'warn':(snapshotStatus?'err':'warn')));
     if((snapshotStatus==='idle'||snapshotStatus==='success')&&!snapshotHasTelemetry){
-      snapshotLevel='warn';
+      snapshotLevel=snapshotUseLastKnown?'ok':'warn';
     }
     const snapshotDetail=snapshotStatus==='success'
-      ?(snapshotHasTelemetry?'Daily snapshot writes completed.':'Daily snapshot reported success but telemetry is missing.')
+      ?(snapshotHasTelemetry
+        ?'Daily snapshot writes completed.'
+        :(snapshotUseLastKnown
+          ?'Daily snapshot reported success; showing last known successful snapshot.'
+          :'Daily snapshot reported success but telemetry is missing.'))
       :(snapshotStatus==='idle'
-        ?(snapshotHasTelemetry?'Daily snapshot is idle until the next scheduled run.':'Daily snapshot is idle but has no telemetry from the most recent run.')
+        ?(snapshotHasTelemetry
+          ?'Daily snapshot is idle until the next scheduled run.'
+          :(snapshotUseLastKnown
+            ?'Daily snapshot is idle; showing last known successful snapshot.'
+            :'Daily snapshot is idle but has no telemetry from the most recent run.'))
         :(snapshotStatus.includes('retry')
           ?'Daily snapshot is still retrying.'
           :(snapshotStatus.includes('failed')
@@ -1229,18 +1267,22 @@ async function getMarketHealthBundle(){
       ?{
         level:snapshotLevel,
         detail:snapshotDetail,
-        meta:'Status '+String(snapshotData.status||'unknown')+' | Date '+String(snapshotData.date||'unknown')+' | '+pullTook+'ms',
+        meta:'Status '+String(snapshotData.status||'unknown')
+          +' | Date '+String(snapshotEffectiveDate||snapshotData.date||'unknown')
+          +(snapshotUseLastKnown?(' | Source lastKnown '+String(snapshotLastKnown&&snapshotLastKnown.date||'unknown')):'')
+          +' | '+pullTook+'ms',
         telemetry:{
           status:String(snapshotData.status||''),
-          date:snapshotData.date||null,
-          targetLeagues:snapshotTargetLeagues,
-          completedLeagues:snapshotCompletedLeagues,
-          pendingLeagues:snapshotPendingLeagues,
-          failedLeagues:snapshotFailedLeagues,
-          retryCount:snapshotRetryCount,
-          nextRetryAt:snapshotData.nextRetryAt||null,
-          lastAttemptAt:snapshotLastAttemptAt,
-          leagues:snapshotLeagues
+          source:snapshotUseLastKnown?'lastKnown':'current',
+          date:snapshotEffectiveDate,
+          targetLeagues:snapshotEffectiveTargetLeagues,
+          completedLeagues:snapshotEffectiveCompletedLeagues,
+          pendingLeagues:snapshotEffectivePendingLeagues,
+          failedLeagues:snapshotEffectiveFailedLeagues,
+          retryCount:snapshotEffectiveRetryCount,
+          nextRetryAt:snapshotEffectiveNextRetryAt,
+          lastAttemptAt:snapshotEffectiveLastAttemptAt,
+          leagues:snapshotEffectiveLeagues
         }
       }
       :{
