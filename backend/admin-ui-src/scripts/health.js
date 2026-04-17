@@ -11,6 +11,8 @@ const SNAPSHOT_SCHEDULE_HOUR_UTC=18;
 const SNAPSHOT_SCHEDULE_MINUTE_UTC=0;
 const BACKUP_CADENCE_MS=24*60*60*1000;
 const BACKUP_WARN_AGE_MS=48*60*60*1000;
+const BACKUP_CATCHUP_GRACE_MS=2*60*60*1000;
+const BACKUP_RETRY_INTERVAL_MS=5*60*1000;
 let marketHealthCacheAt=0;
 let marketHealthCache=null;
 let marketHealthInFlight=null;
@@ -245,6 +247,10 @@ function buildBackupsChecks(card){
   const storageObjects=Math.max(0,Number(t.storageObjectCount)||0);
   const smokeOk=t.smokeOk===true?'pass':(t.smokeOk===false?'fail':'not run');
   const smokeAt=t.smokeTestedAt?formatAdminTime(t.smokeTestedAt)+' ('+humanAge(msSince(t.smokeTestedAt))+')':'not reported';
+  const retryAttempts=Math.max(0,Number(t.retryCount)||0);
+  const lastAttempt=t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported';
+  const retryMode=String(t.retryMode||'request-driven');
+  const nextRetry=t.nextRetryAt?formatAdminTime(t.nextRetryAt):'none scheduled';
   const missingScopes=Array.isArray(t.coverageMissingScopes)?t.coverageMissingScopes:[];
   const coverageHasMarketBackup=t.coverageHasMarketBackup!==false;
   const rows=[
@@ -256,7 +262,10 @@ function buildBackupsChecks(card){
     {level:storageAvailable?'ok':'warn',label:'R2 usage',detail:storageAvailable?(fmtHealthBytes(storageBytes)+' | '+storageObjects.toLocaleString()+' objects'):'unavailable'},
     {level:retentionDays>0?'ok':'warn',label:'Retention TTL',detail:retentionDays>0?(retentionDays+' days'):'not configured'},
     {level:coverageHasMarketBackup&&!missingScopes.length?'ok':'err',label:'Coverage',detail:coverageHasMarketBackup?(missingScopes.length?('missing scopes: '+missingScopes.join(', ')):'market-worker dataset present'):'market-worker dataset missing'},
-    {level:t.smokeOk===false?'err':'ok',label:'Smoke restore',detail:smokeOk+' | '+smokeAt+(t.smokeError?(' | '+String(t.smokeError)):'')}
+    {level:t.smokeOk===false?'err':'ok',label:'Smoke restore',detail:smokeOk+' | '+smokeAt+(t.smokeError?(' | '+String(t.smokeError)):'')},
+    {level:retryAttempts>0?'warn':'ok',label:'Retry attempts',detail:String(retryAttempts)},
+    {level:t.lastAttemptAt?'ok':'warn',label:'Last attempt',detail:lastAttempt},
+    {level:t.nextRetryAt?'warn':'ok',label:'Next retry',detail:nextRetry+' | '+retryMode}
   ];
   if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
   return rows;
@@ -968,6 +977,23 @@ async function checkHealthBackups(){
   const usage=r.json.storageUsage||null;
   const usageTxt=usage?(' | R2 '+((Number(usage.totalBytes)||0)/(1024*1024*1024)).toFixed(3)+' GB'):'';
   const items=Array.isArray(r.json.items)?r.json.items:[];
+  const latestAttempt=items[0]||null;
+  const latestAttemptAt=latestAttempt&&latestAttempt.createdAt?String(latestAttempt.createdAt):null;
+  const nowMs=Date.now();
+  const latestOk=items.find((x)=>String((x&&x.status)||'').toLowerCase()==='ok')||null;
+  const latestOkMs=parseIsoMs(latestOk&&latestOk.createdAt?String(latestOk.createdAt):'');
+  const catchupDue=(latestOkMs===null)||((nowMs-latestOkMs)>(BACKUP_CADENCE_MS+BACKUP_CATCHUP_GRACE_MS));
+  let retryCount=0;
+  for(let i=0;i<items.length;i++){
+    const st=String((items[i]&&items[i].status)||'').toLowerCase();
+    if(st==='ok')break;
+    if(st==='failed')retryCount++;
+  }
+  if(!catchupDue)retryCount=0;
+  const latestAttemptMs=parseIsoMs(latestAttemptAt||'');
+  const nextRetryAt=catchupDue
+    ?new Date(Math.max(nowMs,(latestAttemptMs===null?nowMs:latestAttemptMs)+BACKUP_RETRY_INTERVAL_MS)).toISOString()
+    :null;
   const item=items[0]||null;
   const retentionDays=Math.max(0,Number(r.json.backupRetentionDays)||0);
   if(!item){
@@ -989,7 +1015,11 @@ async function checkHealthBackups(){
         coverageMissingScopes:[],
         smokeOk:null,
         smokeTestedAt:null,
-        smokeError:null
+        smokeError:null,
+        retryCount:0,
+        lastAttemptAt:null,
+        nextRetryAt:null,
+        retryMode:'request-driven catch-up'
       }
     };
   }
@@ -999,7 +1029,7 @@ async function checkHealthBackups(){
   const ageMs=msSince(item.createdAt);
   const age=humanAge(ageMs);
   const ok=String(item.status||'').toLowerCase()==='ok';
-  const stale=Number.isFinite(ageMs)&&ageMs>(36*60*60*1000);
+  const stale=Number.isFinite(ageMs)&&ageMs>BACKUP_WARN_AGE_MS;
   const missingScopes=latestCoverage&&Array.isArray(latestCoverage.missingScopes)
     ?latestCoverage.missingScopes.map((s)=>String(s||'')).filter(Boolean)
     :[];
@@ -1052,7 +1082,11 @@ async function checkHealthBackups(){
       coverageMissingScopes:missingScopes,
       smokeOk:smoke?!!smoke.ok:null,
       smokeTestedAt:smoke&&smoke.testedAt?smoke.testedAt:null,
-      smokeError:smokeErr||null
+      smokeError:smokeErr||null,
+      retryCount,
+      lastAttemptAt:latestAttemptAt,
+      nextRetryAt,
+      retryMode:'request-driven catch-up'
     }
   };
 }

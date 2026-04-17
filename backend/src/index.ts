@@ -902,8 +902,13 @@ const MARKET_BACKUP_REQUIRED_SCOPES = [
   "snapshot-state"
 ] as const;
 const BACKUP_INLINE_PAYLOAD_MAX_BYTES = 900_000;
+const BACKUP_CADENCE_MS = 24 * 60 * 60 * 1000;
+const BACKUP_CATCHUP_GRACE_MS = 2 * 60 * 60 * 1000;
+const BACKUP_CATCHUP_PROBE_INTERVAL_MS = 5 * 60 * 1000;
 const MARKET_WORKER_REQUEST_TIMEOUT_MS = 65_000;
 const MARKET_WORKER_MANUAL_RETRY_TIMEOUT_MS = 12_000;
+let backupCatchupProbeAt = 0;
+let backupCatchupInFlight: Promise<void> | null = null;
 
 function getMarketWorkerAdminHeaders(config: RuntimeConfig): Record<string, string> {
   const token = String(config.marketWorkerAdminToken || "").trim();
@@ -2075,6 +2080,131 @@ async function runBackupSnapshot(
   }
 }
 
+async function getLatestSuccessfulBackupCreatedAt(db: D1Database): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `
+      SELECT created_at
+      FROM backup_snapshots
+      WHERE status = 'ok'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `
+    )
+    .first<{ created_at: string | null }>();
+  if (!row || typeof row.created_at !== "string" || !row.created_at) return null;
+  return row.created_at;
+}
+
+function isBackupCatchupDue(latestOkCreatedAt: string | null, now: Date): boolean {
+  if (!latestOkCreatedAt) return true;
+  const latestMs = Date.parse(latestOkCreatedAt);
+  if (!Number.isFinite(latestMs)) return true;
+  return now.getTime() - latestMs >= (BACKUP_CADENCE_MS + BACKUP_CATCHUP_GRACE_MS);
+}
+
+async function runScheduledBackupFlow(runtimeDeps: RuntimeDeps, source: "cron" | "catchup"): Promise<void> {
+  const snapshot = await runBackupSnapshot(
+    {
+      config: runtimeDeps.config,
+      securityRepo: runtimeDeps.securityRepo,
+      db: runtimeDeps.db,
+      backupR2: runtimeDeps.backupR2,
+      now: runtimeDeps.now
+    },
+    "scheduled",
+    null
+  );
+
+  if (!snapshot) {
+    logWarn(runtimeDeps.config, "backup.skipped", {
+      reason: "backup_unavailable",
+      source
+    });
+    return;
+  }
+
+  if (snapshot.status === "ok") {
+    try {
+      const smoke = await runMarketBackupSmokeTest(runtimeDeps.config);
+      if (!smoke.ok) {
+        logWarn(runtimeDeps.config, "backup.smoke_failed", {
+          snapshotId: snapshot.id,
+          testedAt: smoke.testedAt,
+          error: smoke.error,
+          source
+        });
+      } else {
+        logInfo(runtimeDeps.config, "backup.smoke_passed", {
+          snapshotId: snapshot.id,
+          testedAt: smoke.testedAt,
+          elapsedMs: smoke.elapsedMs,
+          source
+        });
+      }
+    } catch (error) {
+      logWarn(runtimeDeps.config, "backup.smoke_unavailable", {
+        snapshotId: snapshot.id,
+        error: error instanceof Error ? error.message : String(error),
+        source
+      });
+    }
+    logInfo(runtimeDeps.config, "backup.completed", {
+      snapshotId: snapshot.id,
+      itemCount: snapshot.itemCount,
+      source
+    });
+    return;
+  }
+
+  logWarn(runtimeDeps.config, "backup.failed", {
+    snapshotId: snapshot.id,
+    errorMessage: snapshot.errorMessage,
+    source
+  });
+}
+
+async function maybeStartBackupCatchup(runtimeDeps: RuntimeDeps, ctx?: ExecutionContext): Promise<void> {
+  if (!runtimeDeps.config.backupEnabled || !runtimeDeps.db) {
+    return;
+  }
+  const now = runtimeDeps.now();
+  if (now.getTime() - backupCatchupProbeAt < BACKUP_CATCHUP_PROBE_INTERVAL_MS) {
+    return;
+  }
+  backupCatchupProbeAt = now.getTime();
+  if (backupCatchupInFlight) {
+    return;
+  }
+
+  backupCatchupInFlight = (async () => {
+    try {
+      const latestOkCreatedAt = await getLatestSuccessfulBackupCreatedAt(runtimeDeps.db as D1Database);
+      if (!isBackupCatchupDue(latestOkCreatedAt, runtimeDeps.now())) {
+        return;
+      }
+      logWarn(runtimeDeps.config, "backup.catchup_due", {
+        latestOkCreatedAt,
+        targetCadenceMs: BACKUP_CADENCE_MS,
+        graceMs: BACKUP_CATCHUP_GRACE_MS
+      });
+      await runScheduledBackupFlow(runtimeDeps, "catchup");
+    } catch (error) {
+      logWarn(runtimeDeps.config, "backup.catchup_error", {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      backupCatchupInFlight = null;
+    }
+  })();
+
+  if (ctx && typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(backupCatchupInFlight);
+    return;
+  }
+  await backupCatchupInFlight;
+}
+
 async function handleSystemRoutes(request: Request, url: URL, deps: RouteDeps, context: RequestContext): Promise<Response | null> {
   if (request.method === "GET" && url.pathname === "/healthz") {
     return jsonResponse({
@@ -2240,9 +2370,11 @@ function createRuntimeDeps(env: Env): RuntimeDeps {
 
 export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRuntimeDeps): ExportedHandler<Env> {
   return {
-    async fetch(request: Request, env: Env): Promise<Response> {
+    async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
       const reqCtx = createContext();
       const runtimeDeps = depsFactory(env);
+
+      await maybeStartBackupCatchup(runtimeDeps, ctx);
 
       logInfo(runtimeDeps.config, "request.start", {
         requestId: reqCtx.requestId,
@@ -2307,59 +2439,7 @@ export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRunt
       if (!runtimeDeps.config.backupEnabled) {
         return;
       }
-
-      const snapshot = await runBackupSnapshot(
-        {
-          config: runtimeDeps.config,
-          securityRepo: runtimeDeps.securityRepo,
-          db: runtimeDeps.db,
-          backupR2: runtimeDeps.backupR2,
-          now: runtimeDeps.now
-        },
-        "scheduled",
-        null
-      );
-
-      if (!snapshot) {
-        logWarn(runtimeDeps.config, "backup.skipped", {
-          reason: "backup_unavailable"
-        });
-        return;
-      }
-
-        if (snapshot.status === "ok") {
-        try {
-          const smoke = await runMarketBackupSmokeTest(runtimeDeps.config);
-          if (!smoke.ok) {
-            logWarn(runtimeDeps.config, "backup.smoke_failed", {
-              snapshotId: snapshot.id,
-              testedAt: smoke.testedAt,
-              error: smoke.error
-            });
-          } else {
-            logInfo(runtimeDeps.config, "backup.smoke_passed", {
-              snapshotId: snapshot.id,
-              testedAt: smoke.testedAt,
-              elapsedMs: smoke.elapsedMs
-            });
-          }
-        } catch (error) {
-          logWarn(runtimeDeps.config, "backup.smoke_unavailable", {
-            snapshotId: snapshot.id,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-        logInfo(runtimeDeps.config, "backup.completed", {
-          snapshotId: snapshot.id,
-          itemCount: snapshot.itemCount
-        });
-        return;
-      }
-
-      logWarn(runtimeDeps.config, "backup.failed", {
-        snapshotId: snapshot.id,
-        errorMessage: snapshot.errorMessage
-      });
+      await runScheduledBackupFlow(runtimeDeps, "cron");
     }
   };
 }
