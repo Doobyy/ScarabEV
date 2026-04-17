@@ -13,6 +13,8 @@ const SNAPSHOT_SCHEDULE_HOUR_UTC=18;
 const SNAPSHOT_SCHEDULE_MINUTE_UTC=0;
 const BACKUP_CADENCE_MS=24*60*60*1000;
 const BACKUP_WARN_AGE_MS=48*60*60*1000;
+const BACKUP_SCHEDULE_HOUR_UTC=9;
+const BACKUP_SCHEDULE_MINUTE_UTC=0;
 const BACKUP_CATCHUP_GRACE_MS=2*60*60*1000;
 const BACKUP_RETRY_INTERVAL_MS=5*60*1000;
 let marketHealthCacheAt=0;
@@ -333,6 +335,27 @@ function getSnapshotScheduleWindow(nowMs){
   };
 }
 
+function getBackupScheduleWindow(nowMs){
+  const now=Number.isFinite(Number(nowMs))?new Date(Number(nowMs)):new Date();
+  const currentMs=now.getTime();
+  const todayKickoff=new Date(currentMs);
+  todayKickoff.setUTCHours(BACKUP_SCHEDULE_HOUR_UTC,BACKUP_SCHEDULE_MINUTE_UTC,0,0);
+  const todayKickoffMs=todayKickoff.getTime();
+  let prevMs=todayKickoffMs;
+  let nextMs=todayKickoffMs+BACKUP_CADENCE_MS;
+  if(currentMs<todayKickoffMs){
+    prevMs=todayKickoffMs-BACKUP_CADENCE_MS;
+    nextMs=todayKickoffMs;
+  }
+  return {
+    prevIso:new Date(prevMs).toISOString(),
+    nextIso:new Date(nextMs).toISOString(),
+    elapsedMs:Math.max(0,currentMs-prevMs),
+    remainingMs:Math.max(0,nextMs-currentMs),
+    totalMs:BACKUP_CADENCE_MS
+  };
+}
+
 function pickOldestIso(a,b){
   const am=parseIsoMs(a);
   const bm=parseIsoMs(b);
@@ -444,6 +467,7 @@ function withCacheSignalRows(id,checks,card){
   }
   if(id==='healthBackups'){
     const ageMs=msSince(telemetry.latestCreatedAt);
+    const schedule=getBackupScheduleWindow(Date.now());
     rows.push({
       level:classifyAge(ageMs,BACKUP_CADENCE_MS,BACKUP_WARN_AGE_MS),
       label:'Backup freshness signal',
@@ -459,16 +483,14 @@ function withCacheSignalRows(id,checks,card){
       })()
     });
     rows.push({
-      level:cadenceDriftLevel(ageMs,BACKUP_CADENCE_MS,BACKUP_WARN_AGE_MS),
+      level:schedule.remainingMs<=0?'warn':'ok',
       label:'Cadence progress signal',
-      detail:ageMs===null
-        ?'Cannot verify daily cadence without latest backup timestamp.'
-        :'Cadence meter shows elapsed / target for daily backups.',
+      detail:'Next scheduled backup '+formatAdminTime(schedule.nextIso)+' ('+formatHhMmSs(schedule.remainingMs)+' remaining).',
       meter:(()=>{
-        const m=buildAgeMeter(ageMs,BACKUP_CADENCE_MS);
+        const m=buildAgeMeter(schedule.elapsedMs,schedule.totalMs);
         if(!m)return m;
         m.timeFmt='hhmmss';
-        m.live={mode:'cadence',lastSuccessAt:telemetry.latestCreatedAt||'',limitMs:BACKUP_CADENCE_MS,autoRefresh:true};
+        m.live={mode:'backup-schedule',lastSuccessAt:schedule.prevIso,limitMs:schedule.totalMs,autoRefresh:true};
         return m;
       })()
     });
@@ -599,6 +621,10 @@ function tickHealthLiveMeters(){
         const remainingMs=Math.max(0,limitMs-ageMs);
         const nextAtIso=new Date(lastMs+limitMs).toISOString();
         detailText.textContent='Next scheduled snapshot '+formatAdminTime(nextAtIso)+' ('+formatHhMmSs(remainingMs)+' remaining).';
+      }else if(mode==='backup-schedule'){
+        const remainingMs=Math.max(0,limitMs-ageMs);
+        const nextAtIso=new Date(lastMs+limitMs).toISOString();
+        detailText.textContent='Next scheduled backup '+formatAdminTime(nextAtIso)+' ('+formatHhMmSs(remainingMs)+' remaining).';
       }else if(mode==='freshness'){
         const timeFmt=String(node.getAttribute('data-time-fmt')||'mmss').toLowerCase();
         if(timeFmt==='hhmmss') detailText.textContent='Age '+humanAge(ageMs)+' ('+formatHhMmSs(ageMs)+' old, warn at '+formatHhMmSs(limitMs)+').';
