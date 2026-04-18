@@ -68,10 +68,32 @@ function ensureActionModalStyles() {
       padding: 7px 10px;
       font-size: 12px;
       color: var(--text-2);
+      text-align: center;
     }
     .scarabev-action-modal-status strong {
       color: var(--accent);
       font-weight: 700;
+    }
+    .scarabev-action-modal-status-label {
+      font-size: 10px;
+      color: var(--text-3);
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .scarabev-action-modal-status-value {
+      margin-top: 2px;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .scarabev-action-modal-footnote {
+      margin-top: 9px;
+      font-size: 10px;
+      color: var(--text-3);
+      opacity: 0.9;
+      line-height: 1.5;
     }
     .scarabev-action-modal-actions {
       display: flex;
@@ -164,12 +186,16 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
   window._leagueSessionCtaRuntimeKey = storageKey;
 
   const bodyHtml = `
-    <p>ScarabEV is still blending prior-league data. Submitting session logs helps move weights toward fully current-league data and improves accuracy.</p>
-    <p style="margin-top:8px">Please submit clean <strong>single-pass</strong> sessions and follow the How-to workflow so logs pass sanity checks and can be accepted into community weights.</p>
+    <p>ScarabEV is still blending in prior-league data. To reach fully current-league scarab weights, we need to observe <strong>30,000 trades</strong> — equal to <strong>90,000 scarabs vendored</strong>.</p>
+    <p style="margin-top:8px">Submitting session logs helps push current-league data share toward 100%. Only <strong>clean single-pass sessions that pass our sanity checks</strong> can be counted in community weights, so please follow the <strong>How-to workflow</strong> when submitting data.</p>
+    <p class="scarabev-action-modal-footnote">This reminder will stop recurring daily once current-league data share reaches 100%.</p>
   `;
-  const statusText = `Current-league data share: <strong>${share.toFixed(1)}%</strong>`;
+  const statusText = `
+    <div class="scarabev-action-modal-status-label">Current-league data share</div>
+    <div class="scarabev-action-modal-status-value">${share.toFixed(1)}%</div>
+  `;
   showActionModal({
-    title: 'Help improve current-league scarab weights',
+    title: 'Help reach <strong>100% current-league data</strong>',
     bodyHtml,
     statusText,
     primaryLabel: 'Submit Session Data',
