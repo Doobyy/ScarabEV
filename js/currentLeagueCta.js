@@ -80,6 +80,45 @@ function ensureActionModalStyles() {
       letter-spacing: 0.02em;
       text-transform: none;
     }
+    .scarabev-action-modal-progress-title {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .scarabev-action-modal-progress-grid {
+      display: grid;
+      gap: 4px;
+    }
+    .scarabev-action-modal-progress-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .scarabev-action-modal-progress-row-label {
+      color: var(--text-3);
+      text-align: left;
+      flex: 1;
+    }
+    .scarabev-action-modal-progress-row-value {
+      color: var(--text);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .scarabev-action-modal-progress-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 0 7px;
+    }
+    .scarabev-action-modal-validation {
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-2);
+      text-align: left;
+    }
     .scarabev-action-modal-status-value {
       margin-top: 2px;
       font-size: 22px;
@@ -89,11 +128,12 @@ function ensureActionModalStyles() {
       font-variant-numeric: tabular-nums;
     }
     .scarabev-action-modal-footnote {
-      margin-top: 9px;
+      margin-top: 8px;
       font-size: 10px;
       color: var(--text-3);
       opacity: 0.9;
       line-height: 1.5;
+      text-align: left;
     }
     .scarabev-action-modal-actions {
       display: flex;
@@ -185,17 +225,44 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
   }
   window._leagueSessionCtaRuntimeKey = storageKey;
 
+  const rawTradesObserved = Number(opts.tradesObserved);
+  const tradesObserved = Number.isFinite(rawTradesObserved) ? Math.max(0, Math.round(rawTradesObserved)) : 0;
+  const rawScarabsVendored = Number(opts.scarabsVendored);
+  const scarabsVendored = Number.isFinite(rawScarabsVendored)
+    ? Math.max(0, Math.round(rawScarabsVendored))
+    : (tradesObserved * 3);
+
   const bodyHtml = `
-    <p>ScarabEV is still blending in prior-league data. To reach fully current-league scarab weights, we need to observe <strong>30,000 trades</strong> — equal to <strong>90,000 scarabs vendored</strong>.</p>
-    <p style="margin-top:8px">Submitting session logs helps push current-league data share toward 100%. Only <strong>clean single-pass sessions that pass our sanity checks</strong> can be counted in community weights, so please follow the <strong>How-to workflow</strong> when submitting data.</p>
-    <p class="scarabev-action-modal-footnote">This reminder will stop recurring daily once current-league data share reaches 100%.</p>
+    <p>At league start, ScarabEV blends in prior-league data until enough current-league observations are collected. Because scarab changes can alter real weights, fresh session logs are needed to keep current-league estimates accurate.</p>
   `;
   const statusText = `
-    <div class="scarabev-action-modal-status-label">Current-league data share</div>
-    <div class="scarabev-action-modal-status-value">${share.toFixed(1)}%</div>
+    <div class="scarabev-action-modal-progress-title">Current progress</div>
+    <div class="scarabev-action-modal-progress-grid">
+      <div class="scarabev-action-modal-progress-row">
+        <div class="scarabev-action-modal-progress-row-label">Trades observed</div>
+        <div class="scarabev-action-modal-progress-row-value">${tradesObserved.toLocaleString()} / 30,000</div>
+      </div>
+      <div class="scarabev-action-modal-progress-row">
+        <div class="scarabev-action-modal-progress-row-label">Scarabs vendored</div>
+        <div class="scarabev-action-modal-progress-row-value">${scarabsVendored.toLocaleString()} / 90,000</div>
+      </div>
+      <div class="scarabev-action-modal-progress-row">
+        <div class="scarabev-action-modal-progress-row-label">Current-league data share</div>
+        <div class="scarabev-action-modal-progress-row-value">${share.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div class="scarabev-action-modal-progress-divider"></div>
+    <div class="scarabev-action-modal-validation">
+      Harmonic EV and harmonic thresholds do not rely on current-league weighting data. Fresh observations are mainly needed for <strong>Weighted EV</strong> and the <strong>Atlas Optimizer</strong>, where scarab weight changes matter.
+    </div>
+    <div class="scarabev-action-modal-progress-divider"></div>
+    <div class="scarabev-action-modal-validation">
+      Only <strong>clean single-pass sessions that pass our sanity checks</strong> can be counted in community weights. Please follow the <strong>How-to workflow</strong> when submitting data.
+    </div>
+    <div class="scarabev-action-modal-footnote">This reminder will stop recurring daily once current-league data share reaches 100%.</div>
   `;
   showActionModal({
-    title: 'Help reach <strong>100% current-league data</strong>',
+    title: 'Help reach 100% current-league data',
     bodyHtml,
     statusText,
     primaryLabel: 'Submit Session Data',

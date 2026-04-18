@@ -294,6 +294,84 @@ async function fetchScarabMetadata() {
 // Computed from observed output weights and current market prices.
 // No hardcoded fallback: if data isn't loaded yet, the estimator shows nothing.
 
+function readCurrentLeagueSharePct(src) {
+  if (!src || typeof src !== 'object') return null;
+  const toFiniteNumber = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
+  const directCandidates = [
+    src.currentLeagueSharePct,
+    src.currentLeagueShare,
+    src.currentShare,
+    src.leagueShare,
+    src.inputMixCurrentPct,
+    src.inputMixCurrent
+  ];
+  for (const v of directCandidates) {
+    const n = toFiniteNumber(v);
+    if (n != null) {
+      if (n <= 1) return Math.max(0, Math.min(100, n * 100));
+      return Math.max(0, Math.min(100, n));
+    }
+  }
+  const nested = [
+    src.inputMix,
+    src.sourceMix,
+    src.mix,
+    src.transition
+  ];
+  for (const obj of nested) {
+    if (!obj || typeof obj !== 'object') continue;
+    const nestedCandidates = [
+      obj.currentLeagueSharePct,
+      obj.currentLeagueShare,
+      obj.currentShare,
+      obj.currentPct,
+      obj.current
+    ];
+    for (const v of nestedCandidates) {
+      const n = toFiniteNumber(v);
+      if (n != null) {
+        if (n <= 1) return Math.max(0, Math.min(100, n * 100));
+        return Math.max(0, Math.min(100, n));
+      }
+    }
+  }
+
+  // Deterministic derivation from aggregate weight metadata.
+  const mode = String(src.mode || '').toLowerCase();
+  if (mode === 'challenge-current-only') return 100;
+  if (mode === 'challenge-prior-fallback' || mode === 'standard-prior-challenge') return 0;
+
+  const alpha = toFiniteNumber(src.alphaGlobal);
+  if (alpha != null) {
+    if (alpha <= 1) return Math.max(0, Math.min(100, alpha * 100));
+    return Math.max(0, Math.min(100, alpha));
+  }
+
+  const consumedCurrent = toFiniteNumber(src.consumedCurrent);
+  const handoverConsumed = toFiniteNumber(src.handoverConsumed);
+  if (consumedCurrent != null && handoverConsumed != null && handoverConsumed > 0) {
+    return Math.max(0, Math.min(100, (consumedCurrent / handoverConsumed) * 100));
+  }
+
+  return null;
+}
+
+function maybeShowCurrentLeagueCtaFromShare(currentLeagueSharePct, progress = {}) {
+  const league = String(document.getElementById('leagueSelect')?.value || '').trim();
+  if (!league) return;
+  maybeShowLeagueSessionCta(currentLeagueSharePct, {
+    league,
+    dayKey: getTodayDateKey(),
+    tradesObserved: progress.tradesObserved,
+    scarabsVendored: progress.scarabsVendored,
+    switchTab,
+    ensureLoggerHowToExpanded
+  });
+}
 
 async function fetchObservedWeights() {
   if (!POOL_API_URL) return;
@@ -325,6 +403,13 @@ async function fetchObservedWeights() {
     state._weightTradeCount = data.weightTradeCount || data.totalTrades || data?.weightMeta?.totalTrades || 0;
     state._weightMeta = data.weightMeta || null;
     state._weightUnavailableReason = hasWeights ? null : (data?.weightMeta?.reason || 'Not enough community data for weighted mode yet.');
+    let currentLeagueSharePct = readCurrentLeagueSharePct(data);
+    if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
+    if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(state._weightMeta);
+    maybeShowCurrentLeagueCtaFromShare(currentLeagueSharePct, {
+      tradesObserved: state._weightTradeCount,
+      scarabsVendored: data.totalConsumed
+    });
 
     if (!hasWeights) {
       if (previousWeights) {
@@ -3447,79 +3532,12 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
     ? (statisticallySupportedScarabs.toLocaleString() + '/' + totalScarabWithObservations.toLocaleString() + ' scarabs meet the confidence threshold.')
     : 'Not enough observations.';
 
-  function readCurrentLeagueSharePct(src) {
-    if (!src || typeof src !== 'object') return null;
-    const toFiniteNumber = (value) => {
-      if (value === null || value === undefined || value === '') return null;
-      const n = Number(value);
-      return Number.isFinite(n) ? n : null;
-    };
-    const directCandidates = [
-      src.currentLeagueSharePct,
-      src.currentLeagueShare,
-      src.currentShare,
-      src.leagueShare,
-      src.inputMixCurrentPct,
-      src.inputMixCurrent
-    ];
-    for (const v of directCandidates) {
-      const n = toFiniteNumber(v);
-      if (n != null) {
-        if (n <= 1) return Math.max(0, Math.min(100, n * 100));
-        return Math.max(0, Math.min(100, n));
-      }
-    }
-    const nested = [
-      src.inputMix,
-      src.sourceMix,
-      src.mix,
-      src.transition
-    ];
-    for (const obj of nested) {
-      if (!obj || typeof obj !== 'object') continue;
-      const nestedCandidates = [
-        obj.currentLeagueSharePct,
-        obj.currentLeagueShare,
-        obj.currentShare,
-        obj.currentPct,
-        obj.current
-      ];
-      for (const v of nestedCandidates) {
-        const n = toFiniteNumber(v);
-        if (n != null) {
-          if (n <= 1) return Math.max(0, Math.min(100, n * 100));
-          return Math.max(0, Math.min(100, n));
-        }
-      }
-    }
-
-    // Deterministic derivation from aggregate weight metadata.
-    const mode = String(src.mode || '').toLowerCase();
-    if (mode === 'challenge-current-only') return 100;
-    if (mode === 'challenge-prior-fallback' || mode === 'standard-prior-challenge') return 0;
-
-    const alpha = toFiniteNumber(src.alphaGlobal);
-    if (alpha != null) {
-      if (alpha <= 1) return Math.max(0, Math.min(100, alpha * 100));
-      return Math.max(0, Math.min(100, alpha));
-    }
-
-    const consumedCurrent = toFiniteNumber(src.consumedCurrent);
-    const handoverConsumed = toFiniteNumber(src.handoverConsumed);
-    if (consumedCurrent != null && handoverConsumed != null && handoverConsumed > 0) {
-      return Math.max(0, Math.min(100, (consumedCurrent / handoverConsumed) * 100));
-    }
-
-    return null;
-  }
   let currentLeagueSharePct = readCurrentLeagueSharePct(data);
   if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
   if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(state._weightMeta);
-  maybeShowLeagueSessionCta(currentLeagueSharePct, {
-    league: String(document.getElementById('leagueSelect')?.value || '').trim() || 'Unknown',
-    dayKey: getTodayDateKey(),
-    switchTab,
-    ensureLoggerHowToExpanded
+  maybeShowCurrentLeagueCtaFromShare(currentLeagueSharePct, {
+    tradesObserved: totalTrades,
+    scarabsVendored: totalConsumed
   });
   const currentLeagueShareClass = currentLeagueSharePct == null
     ? ''
