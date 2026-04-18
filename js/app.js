@@ -11,6 +11,7 @@ import { parseWorkerResponse, buildNinjaLookup, getNinjaPrice, getNinjaImage, pa
 import { initializeBackendTokenSource } from './tokenSource.js';
 import { initHashRouting } from './hashRouting.js';
 import { exposeGlobals } from './globalExpose.js';
+import { maybeShowLeagueSessionCta } from './currentLeagueCta.js';
 import {
   CDN,
   SCARAB_LIST,
@@ -648,6 +649,13 @@ function toggleLoggerHowTo() {
   const open = body.style.display !== 'none';
   body.style.display = open ? 'none' : '';
   if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function ensureLoggerHowToExpanded() {
+  const body = document.getElementById('loggerHowToBody');
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  if (!isOpen) toggleLoggerHowTo();
 }
 
 
@@ -3507,6 +3515,12 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
   let currentLeagueSharePct = readCurrentLeagueSharePct(data);
   if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
   if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(state._weightMeta);
+  maybeShowLeagueSessionCta(currentLeagueSharePct, {
+    league: String(document.getElementById('leagueSelect')?.value || '').trim() || 'Unknown',
+    dayKey: getTodayDateKey(),
+    switchTab,
+    ensureLoggerHowToExpanded
+  });
   const currentLeagueShareClass = currentLeagueSharePct == null
     ? ''
     : (currentLeagueSharePct >= 70 ? 'green' : (currentLeagueSharePct >= 45 ? 'amber' : 'red'));
