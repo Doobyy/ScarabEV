@@ -51,7 +51,7 @@ function ensureActionModalStyles() {
     .scarabev-action-modal-title {
       font-size: 16px;
       font-weight: 700;
-      color: var(--text);
+      color: var(--chaos);
       margin-bottom: 8px;
       letter-spacing: -0.01em;
     }
@@ -88,14 +88,18 @@ function ensureActionModalStyles() {
     }
     .scarabev-action-modal-progress-grid {
       display: grid;
-      gap: 4px;
+      gap: 6px;
     }
     .scarabev-action-modal-progress-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
       font-size: 11px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-card);
     }
     .scarabev-action-modal-progress-row-label {
       color: var(--text-3);
@@ -234,6 +238,7 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
 
   const bodyHtml = `
     <p>At league start, prior-league data is blended in until enough current-league observations are collected. Fresh logs help keep scarab weights accurate after league changes.</p>
+    <p class="scarabev-action-modal-footnote">This daily reminder ends automatically at 100%.</p>
   `;
   const statusText = `
     <div class="scarabev-action-modal-progress-title">Current progress</div>
@@ -257,9 +262,9 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
     </div>
     <div class="scarabev-action-modal-progress-divider"></div>
     <div class="scarabev-action-modal-validation">
-      Only clean single-pass sessions that pass sanity checks are counted. Please follow the How-to workflow when submitting.
+      Only clean single-pass sessions that pass sanity checks are counted.
     </div>
-    <div class="scarabev-action-modal-footnote">This reminder ends automatically at 100%.</div>
+    <div class="scarabev-action-modal-validation" style="margin-top:4px"><strong>Please follow the How-to workflow when submitting.</strong></div>
   `;
   showActionModal({
     title: 'Help update ScarabEV for the current league',
