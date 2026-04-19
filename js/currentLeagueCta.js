@@ -260,12 +260,11 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
         <div class="scarabev-action-modal-progress-row-label">Scarabs vendored</div>
         <div class="scarabev-action-modal-progress-row-value">${scarabsVendored.toLocaleString()} / 90,000</div>
       </div>
-      <div class="scarabev-action-modal-progress-row">
+    <div class="scarabev-action-modal-progress-row">
         <div class="scarabev-action-modal-progress-row-label">Current-league data share</div>
         <div class="scarabev-action-modal-progress-row-value">${share.toFixed(1)}%</div>
       </div>
     </div>
-    <div class="scarabev-action-modal-progress-divider"></div>
     <div class="scarabev-action-modal-validation">
       Harmonic EV works without weighting data. Fresh observations mainly improve Atlas Optimizer and Weighted EV.
     </div>
