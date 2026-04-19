@@ -1,0 +1,13 @@
+name = "scarabev-api"
+main = "index.js"
+compatibility_date = "2026-04-19"
+compatibility_flags = ["global_fetch_strictly_public"]
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "poepool-db"
+database_id = "aacf5113-ad56-4613-a4fe-51358bb80db8"
+
+# Required secret for admin endpoints:
+#   wrangler secret put ADMIN_KEY --config workers/scarabev-api/wrangler.production.toml
