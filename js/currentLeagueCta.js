@@ -88,7 +88,10 @@ function ensureActionModalStyles() {
     }
     .scarabev-action-modal-progress-grid {
       display: grid;
-      gap: 6px;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
     }
     .scarabev-action-modal-progress-row {
       display: grid;
@@ -97,9 +100,11 @@ function ensureActionModalStyles() {
       gap: 12px;
       font-size: 11px;
       padding: 5px 8px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
       background: var(--bg-card);
+      border-top: 1px solid var(--border);
+    }
+    .scarabev-action-modal-progress-row:first-child {
+      border-top: none;
     }
     .scarabev-action-modal-progress-row-label {
       color: var(--text-3);
@@ -238,7 +243,6 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
 
   const bodyHtml = `
     <p>At league start, prior-league data is blended in until enough current-league observations are collected. Fresh logs help keep scarab weights accurate after league changes.</p>
-    <p class="scarabev-action-modal-footnote">This daily reminder ends automatically at 100%.</p>
   `;
   const statusText = `
     <div class="scarabev-action-modal-progress-title">Current progress</div>
@@ -265,6 +269,7 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
       Only clean single-pass sessions that pass sanity checks are counted.
     </div>
     <div class="scarabev-action-modal-validation" style="margin-top:4px"><strong>Please follow the How-to workflow when submitting.</strong></div>
+    <div class="scarabev-action-modal-footnote">This daily reminder ends automatically at 100%.</div>
   `;
   showActionModal({
     title: 'Help update ScarabEV for the current league',
