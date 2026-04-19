@@ -1856,25 +1856,12 @@ async function fetchObservedWeightsForLeague(env, league) {
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-    const res = await fetchAggregateForLeague(env, league);
-    if (!res.ok) throw new Error(`aggregate_http_${res.status}`);
-    const data = await res.json();
-    const provided = data?.weights && typeof data.weights === "object" ? data.weights : null;
-    if (provided && Object.keys(provided).length > 0) return { weights: provided, error: null };
-
-    const received = data?.receivedByScarab && typeof data.receivedByScarab === "object"
-      ? data.receivedByScarab
-      : null;
-    if (!received) return { weights: null, error: "aggregate_missing_received" };
-    const total = Object.values(received).reduce((sum, n) => sum + (Number(n) || 0), 0);
-    if (!Number.isFinite(total) || total <= 0) return { weights: null, error: "aggregate_received_total_zero" };
-
-    const normalized = {};
-    for (const [name, count] of Object.entries(received)) {
-      const c = Number(count) || 0;
-      if (c > 0) normalized[name] = c / total;
-    }
-    return Object.keys(normalized).length ? { weights: normalized, error: null } : { weights: null, error: "aggregate_received_normalized_empty" };
+      const res = await fetchAggregateForLeague(env, league);
+      if (!res.ok) throw new Error(`aggregate_http_${res.status}`);
+      const data = await res.json();
+      const provided = data?.weights && typeof data.weights === "object" ? data.weights : null;
+      if (provided && Object.keys(provided).length > 0) return { weights: provided, error: null };
+      return { weights: null, error: "aggregate_missing_weights" };
     } catch (e) {
       lastError = String(e?.message || e || "weights_fetch_failed");
       if (attempt >= attempts) break;
