@@ -140,18 +140,19 @@ function ensureActionModalStyles() {
       font-variant-numeric: tabular-nums;
     }
     .scarabev-action-modal-footnote {
-      margin-top: 8px;
+      margin-top: 4px;
       font-size: 10px;
       color: var(--text-3);
       opacity: 0.9;
       line-height: 1.5;
       text-align: left;
+      font-style: italic;
     }
     .scarabev-action-modal-actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      margin-top: 14px;
+      margin-top: 8px;
       flex-wrap: wrap;
     }
     .scarabev-action-modal-btn {
