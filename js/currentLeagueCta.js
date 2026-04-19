@@ -106,6 +106,9 @@ function ensureActionModalStyles() {
     .scarabev-action-modal-progress-row:first-child {
       border-top: none;
     }
+    .scarabev-action-modal-progress-row:hover {
+      background: var(--row-hover);
+    }
     .scarabev-action-modal-progress-row-label {
       color: var(--text-3);
       text-align: left;
@@ -186,7 +189,7 @@ function closeActionModal() {
   document.body.style.overflow = '';
 }
 
-function showActionModal({ title, bodyHtml, statusText, primaryLabel, secondaryLabel, onPrimary, onSecondary }) {
+function showActionModal({ title, bodyHtml, statusText, footnoteText, primaryLabel, secondaryLabel, onPrimary, onSecondary }) {
   ensureActionModalStyles();
   closeActionModal();
 
@@ -198,6 +201,7 @@ function showActionModal({ title, bodyHtml, statusText, primaryLabel, secondaryL
       <div id="scarabevActionModalTitle" class="scarabev-action-modal-title">${title}</div>
       <div class="scarabev-action-modal-body">${bodyHtml}</div>
       <div class="scarabev-action-modal-status">${statusText}</div>
+      ${footnoteText ? `<div class="scarabev-action-modal-footnote">${footnoteText}</div>` : ''}
       <div class="scarabev-action-modal-actions">
         <button type="button" class="scarabev-action-modal-btn scarabev-action-modal-btn-primary" id="scarabevActionModalPrimary">${primaryLabel}</button>
         <button type="button" class="scarabev-action-modal-btn" id="scarabevActionModalSecondary">${secondaryLabel}</button>
@@ -269,12 +273,12 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
       Only clean single-pass sessions that pass sanity checks are counted.
     </div>
     <div class="scarabev-action-modal-validation" style="margin-top:4px"><strong>Please follow the How-to workflow when submitting.</strong></div>
-    <div class="scarabev-action-modal-footnote">This daily reminder ends automatically at 100%.</div>
   `;
   showActionModal({
     title: 'Help update ScarabEV for the current league',
     bodyHtml,
     statusText,
+    footnoteText: 'This daily reminder ends automatically at 100%.',
     primaryLabel: 'Submit Session Data',
     secondaryLabel: 'Dismiss',
     onPrimary: () => {
