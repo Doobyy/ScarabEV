@@ -5661,7 +5661,6 @@ updateDailySnapshotCopy();
   fetchAndRenderEVChart();
   fetchAndRenderAtlasTrendPreview();
 })();
-fetchObservedWeights(); // pull weight distribution from community aggregate
 updateSortArrows();
 initSlider();
 checkVersionToast();
