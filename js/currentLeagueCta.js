@@ -247,7 +247,7 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
     : (tradesObserved * 3);
 
   const bodyHtml = `
-    <p>At league start, prior-league data is blended in until enough current-league observations are collected. Fresh logs help keep scarab weights accurate after league changes.</p>
+    <p>At league start, prior-league data is blended in until enough current-league observations are collected. Once current-league data share reaches 100%, weighting becomes fully current-league based. Fresh logs help keep scarab weights accurate after league changes.</p>
   `;
   const statusText = `
     <div class="scarabev-action-modal-progress-title">Current progress</div>
