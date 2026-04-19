@@ -265,17 +265,16 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
         <div class="scarabev-action-modal-progress-row-value">${share.toFixed(1)}%</div>
       </div>
     </div>
-    <div class="scarabev-action-modal-validation">
+    <div class="scarabev-action-modal-validation" style="margin-top:6px">
       Harmonic EV works without weighting data. Fresh observations mainly improve Atlas Optimizer and Weighted EV.
     </div>
     <div class="scarabev-action-modal-progress-divider"></div>
     <div class="scarabev-action-modal-validation">
-      Only clean single-pass sessions that pass sanity checks are counted.
+      Only clean single-pass sessions that pass sanity checks are counted. <strong>Please follow the How-to workflow when submitting.</strong>
     </div>
-    <div class="scarabev-action-modal-validation" style="margin-top:4px"><strong>Please follow the How-to workflow when submitting.</strong></div>
   `;
   showActionModal({
-    title: 'Help update ScarabEV for the current league',
+    title: 'HELP US UPDATE CURRENT-LEAGUE DATA',
     bodyHtml,
     statusText,
     footnoteText: 'This daily reminder ends automatically at 100%.',

@@ -1,7 +1,14 @@
-﻿# Changelog
+# Changelog
 
 > Maintainer note: Keep this changelog feature-first. Add entries for major features, major reworks, or meaningful user-visible behavior changes. Avoid standalone entries for minor tune-ups/polish; fold those into the next feature release. When versioning a new release, keep the visible app version tag in `index.html` in sync with the latest `## [x.y]` heading here.
+## [1.5] - 2026-04-18
+### Focus: League-Start Data Quality and Self-Maintenance
+- Data Analysis page refocus: Restructured the Data Analysis experience to prioritize data health visibility instead of primarily comparing estimated vs realized profits.
+- New-league weight blending: Added weight blending for league transitions so early-league estimates stay useful while fresh data accumulates. This helps keep the tool self-maintainable by users without waiting on manual intervention.
+- New-league CTA popup for database refresh: Introduced a targeted CTA popup to encourage clean session submissions at league start, helping the community database refresh faster.
+- Atlas Optimizer profitability trend graph: Added a profitability trend graph in the Atlas Optimizer tab so users can quickly spot momentum and potential spike windows where scarab farming may be especially profitable.
 
+---
 ## [1.4] - 2026-03-26
 ### Focus: UX & Mobile Reliability
 - Mobile layout stability: Improved tab navigation and phone-width layout behavior across the app.
@@ -84,4 +91,5 @@
 - Manual pricing: Shipped first scarab price input workflow.
 - EV baseline: Implemented harmonic EV foundation.
 - Regex baseline: Added first auto-regex generation workflow.
+
 
