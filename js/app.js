@@ -381,19 +381,7 @@ async function fetchObservedWeights() {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
-    const providedWeights = data.weights && typeof data.weights === 'object' ? data.weights : null;
-    const received = data.receivedByScarab || {};
-    const totalReceived = Object.values(received).reduce((s, n) => s + (Number(n) || 0), 0);
-
-    let weights = providedWeights;
-    if (!weights && totalReceived > 0) {
-      // Backward compatibility with older API payloads that return only raw received counts.
-      weights = {};
-      for (const [name, count] of Object.entries(received)) {
-        const c = Number(count) || 0;
-        if (c > 0) weights[name] = c / totalReceived;
-      }
-    }
+    const weights = data.weights && typeof data.weights === 'object' ? data.weights : null;
     const hasWeights = !!(weights && Object.keys(weights).length > 0);
     const previousWeights = state._observedWeights && Object.keys(state._observedWeights).length > 0
       ? state._observedWeights
@@ -3263,6 +3251,7 @@ function renderAnalysis() {
           totalInputDivine: aggCurrent.totalInputDivine ?? null,
           totalOutputDivine: aggCurrent.totalOutputDivine ?? null,
           receivedByScarab: aggCurrent.receivedByScarab || {},
+          weights: aggCurrent.weights || null,
           sessionCount: aggCurrent.sessionCount || 0,
           weightSessionCount: aggCurrent.weightSessionCount || 0,
           weightMeta: aggCurrent.weightMeta || null,
@@ -3324,7 +3313,7 @@ function renderAnalysisFromLocalSessions(emptyEl, contentEl) {
 
 function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
   bindStatInfoTooltipEvents();
-  const { totalConsumed, totalTrades, totalInput, totalOutput, totalInputDivine, totalOutputDivine, receivedByScarab, dataSourceLabel } = data;
+  const { totalConsumed, totalTrades, totalInput, totalOutput, totalInputDivine, totalOutputDivine, receivedByScarab, weights, dataSourceLabel } = data;
 
   emptyEl.style.display = 'block';
   contentEl.style.display = 'none';
@@ -3382,7 +3371,8 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
   const weightData = Object.keys(receivedByScarab).map(name => {
     const count = receivedByScarab[name];
     const pct = totalReceived > 0 ? (count / totalReceived * 100) : 0;
-    const weight = pct / 100;
+    const backendWeight = weights && typeof weights === 'object' ? Number(weights[name]) : NaN;
+    const weight = Number.isFinite(backendWeight) && backendWeight > 0 ? backendWeight : (pct / 100);
     const ninjaPrice = state.ninjaPrices[name] ?? 0;
     const evContrib = weight * ninjaPrice;
     const group = scarabGroupByName.get(name) || scarabGroupByNameLower.get(String(name || '').toLowerCase()) || '\u2014';
