@@ -233,7 +233,7 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
     : (tradesObserved * 3);
 
   const bodyHtml = `
-    <p>At league start, ScarabEV blends in prior-league data until enough current-league observations are collected. Because scarab changes can alter real weights, fresh session logs are needed to keep current-league estimates accurate.</p>
+    <p>At league start, prior-league data is blended in until enough current-league observations are collected. Fresh logs help keep scarab weights accurate after league changes.</p>
   `;
   const statusText = `
     <div class="scarabev-action-modal-progress-title">Current progress</div>
@@ -253,16 +253,16 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
     </div>
     <div class="scarabev-action-modal-progress-divider"></div>
     <div class="scarabev-action-modal-validation">
-      Harmonic EV and harmonic thresholds do not rely on current-league weighting data. Fresh observations are mainly needed for <strong>Weighted EV</strong> and the <strong>Atlas Optimizer</strong>, where scarab weight changes matter.
+      Harmonic EV works without weighting data. Fresh observations mainly improve Atlas Optimizer and Weighted EV.
     </div>
     <div class="scarabev-action-modal-progress-divider"></div>
     <div class="scarabev-action-modal-validation">
-      Only <strong>clean single-pass sessions that pass our sanity checks</strong> can be counted in community weights. Please follow the <strong>How-to workflow</strong> when submitting data.
+      Only clean single-pass sessions that pass sanity checks are counted. Please follow the How-to workflow when submitting.
     </div>
-    <div class="scarabev-action-modal-footnote">This reminder will stop recurring daily once current-league data share reaches 100%.</div>
+    <div class="scarabev-action-modal-footnote">This reminder ends automatically at 100%.</div>
   `;
   showActionModal({
-    title: 'Help reach 100% current-league data',
+    title: 'Help update ScarabEV for the current league',
     bodyHtml,
     statusText,
     primaryLabel: 'Submit Session Data',
