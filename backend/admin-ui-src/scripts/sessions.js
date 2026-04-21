@@ -442,7 +442,8 @@ function renderIntakeAnalytics(payload){
     ['review_pending',safeNum(counts.review_pending)],
     ['approved_manual',safeNum(counts.approved_manual)],
     ['research',safeNum(counts.research)],
-    ['l1_reject',safeNum(data.l1RejectCount)]
+    ['l1_reject',safeNum(data.l1RejectCount)],
+    ['l1_reject_duplicate_submission',safeNum(data.duplicateSubmissionCount)]
   ];
   const stateTb=$('sessAnalyticsStateRows');
   if(stateTb){

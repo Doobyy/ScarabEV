@@ -176,6 +176,7 @@ async function ensureIntakeSchema(env) {
       "ALTER TABLE sessions ADD COLUMN intake_reasons_json TEXT",
       "ALTER TABLE sessions ADD COLUMN intake_l1_json TEXT",
       "ALTER TABLE sessions ADD COLUMN intake_l2_json TEXT",
+      "ALTER TABLE sessions ADD COLUMN intake_fingerprint TEXT",
       "ALTER TABLE sessions ADD COLUMN admin_note TEXT",
       "ALTER TABLE sessions ADD COLUMN reviewed_at TEXT"
     ];
@@ -209,6 +210,7 @@ async function ensureIntakeSchema(env) {
       )`
     ).run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_intake_state_created ON sessions(intake_state, created_at DESC)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_intake_fingerprint ON sessions(intake_fingerprint)").run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_intake_events_created ON session_intake_events(created_at DESC)").run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_intake_events_session ON session_intake_events(session_id)").run();
   })().catch((err) => {
@@ -238,6 +240,109 @@ function toNonNegativeNumber(value) {
   return n;
 }
 __name(toNonNegativeNumber, "toNonNegativeNumber");
+function toOptionalNonNegativeNumber(value) {
+  if (value === null || value === void 0 || value === "")
+    return null;
+  return toNonNegativeNumber(value);
+}
+__name(toOptionalNonNegativeNumber, "toOptionalNonNegativeNumber");
+function normalizeNumberForFingerprint(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n))
+    return null;
+  return Math.round(n * 1e6) / 1e6;
+}
+__name(normalizeNumberForFingerprint, "normalizeNumberForFingerprint");
+function buildNormalizedSubmissionPayload(session) {
+  if (!session || typeof session !== "object")
+    return null;
+  if (!Array.isArray(session.scarabs))
+    return null;
+  const rows = [];
+  for (const row of session.scarabs) {
+    if (!row || typeof row !== "object")
+      return null;
+    const name = String(row.name || "").trim();
+    if (!name)
+      return null;
+    const consumed = toOptionalNonNegativeInteger(row.consumed);
+    const received = toOptionalNonNegativeInteger(row.received);
+    if (consumed === null || received === null)
+      return null;
+    const ninjaPrice = normalizeNumberForFingerprint(row.ninja_price);
+    if (ninjaPrice === null)
+      return null;
+    rows.push({
+      name,
+      consumed,
+      received,
+      was_vendor: !!row.was_vendor,
+      ninja_price: ninjaPrice
+    });
+  }
+  rows.sort((a, b) => {
+    const n = a.name.localeCompare(b.name);
+    if (n !== 0)
+      return n;
+    if (a.consumed !== b.consumed)
+      return a.consumed - b.consumed;
+    if (a.received !== b.received)
+      return a.received - b.received;
+    if (a.was_vendor !== b.was_vendor)
+      return a.was_vendor ? 1 : -1;
+    return a.ninja_price - b.ninja_price;
+  });
+  const totalConsumed = toOptionalNonNegativeInteger(session.total_consumed);
+  const totalTrades = toOptionalNonNegativeInteger(session.total_trades);
+  const inputValue = toNonNegativeNumber(session.input_value);
+  const outputValue = toNonNegativeNumber(session.output_value);
+  const divineRate = toOptionalNonNegativeNumber(session.divine_rate);
+  const normalized = {
+    league: String(session.league || "").trim(),
+    regex: String(session.regex || "").trim(),
+    total_consumed: totalConsumed === null ? null : totalConsumed,
+    total_trades: totalTrades === null ? null : totalTrades,
+    input_value: inputValue === null ? null : normalizeNumberForFingerprint(inputValue),
+    output_value: outputValue === null ? null : normalizeNumberForFingerprint(outputValue),
+    divine_rate: divineRate === null ? null : divineRate,
+    scarabs: rows
+  };
+  return normalized;
+}
+__name(buildNormalizedSubmissionPayload, "buildNormalizedSubmissionPayload");
+async function computeSubmissionFingerprint(session) {
+  const normalized = buildNormalizedSubmissionPayload(session);
+  if (!normalized)
+    return null;
+  const enc = new TextEncoder();
+  const payload = JSON.stringify(normalized);
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(payload));
+  const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return {
+    fingerprint: `sha256:${hex}`,
+    normalizedPayload: normalized
+  };
+}
+__name(computeSubmissionFingerprint, "computeSubmissionFingerprint");
+async function findDuplicateSubmission(env, fingerprint) {
+  if (!fingerprint)
+    return null;
+  const row = await env.DB.prepare(
+    `SELECT id, created_at, intake_state
+     FROM sessions
+     WHERE intake_fingerprint = ?
+     ORDER BY id DESC
+     LIMIT 1`
+  ).bind(fingerprint).first();
+  if (!row)
+    return null;
+  return {
+    id: String(row.id),
+    createdAt: row.created_at || null,
+    intakeState: row.intake_state || null
+  };
+}
+__name(findDuplicateSubmission, "findDuplicateSubmission");
 function evaluateSessionIntake(session) {
   const structuralIssues = [];
   const scarabsRaw = Array.isArray(session?.scarabs) ? session.scarabs : null;
@@ -1379,6 +1484,44 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
         return json({ error: "Invalid body" }, 400);
       const league = session.league || null;
       const leagueInfo = normalizeLeagueInfo(league || "unknown");
+      const fingerprintResult = await computeSubmissionFingerprint(session);
+      if (fingerprintResult?.fingerprint) {
+        const dup = await findDuplicateSubmission(env, fingerprintResult.fingerprint);
+        if (dup) {
+          const reasons = ["duplicate_submission"];
+          const l1Audit = {
+            l1_result: "reject",
+            rejection_reason: "duplicate_submission",
+            duplicateOfSessionId: dup.id,
+            duplicateOfCreatedAt: dup.createdAt,
+            duplicateOfState: dup.intakeState,
+            submissionFingerprint: fingerprintResult.fingerprint
+          };
+          await insertIntakeEvent(env, {
+            action: "l1_reject",
+            intakeState: SESSION_STATE_L1_REJECT,
+            ipHash,
+            league,
+            leagueKey: leagueInfo.key,
+            reasons,
+            meta: {
+              duplicate_submission: true,
+              l1Audit,
+              normalizedPayload: fingerprintResult.normalizedPayload
+            }
+          });
+          return json({
+            counted: false,
+            intakeState: SESSION_STATE_L1_REJECT,
+            classification: SESSION_STATE_L1_REJECT,
+            healthPct: 0,
+            reasons,
+            l1_result: "reject",
+            l1Audit,
+            l2Audit: null
+          }, 200);
+        }
+      }
       const l1 = evaluateSessionIntake(session);
       if (!l1.l1Passed) {
         await insertIntakeEvent(env, {
@@ -1439,17 +1582,18 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
       const intakeReasonsJson = JSON.stringify(l2.reasons || l1.reasons || []);
       const intakeL1Json = JSON.stringify(l1.l1Audit || {});
       const intakeL2Json = JSON.stringify(l2.l2Audit || {});
+      const intakeFingerprint = fingerprintResult?.fingerprint || null;
       const intakeState = l2.intakeState || SESSION_STATE_REVIEW_PENDING;
       const insert = env.DB.prepare(
         `INSERT INTO sessions (
           total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json, league, regex, league_key,
           intake_state, intake_class, intake_health_pct, intake_expected_trades, intake_actual_outputs, intake_drift, intake_reasons_json,
-          intake_l1_json, intake_l2_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          intake_l1_json, intake_l2_json, intake_fingerprint
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         totalConsumed, totalTrades, totalInput, totalOutput, divineRate, scarabsJson, league, regex, leagueInfo.key,
         intakeState, l2.classification || intakeState, Number(l2.healthPct) || Number(l1.healthPct) || 0, l1.expectedTrades, l1.actualOutputs, l1.drift, intakeReasonsJson,
-        intakeL1Json, intakeL2Json
+        intakeL1Json, intakeL2Json, intakeFingerprint
       );
       const insertResult = await insert.run();
       const sessionId = insertResult?.meta?.last_row_id ? String(insertResult.meta.last_row_id) : null;
@@ -1557,6 +1701,10 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
           "SELECT COUNT(*) AS count FROM session_intake_events WHERE intake_state = ? AND action = ?"
         ).bind(SESSION_STATE_L1_REJECT, "l1_reject").first();
         const l1RejectCount = Number(l1Rejected?.count) || 0;
+        const duplicateRejected = await env.DB.prepare(
+          "SELECT COUNT(*) AS count FROM session_intake_events WHERE intake_state = ? AND action = ? AND reasons_json LIKE ?"
+        ).bind(SESSION_STATE_L1_REJECT, "l1_reject", "%duplicate_submission%").first();
+        const duplicateSubmissionCount = Number(duplicateRejected?.count) || 0;
         const totalSubmissions = counts.approved_auto + counts.review_pending + counts.approved_manual + counts.research + l1RejectCount;
         const { results: l2Rows } = await env.DB.prepare(
           `SELECT intake_l2_json
@@ -1602,6 +1750,7 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
           totalSubmissions,
           counts,
           l1RejectCount,
+          duplicateSubmissionCount,
           l2ScoreCount: scores.length,
           averageL2Score,
           medianL2Score,
