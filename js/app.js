@@ -3077,6 +3077,7 @@ async function submitSession() {
 function renderSessionHistory() {
   const sessions = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
   const el = document.getElementById('loggerHistoryTable');
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
   const validSizes = [10, 25, 50, 100];
   const savedSize = Number(localStorage.getItem('poepool-logger-history-page-size') || 25);
   const pageSize = validSizes.includes(savedSize) ? savedSize : 25;
@@ -3094,7 +3095,9 @@ function renderSessionHistory() {
   const start = (page - 1) * pageSize;
   const end = Math.min(total, start + pageSize);
   const pageRows = ordered.slice(start, end);
-  const cols = '132px 1fr 84px 98px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
+  const cols = isMobile
+    ? '98px 58px 64px 62px 62px 62px 54px 52px minmax(54px, 1fr)'
+    : '132px 1fr 84px 98px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
   const gap = '12px';
   const fmtSessionDate = (iso) => {
     if (!iso) return '-';
@@ -3106,6 +3109,16 @@ function renderSessionHistory() {
     const hh = String(d.getHours()).padStart(2, '0');
     const min = String(d.getMinutes()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+  };
+  const fmtSessionDateMobile = (iso) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '-';
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${mm}-${dd} ${hh}:${min}`;
   };
 
   el.innerHTML = `
@@ -3119,7 +3132,7 @@ function renderSessionHistory() {
       </div>
     </div>
     <div class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center">
-      <span class="cell-left">Date</span><span class="cell-left">League</span><span class="cell-right">Scarabs In</span><span class="cell-right">Scarabs Out</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
+      <span class="cell-left">Date</span>${isMobile ? '' : '<span class="cell-left">League</span>'}<span class="cell-right">${isMobile ? 'S-IN' : 'Scarabs In'}</span><span class="cell-right">${isMobile ? 'S-OUT' : 'Scarabs Out'}</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
     </div>
     ${pageRows.map((s, i) => {
       const globalPos = start + i;
@@ -3132,8 +3145,8 @@ function renderSessionHistory() {
         : '0';
       return `<div>
         <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
-          <span class="cell-left">${fmtSessionDate(s.created_at)}</span>
-          <span class="cell-left">${s.league}</span>
+          <span class="cell-left" style="white-space:nowrap">${isMobile ? fmtSessionDateMobile(s.created_at) : fmtSessionDate(s.created_at)}</span>
+          ${isMobile ? '' : `<span class="cell-left">${s.league}</span>`}
           <span class="cell-right">${s.total_consumed?.toLocaleString()}</span>
           <span class="cell-right">${scarabsOut}</span>
           <span class="cell-right">${fmtSession(s.input_value)}</span>
