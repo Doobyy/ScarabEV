@@ -24,3 +24,11 @@ AGENTS.md
 **/*.log
 **/*.tmp
 **/*.cache
+
+# Worker local secret/runtime files (do not commit machine-local secrets/state)
+workers/scarabev-api/.dev.vars
+
+# One-off local intake calibration scripts from trial runs
+scripts/intake-pipeline-combined-sensitivity.mjs
+scripts/intake-tolerance-sensitivity.mjs
+scripts/validate-canonical-seeding.mjs
