@@ -15,7 +15,7 @@ const state={
   tokensByName:{},draftTokensByScarabId:{},latestDraftEntries:[],sets:[],selectedIds:new Set(),
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
   captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,bulkToolsAutoLoaded:false,
-  sessionDupes:[],sessionSignals:[],healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
+  sessionDupes:[],sessionSignals:[],sessionReviewQueue:[],sessionResearchPile:[],sessionIntakeAnalytics:null,healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
   failureLogsAutoLoaded:false,failureLogs:[],manualRetryBusy:false
 };
 

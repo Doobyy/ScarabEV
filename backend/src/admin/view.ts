@@ -26,8 +26,8 @@ export function buildAdminMarkup(): string {
       </div>
     </section>
     <section id="panel-sessions" class="panel">
-      <div class="mobile-tab-pick"><select id="sessTabMobile" aria-label="Session section"><option value="sessions">Session Manager</option><option value="backups">Session Backups</option><option value="dupes">Resubmission Guard</option><option value="signals">Integrity Checker</option></select></div>
-      <div class="sess-filetabs"><button id="sessTabSessions" class="sess-tab active" type="button">Session Manager</button><button id="sessTabBackups" class="sess-tab" type="button">Session Backups</button><button id="sessTabDupes" class="sess-tab" type="button">Resubmission Guard</button><button id="sessTabSignals" class="sess-tab" type="button">Integrity Checker</button></div>
+      <div class="mobile-tab-pick"><select id="sessTabMobile" aria-label="Session section"><option value="sessions">Session Manager</option><option value="backups">Session Backups</option><option value="review">Review Queue</option><option value="research">Research Pile</option><option value="analytics">Intake Analytics</option></select></div>
+      <div class="sess-filetabs"><button id="sessTabSessions" class="sess-tab active" type="button">Session Manager</button><button id="sessTabBackups" class="sess-tab" type="button">Session Backups</button><button id="sessTabReview" class="sess-tab" type="button">Review Queue</button><button id="sessTabResearch" class="sess-tab" type="button">Research Pile</button><button id="sessTabAnalytics" class="sess-tab" type="button">Intake Analytics</button></div>
       <div class="card sess-frame">
         <section id="sessPaneSessions" class="sess-pane active">
           <div class="toolbar session-head"><div class="sub">Front-facing session log manager for aggregated community data. Review sessions and delete bad entries.</div><button id="sessOpenCfgBtn" class="btn ghost mini subtle" type="button">API Settings</button></div>
@@ -63,18 +63,40 @@ export function buildAdminMarkup(): string {
           <div id="opsStorageSummary" class="sub mono">R2 usage: -</div>
           <div id="opsStatus" class="status">Use this section to run or inspect backup snapshots in staging.</div>
         </section>
-        <section id="sessPaneDupes" class="sess-pane">
-          <div class="sub">Detect likely re-submissions by grouping sessions with identical fingerprints (league, regex, inputs/outputs, scarab payload).</div>
-          <div class="toolbar"><button id="sessDupesRefreshBtn" class="btn ghost" type="button">Refresh Guard Scan</button></div>
-          <div class="list ops-list"><table><thead><tr><th style="width:70px">Count</th><th style="width:140px">Latest</th><th style="width:100px">League</th><th style="width:80px">Trades</th><th style="width:90px">Consumed</th><th style="width:90px">Input</th><th style="width:90px">Output</th><th style="width:120px">Regex</th><th>Session IDs</th></tr></thead><tbody id="sessDupesRows"></tbody></table></div>
-          <div id="sessDupesStatus" class="status">Load sessions first, then run guard scan.</div>
+        <section id="sessPaneReview" class="sess-pane">
+          <div class="sub">L2 review queue (newest first). Approve to include in aggregate, reject to move into Research Pile.</div>
+          <div class="toolbar"><button id="sessReviewRefreshBtn" class="btn ghost" type="button">Refresh Review Queue</button></div>
+          <div class="list ops-list"><table><thead><tr><th style="width:110px">Session ID</th><th style="width:140px">Date</th><th style="width:100px">League</th><th style="width:80px">Consumed</th><th style="width:70px">Trades</th><th style="width:90px">Input</th><th style="width:90px">Output</th><th style="width:90px">State</th><th>Reasons</th><th style="width:220px">Action</th></tr></thead><tbody id="sessReviewRows"></tbody></table></div>
+          <div id="sessReviewStatus" class="status">Load review queue.</div>
         </section>
-        <section id="sessPaneSignals" class="sess-pane">
-          <div class="sub">Risk scoring for suspicious but technically valid sessions (duplicates, extreme ROI, rate drift, structural inconsistencies).</div>
-          <div class="toolbar"><button id="sessSignalsRefreshBtn" class="btn ghost" type="button">Refresh Integrity Check</button></div>
-          <div id="sessSignalsMeta" class="sub">Median divine rate: - | Flagged sessions: 0</div>
-          <div class="list ops-list"><table><thead><tr><th style="width:150px">Session ID</th><th style="width:140px">Date</th><th style="width:100px">League</th><th style="width:90px">Severity</th><th style="width:80px">Score</th><th style="width:90px">ROI</th><th>Signals</th></tr></thead><tbody id="sessSignalsRows"></tbody></table></div>
-          <div id="sessSignalsStatus" class="status">Load sessions first, then run integrity check.</div>
+        <section id="sessPaneResearch" class="sess-pane">
+          <div class="sub">Research pile keeps rejected sessions accessible for follow-up and audits.</div>
+          <div class="toolbar"><button id="sessResearchRefreshBtn" class="btn ghost" type="button">Refresh Research Pile</button></div>
+          <div class="list ops-list"><table><thead><tr><th style="width:110px">Session ID</th><th style="width:140px">Date</th><th style="width:100px">League</th><th style="width:80px">Consumed</th><th style="width:70px">Trades</th><th style="width:90px">Input</th><th style="width:90px">Output</th><th style="width:90px">State</th><th>Reasons</th><th style="width:120px">Action</th></tr></thead><tbody id="sessResearchRows"></tbody></table></div>
+          <div id="sessResearchStatus" class="status">Load research pile.</div>
+        </section>
+        <section id="sessPaneAnalytics" class="sess-pane">
+          <div class="sub">Read-only intake analytics from stored submission and review state data.</div>
+          <div class="toolbar"><button id="sessAnalyticsRefreshBtn" class="btn ghost" type="button">Refresh Intake Analytics</button></div>
+          <div class="kpi">
+            <div class="metric"><span>Total Submissions</span><b id="sessAnalyticsTotal">0</b></div>
+            <div class="metric"><span>Avg L2 Score</span><b id="sessAnalyticsAvgL2">-</b></div>
+            <div class="metric"><span>Median L2 Score</span><b id="sessAnalyticsMedianL2">-</b></div>
+            <div class="metric"><span>L2 Score Samples</span><b id="sessAnalyticsScoreCount">0</b></div>
+          </div>
+          <div class="list ops-list">
+            <table>
+              <thead><tr><th style="width:220px">Metric</th><th style="width:160px">Count</th><th>Percent of Submissions</th></tr></thead>
+              <tbody id="sessAnalyticsStateRows"></tbody>
+            </table>
+          </div>
+          <div class="list ops-list">
+            <table>
+              <thead><tr><th style="width:220px">L2 Histogram Band</th><th style="width:160px">Count</th><th>Percent of L2 Scores</th></tr></thead>
+              <tbody id="sessAnalyticsHistRows"></tbody>
+            </table>
+          </div>
+          <div id="sessAnalyticsStatus" class="status">Load intake analytics.</div>
         </section>
       </div>
     </section>

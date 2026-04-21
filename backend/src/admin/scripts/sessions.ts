@@ -12,20 +12,25 @@ function divFromChaos(chaos,divineRate){const rate=safeNum(divineRate);if(rate<=
 function fmtDivSignedFromChaos(chaos,divineRate){const d=divFromChaos(chaos,divineRate);if(d===null)return '-';return (d>=0?'+':'')+d.toFixed(2)+' div';}
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]||m));}
 function parseScarabRows(s){try{const rows=JSON.parse(String(s||'[]'));return Array.isArray(rows)?rows:[];}catch(e){return[];}}
+function parseReasons(v){try{const rows=JSON.parse(String(v||'[]'));if(Array.isArray(rows))return rows.map((x)=>String(x||'').trim()).filter(Boolean);}catch(e){}return [];}
+function parseObj(v){try{const o=JSON.parse(String(v||'{}'));return(o&&typeof o==='object')?o:{};}catch(e){return{};}}
+function stateLabel(v){const s=String(v||'').trim();if(!s)return 'legacy_approved';return s;}
 function openSessionCfgModal(){$('sessCfgModalWrap').classList.add('open');}
 function closeSessionCfgModal(){$('sessCfgModalWrap').classList.remove('open');}
 function switchSessionSubtab(tab){
-  const mode=(tab==='backups'||tab==='dupes'||tab==='signals')?tab:'sessions';
-  const paneSessions=$('sessPaneSessions'),paneBackups=$('sessPaneBackups'),paneDupes=$('sessPaneDupes'),paneSignals=$('sessPaneSignals');
-  const tabSessions=$('sessTabSessions'),tabBackups=$('sessTabBackups'),tabDupes=$('sessTabDupes'),tabSignals=$('sessTabSignals');
+  const mode=(tab==='backups'||tab==='review'||tab==='research'||tab==='analytics')?tab:'sessions';
+  const paneSessions=$('sessPaneSessions'),paneBackups=$('sessPaneBackups'),paneReview=$('sessPaneReview'),paneResearch=$('sessPaneResearch'),paneAnalytics=$('sessPaneAnalytics');
+  const tabSessions=$('sessTabSessions'),tabBackups=$('sessTabBackups'),tabReview=$('sessTabReview'),tabResearch=$('sessTabResearch'),tabAnalytics=$('sessTabAnalytics');
   if(paneSessions)paneSessions.classList.toggle('active',mode==='sessions');
   if(paneBackups)paneBackups.classList.toggle('active',mode==='backups');
-  if(paneDupes)paneDupes.classList.toggle('active',mode==='dupes');
-  if(paneSignals)paneSignals.classList.toggle('active',mode==='signals');
+  if(paneReview)paneReview.classList.toggle('active',mode==='review');
+  if(paneResearch)paneResearch.classList.toggle('active',mode==='research');
+  if(paneAnalytics)paneAnalytics.classList.toggle('active',mode==='analytics');
   if(tabSessions)tabSessions.classList.toggle('active',mode==='sessions');
   if(tabBackups)tabBackups.classList.toggle('active',mode==='backups');
-  if(tabDupes)tabDupes.classList.toggle('active',mode==='dupes');
-  if(tabSignals)tabSignals.classList.toggle('active',mode==='signals');
+  if(tabReview)tabReview.classList.toggle('active',mode==='review');
+  if(tabResearch)tabResearch.classList.toggle('active',mode==='research');
+  if(tabAnalytics)tabAnalytics.classList.toggle('active',mode==='analytics');
   const mobile=$('sessTabMobile'); if(mobile&&mobile.value!==mode)mobile.value=mode;
 }
 function syncSessionPager(total){
@@ -96,7 +101,6 @@ function updateSessionStats(items){
     trades+=safeNum(s.total_trades);
     const d=divFromChaos(profit,s.divine_rate);
     if(d!==null){
-      // Sum the same rounded values users see in each row so KPI and table stay aligned.
       totalProfitDiv+=Number(d.toFixed(2));
       hasDivCount+=1;
     }
@@ -111,11 +115,16 @@ function updateSessionStats(items){
 function buildSessionDetailHtml(s){
   const input=safeNum(s.input_value),output=safeNum(s.output_value),profit=output-input,rate=safeNum(s.divine_rate);
   const roi=fmtRoiPct(input,output);
+  const l1=parseObj(s.intake_l1_json);
+  const l2=parseObj(s.intake_l2_json);
   const scarabs=parseScarabRows(s.scarabs_json);
   const vendor=scarabs.filter((x)=>x&&x.was_vendor).sort((a,b)=>safeNum(b.consumed)-safeNum(a.consumed));
   const keeper=scarabs.filter((x)=>x&&!x.was_vendor&&safeNum(x.received)>0).sort((a,b)=>safeNum(b.received)-safeNum(a.received));
   const legacy=scarabs.length>0&&scarabs[0]&&scarabs[0].consumed===undefined;
   const legacyRows=scarabs.filter((x)=>x&&safeNum(x.received)>0).sort((a,b)=>safeNum(b.received)-safeNum(a.received));
+  const reasons=parseReasons(s.intake_reasons_json);
+  const pct=(n)=>Number.isFinite(Number(n))?(Number(n)*100).toFixed(2)+'%':'-';
+  const pctSigned=(n)=>Number.isFinite(Number(n))?((Number(n)>=0?'+':'')+Number(n).toFixed(2)+'%'):'-';
 
   const rowHtml=(name,a,b,c,cColor)=>'<div class="session-scarab-row"><span title="'+escHtml(name)+'">'+escHtml(name)+'</span><span style="text-align:right">'+escHtml(String(a))+'</span><span style="text-align:right">'+escHtml(String(b))+'</span><span style="text-align:right;color:'+escHtml(cColor||'var(--muted)')+';font-weight:700">'+escHtml(String(c))+'</span></div>';
   const vendorBody=vendor.length?vendor.map((r)=>{const net=Math.round(safeNum(r.received)-safeNum(r.consumed));return rowHtml(r.name||'-',Math.round(safeNum(r.consumed)),Math.round(safeNum(r.received)),(net>=0?'+':'')+String(net),signColor(net));}).join(''):'<div class="sub">No vendor rows.</div>';
@@ -134,10 +143,41 @@ function buildSessionDetailHtml(s){
       +'<div><b>Date:</b> '+escHtml(formatAdminTime(s.created_at))+'</div>'
       +'<div><b>League:</b> '+escHtml(String(s.league||'-'))+'</div>'
       +'<div><b>Regex:</b> <span class="mono">'+escHtml(String(s.regex||'-'))+'</span></div>'
+      +'<div><b>State:</b> '+escHtml(stateLabel(s.intake_state))+'</div>'
       +'<div><b>Consumed:</b> '+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</div>'
       +'<div><b>Trades:</b> '+escHtml(String(Math.round(safeNum(s.total_trades)).toLocaleString()))+'</div>'
       +'<div><b>Divine Rate:</b> '+escHtml(rate>0?rate.toFixed(2)+' c/div':'-')+'</div>'
       +'<div><b>Rows:</b> '+escHtml(String(scarabs.length))+'</div>'
+      +'<div><b>Health:</b> '+escHtml(safeNum(s.intake_health_pct)>0?Math.round(safeNum(s.intake_health_pct))+'%':'-')+'</div>'
+      +'<div><b>Admin Note:</b> '+escHtml(String(s.admin_note||'-'))+'</div>'
+      +'<div><b>Reasons:</b> '+escHtml(reasons.length?reasons.join(' | '):'-')+'</div>'
+    +'</div>'
+    +'<div class="session-meta" style="margin-top:8px">'
+      +'<div><b>L1 InputQty:</b> '+escHtml(String(Math.round(safeNum(l1.inputQty??l1.totalConsumed??s.total_consumed)).toLocaleString()))+'</div>'
+      +'<div><b>L1 Expected Trades:</b> '+escHtml(String(Math.round(safeNum(l1.expectedTrades??s.intake_expected_trades)).toLocaleString()))+'</div>'
+      +'<div><b>L1 Leftovers:</b> '+escHtml(String(Math.round(safeNum(l1.leftovers)).toLocaleString()))+'</div>'
+      +'<div><b>L1 Expected Final:</b> '+escHtml(String(Math.round(safeNum(l1.expectedFinal)).toLocaleString()))+'</div>'
+      +'<div><b>L1 Actual Final:</b> '+escHtml(String(Math.round(safeNum(l1.actualFinalCount??s.intake_actual_outputs)).toLocaleString()))+'</div>'
+      +'<div><b>L1 Drift:</b> '+escHtml(String((safeNum(l1.drift??s.intake_drift)>=0?'+':'')+Math.round(safeNum(l1.drift??s.intake_drift))))+'</div>'
+      +'<div><b>L1 Drift %:</b> '+escHtml(pctSigned(l1.driftPct))+'</div>'
+      +'<div><b>L1 Allowed Drift:</b> '+escHtml(String(Math.round(safeNum(l1.allowedDrift)).toLocaleString()))+'</div>'
+      +'<div><b>L1 Result:</b> '+escHtml(String(l1.l1_result||'-'))+'</div>'
+      +'<div><b>L2 Spike Scarab:</b> '+escHtml(String(l2.spikeScarab||'-'))+'</div>'
+      +'<div><b>L2 Expected Share:</b> '+escHtml(pct(l2.expectedShare))+'</div>'
+      +'<div><b>L2 Actual Share:</b> '+escHtml(pct(l2.actualShare))+'</div>'
+      +'<div><b>L2 Excess Count:</b> '+escHtml(String(safeNum(l2.excessCount).toFixed(2)))+'</div>'
+      +'<div><b>L2 Mature Guard:</b> '+escHtml(String(!!l2.matureGuard))+'</div>'
+      +'<div><b>L2 Excess Guard:</b> '+escHtml(String(!!l2.excessGuard))+'</div>'
+      +'<div><b>L2 Spike Severity:</b> '+escHtml(String(safeNum(l2.spikeSeverity).toFixed(4)))+'</div>'
+      +'<div><b>L2 MidDiv:</b> '+escHtml(String(safeNum(l2.midDiv).toFixed(4)))+'</div>'
+      +'<div><b>L2 Concentration:</b> '+escHtml(String(safeNum(l2.concentration).toFixed(4)))+'</div>'
+      +'<div><b>L2 Concentration (Adjusted):</b> '+escHtml(String(safeNum(l2.concentrationAdjusted).toFixed(4)))+'</div>'
+      +'<div><b>L2 Support Inconsistency:</b> '+escHtml(String(safeNum(l2.supportInconsistency).toFixed(4)))+'</div>'
+      +'<div><b>L2 Support (Adjusted):</b> '+escHtml(String(safeNum(l2.supportAdjusted).toFixed(4)))+'</div>'
+      +'<div><b>L2 Score Before Guards:</b> '+escHtml(String(safeNum(l2.scoreBeforeGuards).toFixed(2)))+'</div>'
+      +'<div><b>L2 Score After Guards:</b> '+escHtml(String(safeNum(l2.scoreAfterGuards).toFixed(2)))+'</div>'
+      +'<div><b>L2 Final Score:</b> '+escHtml(String(safeNum(l2.finalL2Score).toFixed(2)))+'</div>'
+      +'<div><b>L2 Interpretation:</b> '+escHtml(String(l2.interpretation||'-'))+'</div>'
     +'</div>'
     +(legacy
       ?'<div class="session-scarab-box"><div class="session-scarab-head">Scarab Outputs (Legacy)</div>'
@@ -178,7 +218,7 @@ function renderSessionRows(){
     const main=document.createElement('tr');
     main.className='row session-main'+(isOpen?' open':'');
     main.innerHTML=''
-      +'<td class="mono"><span class="session-main-id"><span class="session-chev'+(isOpen?' open':'')+'">▶</span>'+escHtml(id)+'</span></td>'
+      +'<td class="mono"><span class="session-main-id"><span class="session-chev'+(isOpen?' open':'')+'">></span>'+escHtml(id)+'</span></td>'
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
       +'<td>'+escHtml(String(s.league||'-'))+'</td>'
       +'<td>'+Math.round(safeNum(s.total_consumed)).toLocaleString()+'</td>'
@@ -257,13 +297,240 @@ async function deleteSessionRow(id,btn){
     state.sessionExpandedIds.delete(String(id));
     updateSessionStats(state.sessions);
     renderSessionRows();
-    if(typeof refreshSessionIntel==='function')refreshSessionIntel({quiet:true});
     await recomputeAggregate();
+    await loadIntakeAnalytics({quiet:true});
     toast('Session deleted');
   }catch(e){
     status('sessStatus','Delete error: '+formatThrownError(e),'err');
   }finally{
     btn.disabled=false;btn.textContent=prev;
+  }
+}
+
+function reviewActionButtons(id){
+  return '<div class="toolbar"><button class="btn mini" data-review-approve="'+escHtml(id)+'" type="button">Approve</button><button class="btn warn mini" data-review-reject="'+escHtml(id)+'" type="button">Reject</button></div>';
+}
+function researchActionButtons(id){
+  return '<div class="toolbar"><button class="btn mini" data-research-approve="'+escHtml(id)+'" type="button">Approve</button></div>';
+}
+function reasonsText(s){
+  const reasons=parseReasons(s&&s.intake_reasons_json);
+  return reasons.length?reasons.join(' | '):'-';
+}
+
+function renderReviewQueueRows(items){
+  const tb=$('sessReviewRows');
+  if(!tb)return;
+  tb.innerHTML='';
+  if(!Array.isArray(items)||items.length===0){
+    tb.innerHTML='<tr><td colspan="10" class="sub">No sessions are currently pending review.</td></tr>';
+    return;
+  }
+  items.forEach((s)=>{
+    const id=String(s.id||'-');
+    const tr=document.createElement('tr');
+    tr.className='row';
+    tr.innerHTML=''
+      +'<td class="mono">'+escHtml(id)+'</td>'
+      +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
+      +'<td>'+escHtml(String(s.league||'-'))+'</td>'
+      +'<td>'+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</td>'
+      +'<td>'+escHtml(String(Math.round(safeNum(s.total_trades)).toLocaleString()))+'</td>'
+      +'<td>'+escHtml(fmtChaosRaw(s.input_value))+'</td>'
+      +'<td>'+escHtml(fmtChaosRaw(s.output_value))+'</td>'
+      +'<td>'+escHtml(stateLabel(s.intake_state))+'</td>'
+      +'<td title="'+escHtml(reasonsText(s))+'">'+escHtml(reasonsText(s))+'</td>'
+      +'<td>'+reviewActionButtons(id)+'</td>';
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('button[data-review-approve]').forEach((btn)=>{btn.onclick=()=>runSessionReviewAction(btn.dataset.reviewApprove,'approve',btn);});
+  tb.querySelectorAll('button[data-review-reject]').forEach((btn)=>{btn.onclick=()=>runSessionReviewAction(btn.dataset.reviewReject,'reject',btn);});
+}
+
+function renderResearchRows(items){
+  const tb=$('sessResearchRows');
+  if(!tb)return;
+  tb.innerHTML='';
+  if(!Array.isArray(items)||items.length===0){
+    tb.innerHTML='<tr><td colspan="10" class="sub">Research pile is empty.</td></tr>';
+    return;
+  }
+  items.forEach((s)=>{
+    const id=String(s.id||'-');
+    const tr=document.createElement('tr');
+    tr.className='row';
+    tr.innerHTML=''
+      +'<td class="mono">'+escHtml(id)+'</td>'
+      +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
+      +'<td>'+escHtml(String(s.league||'-'))+'</td>'
+      +'<td>'+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</td>'
+      +'<td>'+escHtml(String(Math.round(safeNum(s.total_trades)).toLocaleString()))+'</td>'
+      +'<td>'+escHtml(fmtChaosRaw(s.input_value))+'</td>'
+      +'<td>'+escHtml(fmtChaosRaw(s.output_value))+'</td>'
+      +'<td>'+escHtml(stateLabel(s.intake_state))+'</td>'
+      +'<td title="'+escHtml(reasonsText(s))+'">'+escHtml(reasonsText(s))+'</td>'
+      +'<td>'+researchActionButtons(id)+'</td>';
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('button[data-research-approve]').forEach((btn)=>{btn.onclick=()=>runSessionReviewAction(btn.dataset.researchApprove,'approve',btn);});
+}
+
+async function loadReviewQueue(opts){
+  const quiet=!!(opts&&opts.quiet);
+  const url=sessionApiWithKey('/review?limit=200');
+  if(!url){if(!quiet)status('sessReviewStatus','Set session API URL and admin key first.','warn');return false;}
+  if($('sessReviewRefreshBtn'))busy('sessReviewRefreshBtn',true);
+  try{
+    const r=await fetch(url,{method:'GET'});
+    const txt=await r.text();
+    if(!r.ok){if(!quiet)status('sessReviewStatus','Review queue load failed ('+formatApiFailure(r,null,txt)+').','err');return false;}
+    let data=null;try{data=JSON.parse(txt);}catch(e){}
+    if(!Array.isArray(data)){if(!quiet)status('sessReviewStatus','Unexpected review queue payload format.','err');return false;}
+    state.sessionReviewQueue=data;
+    renderReviewQueueRows(data);
+    if(!quiet)status('sessReviewStatus','Loaded '+data.length+' review session(s).','ok');
+    return true;
+  }catch(e){
+    if(!quiet)status('sessReviewStatus','Review queue fetch error: '+formatThrownError(e),'err');
+    return false;
+  }finally{
+    if($('sessReviewRefreshBtn'))busy('sessReviewRefreshBtn',false);
+  }
+}
+
+async function loadResearchPile(opts){
+  const quiet=!!(opts&&opts.quiet);
+  const url=sessionApiWithKey('/research?limit=200');
+  if(!url){if(!quiet)status('sessResearchStatus','Set session API URL and admin key first.','warn');return false;}
+  if($('sessResearchRefreshBtn'))busy('sessResearchRefreshBtn',true);
+  try{
+    const r=await fetch(url,{method:'GET'});
+    const txt=await r.text();
+    if(!r.ok){if(!quiet)status('sessResearchStatus','Research pile load failed ('+formatApiFailure(r,null,txt)+').','err');return false;}
+    let data=null;try{data=JSON.parse(txt);}catch(e){}
+    if(!Array.isArray(data)){if(!quiet)status('sessResearchStatus','Unexpected research payload format.','err');return false;}
+    state.sessionResearchPile=data;
+    renderResearchRows(data);
+    if(!quiet)status('sessResearchStatus','Loaded '+data.length+' research session(s).','ok');
+    return true;
+  }catch(e){
+    if(!quiet)status('sessResearchStatus','Research pile fetch error: '+formatThrownError(e),'err');
+    return false;
+  }finally{
+    if($('sessResearchRefreshBtn'))busy('sessResearchRefreshBtn',false);
+  }
+}
+
+function fmtPctPart(count,total){
+  const c=safeNum(count),t=safeNum(total);
+  if(t<=0)return '0.0%';
+  return ((c/t)*100).toFixed(1)+'%';
+}
+
+function renderIntakeAnalytics(payload){
+  const data=(payload&&typeof payload==='object')?payload:{};
+  const total=Math.max(0,Math.round(safeNum(data.totalSubmissions)));
+  const scoreCount=Math.max(0,Math.round(safeNum(data.l2ScoreCount)));
+  const avg=safeNum(data.averageL2Score);
+  const med=safeNum(data.medianL2Score);
+  if($('sessAnalyticsTotal'))$('sessAnalyticsTotal').textContent=total.toLocaleString();
+  if($('sessAnalyticsAvgL2'))$('sessAnalyticsAvgL2').textContent=scoreCount?avg.toFixed(2):'-';
+  if($('sessAnalyticsMedianL2'))$('sessAnalyticsMedianL2').textContent=scoreCount?med.toFixed(2):'-';
+  if($('sessAnalyticsScoreCount'))$('sessAnalyticsScoreCount').textContent=scoreCount.toLocaleString();
+
+  const counts=(data.counts&&typeof data.counts==='object')?data.counts:{};
+  const rows=[
+    ['approved_auto',safeNum(counts.approved_auto)],
+    ['review_pending',safeNum(counts.review_pending)],
+    ['approved_manual',safeNum(counts.approved_manual)],
+    ['research',safeNum(counts.research)],
+    ['l1_reject',safeNum(data.l1RejectCount)]
+  ];
+  const stateTb=$('sessAnalyticsStateRows');
+  if(stateTb){
+    stateTb.innerHTML='';
+    rows.forEach((r)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=''
+        +'<td>'+escHtml(r[0])+'</td>'
+        +'<td>'+escHtml(String(Math.round(r[1]).toLocaleString()))+'</td>'
+        +'<td>'+escHtml(fmtPctPart(r[1],total))+'</td>';
+      stateTb.appendChild(tr);
+    });
+  }
+
+  const hist=(data.scoreHistogram&&typeof data.scoreHistogram==='object')?data.scoreHistogram:{};
+  const histRows=[
+    ['<12',safeNum(hist.lt12)],
+    ['12-20',safeNum(hist.b12to20)],
+    ['20-35',safeNum(hist.b20to35)],
+    ['35+',safeNum(hist.gte35)]
+  ];
+  const histTb=$('sessAnalyticsHistRows');
+  if(histTb){
+    histTb.innerHTML='';
+    histRows.forEach((r)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=''
+        +'<td>'+escHtml(r[0])+'</td>'
+        +'<td>'+escHtml(String(Math.round(r[1]).toLocaleString()))+'</td>'
+        +'<td>'+escHtml(fmtPctPart(r[1],scoreCount))+'</td>';
+      histTb.appendChild(tr);
+    });
+  }
+}
+
+async function loadIntakeAnalytics(opts){
+  const quiet=!!(opts&&opts.quiet);
+  const url=sessionApiWithKey('/analytics');
+  if(!url){if(!quiet)status('sessAnalyticsStatus','Set session API URL and admin key first.','warn');return false;}
+  if($('sessAnalyticsRefreshBtn'))busy('sessAnalyticsRefreshBtn',true);
+  try{
+    const r=await fetch(url,{method:'GET'});
+    const txt=await r.text();
+    if(!r.ok){if(!quiet)status('sessAnalyticsStatus','Analytics load failed ('+formatApiFailure(r,null,txt)+').','err');return false;}
+    let data=null;try{data=JSON.parse(txt);}catch(e){}
+    if(!data||typeof data!=='object'){if(!quiet)status('sessAnalyticsStatus','Unexpected analytics payload format.','err');return false;}
+    state.sessionIntakeAnalytics=data;
+    renderIntakeAnalytics(data);
+    if(!quiet)status('sessAnalyticsStatus','Loaded intake analytics snapshot.','ok');
+    return true;
+  }catch(e){
+    if(!quiet)status('sessAnalyticsStatus','Analytics fetch error: '+formatThrownError(e),'err');
+    return false;
+  }finally{
+    if($('sessAnalyticsRefreshBtn'))busy('sessAnalyticsRefreshBtn',false);
+  }
+}
+
+function promptDecisionNote(action,id){
+  const text=prompt((action==='approve'?'Approve ':'Reject ')+'session '+id+'. Optional admin note:','');
+  if(text===null)return null;
+  return String(text||'').trim();
+}
+
+async function runSessionReviewAction(id,action,btn){
+  if(!id||!(action==='approve'||action==='reject'))return;
+  const note=promptDecisionNote(action,id);
+  if(note===null)return;
+  const base=($('sessApiUrl').value||state.sessionApiUrl||'').trim().replace(/\/+$/,'');
+  const key=($('sessAdminKey').value||state.sessionAdminKey||'').trim();
+  if(!base||!key){status('sessStatus','Missing API URL or admin key.','warn');return;}
+  if(btn){btn.disabled=true;}
+  try{
+    const url=base+'/'+encodeURIComponent(id)+'/'+action+'?key='+encodeURIComponent(key);
+    const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note})});
+    const txt=await r.text();
+    if(!r.ok){
+      status('sessStatus',(action==='approve'?'Approve':'Reject')+' failed ('+formatApiFailure(r,null,txt)+').','err');
+      return;
+    }
+    status('sessStatus','Session '+id+' '+(action==='approve'?'approved':'moved to research')+'.','ok');
+    await Promise.all([loadSessionsManager({quiet:true}),loadReviewQueue({quiet:true}),loadResearchPile({quiet:true}),loadIntakeAnalytics({quiet:true})]);
+  }catch(e){
+    status('sessStatus',(action==='approve'?'Approve':'Reject')+' error: '+formatThrownError(e),'err');
+  }finally{
+    if(btn){btn.disabled=false;}
   }
 }
 

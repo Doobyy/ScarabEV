@@ -3,9 +3,25 @@ var __name = (target, value) => __defProp(target, "name", { value, configurable:
 
 // src/index.js
 var MAX_SESSIONS_PER_IP_PER_HOUR = 20;
+var L1_NEGATIVE_DRIFT_RATE = 0.0125;
+var L1_POSITIVE_DRIFT_RATE = 0.015;
+var L1_MIN_ALLOWED_DRIFT = 3;
+var L2_PASS_THRESHOLD = 12;
+var L2_HIGH_PRIORITY_THRESHOLD = 20;
+var L2_WEIGHT_SPIKE = 0.5;
+var L2_WEIGHT_MID_DIV = 0.3;
+var L2_WEIGHT_CONCENTRATION = 0.12;
+var L2_WEIGHT_SUPPORT = 0.08;
 var HANDOVER_CONSUMED = 9e4;
 var MIN_WEIGHT_OUTPUTS = 100;
 var WEIGHT_SEED_VERSION = "phase1-canonical-seeded-v1";
+var SESSION_STATE_L1_REJECT = "l1_reject";
+var SESSION_STATE_APPROVED_AUTO = "approved_auto";
+var SESSION_STATE_REVIEW_PENDING = "review_pending";
+var SESSION_STATE_APPROVED_MANUAL = "approved_manual";
+var SESSION_STATE_RESEARCH = "research";
+var APPROVED_INTAKE_STATES = [SESSION_STATE_APPROVED_AUTO, SESSION_STATE_APPROVED_MANUAL];
+var SESSION_REVIEWABLE_STATES = [SESSION_STATE_REVIEW_PENDING, SESSION_STATE_RESEARCH];
 var RARE_SLOT_HASH_SALT = "scarabev-phase1-rare-slot";
 var SEED_NORMAL_BASE = 4;
 var SEED_NORMAL_MID = 2;
@@ -139,41 +155,507 @@ function json(body, status = 200) {
   });
 }
 __name(json, "json");
-function getSessionFlags(session) {
-  const flags = [];
-  const totalConsumed = session.total_consumed || 0;
-  const totalTrades = session.total_trades || 0;
-  const totalInput = session.input_value || 0;
-  const totalOutput = session.output_value || 0;
-  const scarabs = session.scarabs || [];
-  if (totalInput > 0 && Math.abs(totalOutput - totalInput) < 1 && totalConsumed === 0)
-    flags.push("no change detected");
-  if (totalConsumed < 500)
-    flags.push("low sample");
-  const keeperOutputs = scarabs.filter((r) => !r.was_vendor && (r.received || 0) > 0).length;
-  if (totalConsumed >= 500 && keeperOutputs === 0)
-    flags.push("zero keeper outputs");
-  const totalReceived = scarabs.reduce((s, r) => s + (r.received || 0), 0);
-  if (totalReceived > totalConsumed)
-    flags.push("outputs > inputs");
-
-  // Recycling check — vendor-target outputs should be ≥ 15% of all received scarabs
-  // in a clean single-pass session. Below this threshold indicates the person recycled
-  // their cheap outputs back through the vendor multiple times in one session,
-  // which skews the weight distribution toward expensive keepers.
-  if (totalConsumed >= 500 && totalReceived >= 10) {
-    const vendorReceived = scarabs
-      .filter(r => r.was_vendor)
-      .reduce((s, r) => s + (r.received || 0), 0);
-    const vendorReturnRatio = totalReceived > 0 ? vendorReceived / totalReceived : 0;
-    if (vendorReturnRatio < 0.15) {
-      flags.push("recycled session");
+function sqlQuoted(value) {
+  return `'${String(value || "").replace(/'/g, "''")}'`;
+}
+__name(sqlQuoted, "sqlQuoted");
+var APPROVED_STATE_SQL_LIST = APPROVED_INTAKE_STATES.map((s) => sqlQuoted(s)).join(", ");
+var APPROVED_STATE_WHERE = `(intake_state IS NULL OR intake_state IN (${APPROVED_STATE_SQL_LIST}))`;
+var intakeSchemaReady = null;
+async function ensureIntakeSchema(env) {
+  if (intakeSchemaReady)
+    return intakeSchemaReady;
+  intakeSchemaReady = (async () => {
+    const alterStatements = [
+      "ALTER TABLE sessions ADD COLUMN intake_state TEXT",
+      "ALTER TABLE sessions ADD COLUMN intake_class TEXT",
+      "ALTER TABLE sessions ADD COLUMN intake_health_pct REAL",
+      "ALTER TABLE sessions ADD COLUMN intake_expected_trades INTEGER",
+      "ALTER TABLE sessions ADD COLUMN intake_actual_outputs INTEGER",
+      "ALTER TABLE sessions ADD COLUMN intake_drift INTEGER",
+      "ALTER TABLE sessions ADD COLUMN intake_reasons_json TEXT",
+      "ALTER TABLE sessions ADD COLUMN intake_l1_json TEXT",
+      "ALTER TABLE sessions ADD COLUMN intake_l2_json TEXT",
+      "ALTER TABLE sessions ADD COLUMN admin_note TEXT",
+      "ALTER TABLE sessions ADD COLUMN reviewed_at TEXT"
+    ];
+    for (const sql of alterStatements) {
+      try {
+        await env.DB.prepare(sql).run();
+      } catch (_) {
+      }
+    }
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS session_intake_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+        session_id TEXT,
+        action TEXT NOT NULL,
+        intake_state TEXT NOT NULL,
+        admin_actor TEXT,
+        admin_note TEXT,
+        ip_hash TEXT,
+        league TEXT,
+        league_key TEXT,
+        total_consumed INTEGER,
+        total_trades INTEGER,
+        input_value REAL,
+        output_value REAL,
+        expected_trades INTEGER,
+        actual_outputs INTEGER,
+        output_drift INTEGER,
+        reasons_json TEXT,
+        meta_json TEXT
+      )`
+    ).run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_intake_state_created ON sessions(intake_state, created_at DESC)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_intake_events_created ON session_intake_events(created_at DESC)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_intake_events_session ON session_intake_events(session_id)").run();
+  })().catch((err) => {
+    intakeSchemaReady = null;
+    throw err;
+  });
+  return intakeSchemaReady;
+}
+__name(ensureIntakeSchema, "ensureIntakeSchema");
+function toNonNegativeInteger(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || Math.floor(n) !== n)
+    return null;
+  return n;
+}
+__name(toNonNegativeInteger, "toNonNegativeInteger");
+function toOptionalNonNegativeInteger(value) {
+  if (value === null || value === void 0 || value === "")
+    return null;
+  return toNonNegativeInteger(value);
+}
+__name(toOptionalNonNegativeInteger, "toOptionalNonNegativeInteger");
+function toNonNegativeNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0)
+    return null;
+  return n;
+}
+__name(toNonNegativeNumber, "toNonNegativeNumber");
+function evaluateSessionIntake(session) {
+  const structuralIssues = [];
+  const scarabsRaw = Array.isArray(session?.scarabs) ? session.scarabs : null;
+  if (!scarabsRaw || scarabsRaw.length === 0) {
+    structuralIssues.push("Missing scarab rows in payload.");
+  }
+  const normalizedScarabs = [];
+  let actualConsumedRowTotal = 0;
+  let actualOutputTotal = 0;
+  if (scarabsRaw) {
+    for (let idx = 0; idx < scarabsRaw.length; idx += 1) {
+      const row = scarabsRaw[idx];
+      if (!row || typeof row !== "object") {
+        structuralIssues.push(`Row ${idx + 1} is not an object.`);
+        continue;
+      }
+      const name = String(row.name || "").trim();
+      if (!name) {
+        structuralIssues.push(`Row ${idx + 1} is missing scarab name.`);
+        continue;
+      }
+      const consumed = toNonNegativeInteger(row.consumed);
+      const received = toNonNegativeInteger(row.received);
+      if (consumed === null) {
+        structuralIssues.push(`Row ${idx + 1} has invalid consumed count.`);
+        continue;
+      }
+      if (received === null) {
+        structuralIssues.push(`Row ${idx + 1} has invalid received count.`);
+        continue;
+      }
+      actualConsumedRowTotal += consumed;
+      actualOutputTotal += received;
+      normalizedScarabs.push({
+        name,
+        consumed,
+        received,
+        was_vendor: !!row.was_vendor,
+        ninja_price: Math.max(0, Number(row.ninja_price) || 0)
+      });
     }
   }
-
-  return flags;
+  const declaredTotalConsumed = toOptionalNonNegativeInteger(session?.total_consumed);
+  if (declaredTotalConsumed === null) {
+    structuralIssues.push("Declared total_consumed is missing or invalid.");
+  } else if (declaredTotalConsumed !== actualConsumedRowTotal) {
+    structuralIssues.push(
+      `Declared total_consumed (${declaredTotalConsumed}) does not match row consumed sum (${actualConsumedRowTotal}).`
+    );
+  }
+  const declaredTotalTrades = toOptionalNonNegativeInteger(session?.total_trades);
+  const totalInput = toNonNegativeNumber(session?.input_value);
+  const totalOutput = toNonNegativeNumber(session?.output_value);
+  if (totalInput === null)
+    structuralIssues.push("Declared input_value is missing or invalid.");
+  if (totalOutput === null)
+    structuralIssues.push("Declared output_value is missing or invalid.");
+  if (actualConsumedRowTotal === 0 && actualOutputTotal === 0)
+    structuralIssues.push("No scarab movement detected.");
+  const expectedTrades = Math.floor(actualConsumedRowTotal / 3);
+  const leftovers = actualConsumedRowTotal % 3;
+  const expectedFinal = expectedTrades + leftovers;
+  const actualFinalCount = actualOutputTotal;
+  const drift = actualFinalCount - expectedFinal;
+  const absDrift = Math.abs(drift);
+  const driftRate = drift < 0 ? L1_NEGATIVE_DRIFT_RATE : L1_POSITIVE_DRIFT_RATE;
+  const allowedDrift = Math.max(L1_MIN_ALLOWED_DRIFT, Math.ceil(expectedFinal * driftRate));
+  const l1Passed = absDrift <= allowedDrift;
+  const driftPct = expectedFinal > 0 ? drift / expectedFinal * 100 : 0;
+  const l1Audit = {
+    inputQty: actualConsumedRowTotal,
+    totalConsumed: actualConsumedRowTotal,
+    expectedTrades,
+    leftovers,
+    expectedFinal,
+    actualFinalCount,
+    drift,
+    driftPct,
+    allowedDrift,
+    l1_result: l1Passed ? "pass" : "reject"
+  };
+  const reasons = [];
+  if (l1Passed) {
+    reasons.push(
+      `L1 pass: final count is structurally plausible (${actualFinalCount} vs expected final ${expectedFinal}, drift ${drift >= 0 ? "+" : ""}${drift}, allowed ${allowedDrift}).`
+    );
+  } else {
+    reasons.push(
+      `L1 reject: drift exceeds structural tolerance (${actualFinalCount} vs expected final ${expectedFinal}, drift ${drift >= 0 ? "+" : ""}${drift}, allowed ${allowedDrift}).`
+    );
+  }
+  if (declaredTotalTrades !== null && declaredTotalTrades !== expectedTrades) {
+    reasons.push(
+      `Declared total_trades (${declaredTotalTrades}) differs from expected trades (${expectedTrades}); backend uses expected trades.`
+    );
+  }
+  if (structuralIssues.length > 0) {
+    return {
+      counted: false,
+      classification: SESSION_STATE_L1_REJECT,
+      l1Passed: false,
+      intakeState: SESSION_STATE_L1_REJECT,
+      healthPct: 0,
+      reasons: [...structuralIssues, ...reasons],
+      expectedTrades,
+      leftovers,
+      expectedFinal,
+      allowedDrift,
+      actualOutputs: actualFinalCount,
+      actualFinalCount,
+      drift,
+      driftPct,
+      totalConsumed: actualConsumedRowTotal,
+      actualConsumedRowTotal,
+      totalInput: totalInput === null ? 0 : totalInput,
+      totalOutput: totalOutput === null ? 0 : totalOutput,
+      l1_result: "reject",
+      l1Audit,
+      normalizedScarabs
+    };
+  }
+  const classification = l1Passed ? "l1_pass_structural" : "l1_reject_structural";
+  const intakeState = l1Passed ? SESSION_STATE_APPROVED_AUTO : SESSION_STATE_L1_REJECT;
+  return {
+    counted: false,
+    l1Passed,
+    intakeState,
+    classification,
+    healthPct: l1Passed ? 100 : 0,
+    reasons,
+    expectedTrades,
+    leftovers,
+    expectedFinal,
+    allowedDrift,
+    actualOutputs: actualFinalCount,
+    actualFinalCount,
+    drift,
+    driftPct,
+    totalConsumed: actualConsumedRowTotal,
+    actualConsumedRowTotal,
+    totalInput,
+    totalOutput,
+    l1_result: l1Passed ? "pass" : "reject",
+    l1Audit,
+    normalizedScarabs
+  };
 }
-__name(getSessionFlags, "getSessionFlags");
+__name(evaluateSessionIntake, "evaluateSessionIntake");
+function l1DistanceNormalized(aMap, bMap, names) {
+  if (!Array.isArray(names) || names.length === 0)
+    return 0;
+  let sum = 0;
+  for (const name of names) {
+    const a = Number(aMap?.[name] || 0);
+    const b = Number(bMap?.[name] || 0);
+    sum += Math.abs(a - b);
+  }
+  return clamp01(sum / 2);
+}
+__name(l1DistanceNormalized, "l1DistanceNormalized");
+function computeHhi(shareMap, names) {
+  let hhi = 0;
+  for (const name of names || []) {
+    const s = Math.max(0, Number(shareMap?.[name] || 0));
+    hhi += s * s;
+  }
+  return hhi;
+}
+__name(computeHhi, "computeHhi");
+function computeSessionReceivedShareMap(rows) {
+  const receivedByName = {};
+  let totalReceived = 0;
+  for (const row of rows || []) {
+    const name = String(row?.name || "").trim();
+    if (!name)
+      continue;
+    const received = Math.max(0, Number(row?.received) || 0);
+    if (received <= 0)
+      continue;
+    receivedByName[name] = (receivedByName[name] || 0) + received;
+    totalReceived += received;
+  }
+  const shareByName = {};
+  if (totalReceived > 0) {
+    for (const [name, count] of Object.entries(receivedByName)) {
+      shareByName[name] = Number(count) / totalReceived;
+    }
+  }
+  return { receivedByName, shareByName, totalReceived };
+}
+__name(computeSessionReceivedShareMap, "computeSessionReceivedShareMap");
+function computeL2ShapeTerms(priorReceivedByScarab, scarabRows, expectedFinal) {
+  const observedBefore = priorReceivedByScarab || {};
+  const { receivedByName, shareByName: sessionShares } = computeSessionReceivedShareMap(scarabRows);
+  const priorCounts = Object.entries(observedBefore || {}).map(([name, count]) => [String(name), Math.max(0, Number(count) || 0)]);
+  const commonNames = priorCounts.filter(([, count]) => count >= 200).map(([name]) => name);
+  const midNames = priorCounts.filter(([, count]) => count >= 40 && count < 200).map(([name]) => name);
+  const matureNames = [...new Set([...commonNames, ...midNames])];
+  const totalCommonPrior = commonNames.reduce((sum, name) => sum + (Number(observedBefore?.[name]) || 0), 0);
+  const totalMidPrior = midNames.reduce((sum, name) => sum + (Number(observedBefore?.[name]) || 0), 0);
+  const totalMaturePrior = matureNames.reduce((sum, name) => sum + (Number(observedBefore?.[name]) || 0), 0);
+  const expectedCommonShares = {};
+  const expectedMidShares = {};
+  const expectedMatureShares = {};
+  for (const name of commonNames)
+    expectedCommonShares[name] = totalCommonPrior > 0 ? (Number(observedBefore[name]) || 0) / totalCommonPrior : 0;
+  for (const name of midNames)
+    expectedMidShares[name] = totalMidPrior > 0 ? (Number(observedBefore[name]) || 0) / totalMidPrior : 0;
+  for (const name of matureNames)
+    expectedMatureShares[name] = totalMaturePrior > 0 ? (Number(observedBefore[name]) || 0) / totalMaturePrior : 0;
+  const sessionCommonMass = commonNames.reduce((sum, name) => sum + (Number(sessionShares[name]) || 0), 0);
+  const sessionMidMass = midNames.reduce((sum, name) => sum + (Number(sessionShares[name]) || 0), 0);
+  const sessionMatureMass = matureNames.reduce((sum, name) => sum + (Number(sessionShares[name]) || 0), 0);
+  const sessionCommonNorm = {};
+  const sessionMidNorm = {};
+  const sessionMatureNorm = {};
+  for (const name of commonNames)
+    sessionCommonNorm[name] = sessionCommonMass > 0 ? (Number(sessionShares[name]) || 0) / sessionCommonMass : 0;
+  for (const name of midNames)
+    sessionMidNorm[name] = sessionMidMass > 0 ? (Number(sessionShares[name]) || 0) / sessionMidMass : 0;
+  for (const name of matureNames)
+    sessionMatureNorm[name] = sessionMatureMass > 0 ? (Number(sessionShares[name]) || 0) / sessionMatureMass : 0;
+  const midDiv = l1DistanceNormalized(sessionMidNorm, expectedMidShares, midNames);
+  let spike = 0;
+  let spikeScarab = null;
+  let spikeExpectedShare = 0;
+  let spikeActualShare = 0;
+  for (const name of matureNames) {
+    const expected = Math.max(1e-3, Number(expectedMatureShares[name] || 0));
+    const actual = Math.max(0, Number(sessionMatureNorm[name] || 0));
+    const ratio = actual / expected;
+    const severity = clamp01((ratio - 1) / 6);
+    if (severity > spike) {
+      spike = severity;
+      spikeScarab = name;
+      spikeExpectedShare = expected;
+      spikeActualShare = actual;
+    }
+  }
+  const concentrationRaw = matureNames.length > 0 ? clamp01(computeHhi(sessionMatureNorm, matureNames) / 0.35) : 0;
+  let supportRaw = 0;
+  if (spikeScarab && spikeActualShare > spikeExpectedShare) {
+    const topExcess = spikeActualShare - spikeExpectedShare;
+    let otherPositiveExcess = 0;
+    for (const name of matureNames) {
+      if (name === spikeScarab)
+        continue;
+      const excess = Number(sessionMatureNorm[name] || 0) - Number(expectedMatureShares[name] || 0);
+      if (excess > 0)
+        otherPositiveExcess += excess;
+    }
+    supportRaw = clamp01(1 - otherPositiveExcess / Math.max(1e-9, topExcess + otherPositiveExcess));
+  }
+  const spikeExcessCount = Math.max(0, (spikeActualShare - spikeExpectedShare) * Math.max(0, Number(expectedFinal) || 0));
+  return {
+    spikeScarab,
+    spikeExpectedShare,
+    spikeActualShare,
+    spikeExcessCount,
+    maturePriorTotal: totalMaturePrior,
+    spike,
+    midDiv,
+    concentration: concentrationRaw,
+    support: supportRaw
+  };
+}
+__name(computeL2ShapeTerms, "computeL2ShapeTerms");
+function evaluateL2Intake(intake, priorReceivedByScarab) {
+  const expectedFinal = Math.max(0, Number(intake.expectedFinal) || 0);
+  const shape = computeL2ShapeTerms(priorReceivedByScarab || {}, intake.normalizedScarabs || [], expectedFinal);
+  const sizeScale = clamp01(expectedFinal / 3500);
+  const spikeGate = clamp01((shape.spike + shape.midDiv) / 0.25);
+  const supportGate = clamp01(shape.spike / 0.15);
+  const concentration_adjusted = shape.concentration * sizeScale * spikeGate;
+  const support_adjusted_base = shape.support * supportGate;
+  const excessFloor = Math.max(12, Math.ceil(expectedFinal * 4e-3));
+  const shareEsc = clamp01((shape.spikeExpectedShare - 0.015) / 0.02);
+  const excessEsc = clamp01((shape.spikeExcessCount - excessFloor) / Math.max(10, 2 * excessFloor));
+  const maturityEsc = clamp01((shape.maturePriorTotal - 400) / 2e3);
+  const escalation = Math.max(0.08, Math.max(shareEsc, excessEsc) * (0.35 + 0.65 * maturityEsc));
+  const spike_guarded = shape.spike * escalation;
+  const support_adjusted = support_adjusted_base * escalation;
+  const scoreBeforeGuards = 100 * (L2_WEIGHT_SPIKE * shape.spike + L2_WEIGHT_MID_DIV * shape.midDiv + L2_WEIGHT_CONCENTRATION * concentration_adjusted + L2_WEIGHT_SUPPORT * support_adjusted_base);
+  const finalScore = 100 * (L2_WEIGHT_SPIKE * spike_guarded + L2_WEIGHT_MID_DIV * shape.midDiv + L2_WEIGHT_CONCENTRATION * concentration_adjusted + L2_WEIGHT_SUPPORT * support_adjusted);
+  const matureGuard = shape.maturePriorTotal >= 400 && shape.spikeExpectedShare >= 0.015;
+  const excessGuard = shape.spikeExcessCount >= excessFloor;
+  const l2Audit = {
+    spikeScarab: shape.spikeScarab || null,
+    expectedShare: shape.spikeExpectedShare,
+    actualShare: shape.spikeActualShare,
+    excessCount: shape.spikeExcessCount,
+    maturePriorTotal: shape.maturePriorTotal,
+    matureGuard,
+    excessGuard,
+    spikeSeverity: shape.spike,
+    midDiv: shape.midDiv,
+    concentration: shape.concentration,
+    supportInconsistency: shape.support,
+    concentrationAdjusted: concentration_adjusted,
+    supportAdjustedBase: support_adjusted_base,
+    supportAdjusted: support_adjusted,
+    scoreBeforeGuards,
+    scoreAfterGuards: finalScore,
+    finalL2Score: finalScore,
+    highPriorityReview: finalScore >= L2_HIGH_PRIORITY_THRESHOLD,
+    interpretation: finalScore < L2_PASS_THRESHOLD ? "L2 pass: composition is within low-concern bounds." : finalScore >= L2_HIGH_PRIORITY_THRESHOLD ? "L2 review: high-priority composition anomaly." : "L2 review: composition anomaly requires manual review.",
+    gates: {
+      sizeScale,
+      spikeGate,
+      supportGate,
+      shareEsc,
+      excessEsc,
+      maturityEsc,
+      escalation,
+      excessFloor
+    }
+  };
+  if (finalScore < L2_PASS_THRESHOLD) {
+    return {
+      counted: true,
+      intakeState: SESSION_STATE_APPROVED_AUTO,
+      classification: SESSION_STATE_APPROVED_AUTO,
+      healthPct: 100,
+      reasons: intake.reasons,
+      l2Audit
+    };
+  }
+  return {
+    counted: false,
+    intakeState: SESSION_STATE_REVIEW_PENDING,
+    classification: SESSION_STATE_REVIEW_PENDING,
+    healthPct: Math.max(65, Number(intake.healthPct) || 0),
+    reasons: [...intake.reasons, l2Audit.interpretation],
+    l2Audit
+  };
+}
+__name(evaluateL2Intake, "evaluateL2Intake");
+function parseScarabRows(raw) {
+  try {
+    const parsed = JSON.parse(String(raw || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+__name(parseScarabRows, "parseScarabRows");
+function buildReceivedByScarabMap(scarabs) {
+  const out = {};
+  for (const row of scarabs || []) {
+    const name = String(row?.name || "").trim();
+    if (!name)
+      continue;
+    const received = Number(row?.received) || 0;
+    if (received <= 0)
+      continue;
+    out[name] = (out[name] || 0) + received;
+  }
+  return out;
+}
+__name(buildReceivedByScarabMap, "buildReceivedByScarabMap");
+async function applySessionAggregateDelta(env, sessionRow, direction) {
+  const dir = Number(direction) >= 0 ? 1 : -1;
+  const aggRow = await env.DB.prepare(
+    "SELECT total_sessions, total_consumed, total_trades, total_input, total_output, received_by_scarab FROM aggregate WHERE id = 1"
+  ).first();
+  let receivedByScarab = {};
+  try {
+    receivedByScarab = JSON.parse(aggRow?.received_by_scarab || "{}");
+  } catch (_) {
+    receivedByScarab = {};
+  }
+  const deltaMap = buildReceivedByScarabMap(parseScarabRows(sessionRow?.scarabs_json || "[]"));
+  for (const [name, count] of Object.entries(deltaMap)) {
+    const next = (Number(receivedByScarab[name]) || 0) + dir * (Number(count) || 0);
+    if (next > 0)
+      receivedByScarab[name] = next;
+    else
+      delete receivedByScarab[name];
+  }
+  const nextSessions = Math.max(0, (Number(aggRow?.total_sessions) || 0) + dir);
+  const nextConsumed = Math.max(0, (Number(aggRow?.total_consumed) || 0) + dir * (Number(sessionRow?.total_consumed) || 0));
+  const nextTrades = Math.max(0, (Number(aggRow?.total_trades) || 0) + dir * (Number(sessionRow?.total_trades) || 0));
+  const nextInput = Math.max(0, (Number(aggRow?.total_input) || 0) + dir * (Number(sessionRow?.input_value) || 0));
+  const nextOutput = Math.max(0, (Number(aggRow?.total_output) || 0) + dir * (Number(sessionRow?.output_value) || 0));
+  await env.DB.prepare(
+    "UPDATE aggregate SET total_sessions = ?, total_consumed = ?, total_trades = ?, total_input = ?, total_output = ?, received_by_scarab = ? WHERE id = 1"
+  ).bind(nextSessions, nextConsumed, nextTrades, nextInput, nextOutput, JSON.stringify(receivedByScarab)).run();
+  return { sessionCount: nextSessions };
+}
+__name(applySessionAggregateDelta, "applySessionAggregateDelta");
+async function insertIntakeEvent(env, payload) {
+  await env.DB.prepare(
+    `INSERT INTO session_intake_events (
+      session_id, action, intake_state, admin_actor, admin_note, ip_hash,
+      league, league_key, total_consumed, total_trades, input_value, output_value,
+      expected_trades, actual_outputs, output_drift, reasons_json, meta_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    payload.sessionId || null,
+    payload.action || "event",
+    payload.intakeState || SESSION_STATE_L1_REJECT,
+    payload.adminActor || null,
+    payload.adminNote || null,
+    payload.ipHash || null,
+    payload.league || null,
+    payload.leagueKey || null,
+    Number(payload.totalConsumed) || 0,
+    Number(payload.totalTrades) || 0,
+    Number(payload.totalInput) || 0,
+    Number(payload.totalOutput) || 0,
+    Number(payload.expectedTrades) || 0,
+    Number(payload.actualOutputs) || 0,
+    Number(payload.drift) || 0,
+    JSON.stringify(Array.isArray(payload.reasons) ? payload.reasons : []),
+    payload.meta ? JSON.stringify(payload.meta) : null
+  ).run();
+}
+__name(insertIntakeEvent, "insertIntakeEvent");
 async function hashIP(ip) {
   const enc = new TextEncoder().encode(ip || "unknown");
   const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -219,6 +701,11 @@ function safeParseJsonArray(raw) {
   }
 }
 __name(safeParseJsonArray, "safeParseJsonArray");
+async function loadApprovedReceivedByScarab(env) {
+  const row = await env.DB.prepare("SELECT received_by_scarab FROM aggregate WHERE id = 1").first();
+  return safeParseJsonMap(row?.received_by_scarab || "{}");
+}
+__name(loadApprovedReceivedByScarab, "loadApprovedReceivedByScarab");
 function splitCanonicalGroups(catalog) {
   const groups = /* @__PURE__ */ new Map();
   for (const item of catalog) {
@@ -356,6 +843,8 @@ function seedCanonicalWeights(rawWeights, leagueKey) {
     weights: normalizeWeightMapStable(canonical, catalog),
     meta: {
       version: WEIGHT_SEED_VERSION,
+      enabled: true,
+      mode: "seeded-canonical",
       canonicalPoolSize: catalog.ordered.length,
       removedNonCanonicalCount: removedCount,
       preservedObservedCount,
@@ -633,7 +1122,9 @@ function pickLeagueModel(leagueInfo, byKey) {
 __name(pickLeagueModel, "pickLeagueModel");
 async function computeLeagueAggregate(env, rawLeague) {
   const { results: rows } = await env.DB.prepare(
-    "SELECT created_at, league, league_key, total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json FROM sessions"
+    `SELECT created_at, league, league_key, total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json
+     FROM sessions
+     WHERE ${APPROVED_STATE_WHERE}`
   ).all();
   const byKey = buildLeagueStats(rows || []);
   const leagueInfo = normalizeLeagueInfo(rawLeague);
@@ -678,7 +1169,9 @@ async function computeLeagueAggregate(env, rawLeague) {
 __name(computeLeagueAggregate, "computeLeagueAggregate");
 async function recomputeAggregate(env) {
   const { results: rows } = await env.DB.prepare(
-    "SELECT total_consumed, total_trades, input_value, output_value, scarabs_json FROM sessions"
+    `SELECT total_consumed, total_trades, input_value, output_value, scarabs_json
+     FROM sessions
+     WHERE ${APPROVED_STATE_WHERE}`
   ).all();
   let totalSessions = 0;
   let totalConsumed = 0;
@@ -714,6 +1207,7 @@ var src_default = {
       return new Response(null, { status: 204, headers: CORS });
     const url = new URL(request.url);
     const path = url.pathname;
+    await ensureIntakeSchema(env);
     // --- START REPAIR LOGIC ---
 if (path.startsWith("/api/sync-repair") && request.method === "POST") {
       try {
@@ -759,7 +1253,7 @@ if (path.startsWith("/api/sync-repair") && request.method === "POST") {
     }
 if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
       try {
-        const { results } = await env.DB.prepare("SELECT scarabs_json FROM sessions").all();
+        const { results } = await env.DB.prepare(`SELECT scarabs_json FROM sessions WHERE ${APPROVED_STATE_WHERE}`).all();
         
         let receivedByScarab = {}; 
 
@@ -775,7 +1269,7 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
 
         const finalStats = await env.DB.prepare(`
           SELECT COUNT(*) as total_sessions, SUM(total_consumed) as c, SUM(total_trades) as t, 
-          SUM(input_value) as i, SUM(output_value) as o FROM sessions
+          SUM(input_value) as i, SUM(output_value) as o FROM sessions WHERE ${APPROVED_STATE_WHERE}
         `).first();
 
         // Overwrite the aggregate record with the full map of all scarabs
@@ -883,67 +1377,393 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
       }
       if (!session || typeof session !== "object")
         return json({ error: "Invalid body" }, 400);
-      const totalConsumed = session.total_consumed || 0;
-      const totalTrades = session.total_trades || 0;
-      const totalInput = session.input_value || 0;
-      const totalOutput = session.output_value || 0;
-      const divineRate = Number(session.divine_rate) || null;
-      const scarabs = Array.isArray(session.scarabs) ? session.scarabs : [];
-      if (totalInput > 0 && Math.abs(totalOutput - totalInput) < 1 && totalConsumed === 0)
-        return json({ error: "No changes detected", counted: false }, 400);
-      const flags = getSessionFlags(session);
-      if (flags.length > 0)
-        return json({ counted: false, reason: "flagged", flags }, 200);
-      const scarabsJson = JSON.stringify(scarabs.map((r) => ({
-        name: r.name,
-        received: r.received || 0,
-        consumed: r.consumed || 0,
-        was_vendor: r.was_vendor || false,
-        ninja_price: r.ninja_price || 0
-      })));
       const league = session.league || null;
       const leagueInfo = normalizeLeagueInfo(league || "unknown");
-      const regex  = session.regex  || null;
+      const l1 = evaluateSessionIntake(session);
+      if (!l1.l1Passed) {
+        await insertIntakeEvent(env, {
+          action: "l1_reject",
+          intakeState: SESSION_STATE_L1_REJECT,
+          ipHash,
+          league,
+          leagueKey: leagueInfo.key,
+          totalConsumed: l1.totalConsumed,
+          totalTrades: l1.expectedTrades,
+          totalInput: l1.totalInput,
+          totalOutput: l1.totalOutput,
+          expectedTrades: l1.expectedTrades,
+          actualOutputs: l1.actualOutputs,
+          drift: l1.drift,
+          reasons: l1.reasons,
+          meta: {
+            scarabRows: Array.isArray(l1.normalizedScarabs) ? l1.normalizedScarabs.length : 0,
+            expectedFinal: Number(l1.expectedFinal) || 0,
+            allowedDrift: Number(l1.allowedDrift) || 0,
+            l1Audit: l1.l1Audit || null
+          }
+        });
+        return json({
+          counted: false,
+          intakeState: SESSION_STATE_L1_REJECT,
+          classification: SESSION_STATE_L1_REJECT,
+          healthPct: l1.healthPct,
+          reasons: l1.reasons,
+          expectedTrades: l1.expectedTrades,
+          leftovers: l1.leftovers,
+          expectedFinal: l1.expectedFinal,
+          allowedDrift: l1.allowedDrift,
+          actualOutputs: l1.actualOutputs,
+          actualFinalCount: l1.actualFinalCount,
+          drift: l1.drift,
+          driftPct: l1.driftPct,
+          l1_result: l1.l1_result,
+          l1Audit: l1.l1Audit
+        }, 200);
+      }
+      const priorReceivedByScarab = await loadApprovedReceivedByScarab(env);
+      const l2 = evaluateL2Intake(l1, priorReceivedByScarab);
+      const totalConsumed = l1.totalConsumed;
+      const totalTrades = l1.expectedTrades;
+      const totalInput = l1.totalInput;
+      const totalOutput = l1.totalOutput;
+      const divineRate = Number(session.divine_rate) || null;
+      const scarabs = l1.normalizedScarabs;
+      const scarabsJson = JSON.stringify(scarabs.map((r) => ({
+        name: r.name,
+        received: r.received,
+        consumed: r.consumed,
+        was_vendor: r.was_vendor,
+        ninja_price: r.ninja_price
+      })));
+      const regex = session.regex || null;
+      const intakeReasonsJson = JSON.stringify(l2.reasons || l1.reasons || []);
+      const intakeL1Json = JSON.stringify(l1.l1Audit || {});
+      const intakeL2Json = JSON.stringify(l2.l2Audit || {});
+      const intakeState = l2.intakeState || SESSION_STATE_REVIEW_PENDING;
       const insert = env.DB.prepare(
-        "INSERT INTO sessions (total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json, league, regex, league_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-      ).bind(totalConsumed, totalTrades, totalInput, totalOutput, divineRate, scarabsJson, league, regex, leagueInfo.key);
-      const aggRow = await env.DB.prepare(
-        "SELECT total_sessions, total_consumed, total_trades, total_input, total_output, received_by_scarab FROM aggregate WHERE id = 1"
-      ).first();
-      let receivedByScarab = {};
-      try {
-        receivedByScarab = JSON.parse(aggRow?.received_by_scarab || "{}");
-      } catch (_) {
+        `INSERT INTO sessions (
+          total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json, league, regex, league_key,
+          intake_state, intake_class, intake_health_pct, intake_expected_trades, intake_actual_outputs, intake_drift, intake_reasons_json,
+          intake_l1_json, intake_l2_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        totalConsumed, totalTrades, totalInput, totalOutput, divineRate, scarabsJson, league, regex, leagueInfo.key,
+        intakeState, l2.classification || intakeState, Number(l2.healthPct) || Number(l1.healthPct) || 0, l1.expectedTrades, l1.actualOutputs, l1.drift, intakeReasonsJson,
+        intakeL1Json, intakeL2Json
+      );
+      const insertResult = await insert.run();
+      const sessionId = insertResult?.meta?.last_row_id ? String(insertResult.meta.last_row_id) : null;
+      if (APPROVED_INTAKE_STATES.includes(intakeState)) {
+        await applySessionAggregateDelta(env, {
+          total_consumed: totalConsumed,
+          total_trades: totalTrades,
+          input_value: totalInput,
+          output_value: totalOutput,
+          scarabs_json: scarabsJson
+        }, +1);
       }
-      for (const r of scarabs) {
-        if (r.received > 0 && r.name)
-          receivedByScarab[r.name] = (receivedByScarab[r.name] || 0) + r.received;
-      }
-      const newTotalSessions = (aggRow?.total_sessions || 0) + 1;
-      const newTotalConsumed = (aggRow?.total_consumed || 0) + totalConsumed;
-      const newTotalTrades = (aggRow?.total_trades || 0) + totalTrades;
-      const newTotalInput = (aggRow?.total_input || 0) + totalInput;
-      const newTotalOutput = (aggRow?.total_output || 0) + totalOutput;
-      const updateAgg = env.DB.prepare(
-        "UPDATE aggregate SET total_sessions = ?, total_consumed = ?, total_trades = ?, total_input = ?, total_output = ?, received_by_scarab = ? WHERE id = 1"
-      ).bind(newTotalSessions, newTotalConsumed, newTotalTrades, newTotalInput, newTotalOutput, JSON.stringify(receivedByScarab));
-      await env.DB.batch([insert, updateAgg]);
-      return json({ counted: true, sessionCount: newTotalSessions }, 200);
+      await insertIntakeEvent(env, {
+        sessionId,
+        action: "submitted",
+        intakeState,
+        ipHash,
+        league,
+        leagueKey: leagueInfo.key,
+        totalConsumed,
+        totalTrades,
+        totalInput,
+        totalOutput,
+        expectedTrades: l1.expectedTrades,
+        actualOutputs: l1.actualOutputs,
+        drift: l1.drift,
+        reasons: l2.reasons || l1.reasons,
+        meta: {
+          expectedFinal: Number(l1.expectedFinal) || 0,
+          allowedDrift: Number(l1.allowedDrift) || 0,
+          l1Audit: l1.l1Audit || null,
+          l2Audit: l2.l2Audit || null
+        }
+      });
+      const aggRow = await env.DB.prepare("SELECT total_sessions FROM aggregate WHERE id = 1").first();
+      return json({
+        counted: APPROVED_INTAKE_STATES.includes(intakeState),
+        intakeState,
+        classification: l2.classification || intakeState,
+        healthPct: l2.healthPct,
+        reasons: l2.reasons || l1.reasons,
+        expectedTrades: l1.expectedTrades,
+        leftovers: l1.leftovers,
+        expectedFinal: l1.expectedFinal,
+        allowedDrift: l1.allowedDrift,
+        actualOutputs: l1.actualOutputs,
+        actualFinalCount: l1.actualFinalCount,
+        drift: l1.drift,
+        driftPct: l1.driftPct,
+        l1_result: l1.l1_result,
+        l1Audit: l1.l1Audit,
+        l2Audit: l2.l2Audit || null,
+        sessionCount: aggRow?.total_sessions ?? 0
+      }, 200);
     }
     if (path.startsWith("/admin/sessions")) {
       const urlKey = url.searchParams.get("key");
       if (!urlKey || urlKey !== env.ADMIN_KEY)
         return json({ error: "Unauthorized" }, 401);
+      const subPath = path.slice("/admin/sessions".length);
+      const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 200)));
+      if (request.method === "GET" && subPath === "/review") {
+        const { results } = await env.DB.prepare(
+          `SELECT id, created_at, league, league_key, regex, total_consumed, total_trades, input_value, output_value,
+                  divine_rate, scarabs_json, intake_state, intake_class, intake_health_pct, intake_expected_trades,
+                  intake_actual_outputs, intake_drift, intake_reasons_json, intake_l1_json, intake_l2_json, admin_note, reviewed_at
+           FROM sessions
+           WHERE intake_state = ?
+           ORDER BY created_at DESC
+           LIMIT ?`
+        ).bind(SESSION_STATE_REVIEW_PENDING, limit).all();
+        return json(results);
+      }
+      if (request.method === "GET" && subPath === "/research") {
+        const { results } = await env.DB.prepare(
+          `SELECT id, created_at, league, league_key, regex, total_consumed, total_trades, input_value, output_value,
+                  divine_rate, scarabs_json, intake_state, intake_class, intake_health_pct, intake_expected_trades,
+                  intake_actual_outputs, intake_drift, intake_reasons_json, intake_l1_json, intake_l2_json, admin_note, reviewed_at
+           FROM sessions
+           WHERE intake_state = ?
+           ORDER BY created_at DESC
+           LIMIT ?`
+        ).bind(SESSION_STATE_RESEARCH, limit).all();
+        return json(results);
+      }
+      if (request.method === "GET" && subPath === "/analytics") {
+        const { results: stateRows } = await env.DB.prepare(
+          `SELECT intake_state, COUNT(*) AS count
+           FROM sessions
+           GROUP BY intake_state`
+        ).all();
+        const counts = {
+          approved_auto: 0,
+          review_pending: 0,
+          approved_manual: 0,
+          research: 0
+        };
+        for (const row of stateRows || []) {
+          const state = String(row?.intake_state || "").trim();
+          const count = Number(row?.count) || 0;
+          if (Object.prototype.hasOwnProperty.call(counts, state))
+            counts[state] = count;
+        }
+        const l1Rejected = await env.DB.prepare(
+          "SELECT COUNT(*) AS count FROM session_intake_events WHERE intake_state = ? AND action = ?"
+        ).bind(SESSION_STATE_L1_REJECT, "l1_reject").first();
+        const l1RejectCount = Number(l1Rejected?.count) || 0;
+        const totalSubmissions = counts.approved_auto + counts.review_pending + counts.approved_manual + counts.research + l1RejectCount;
+        const { results: l2Rows } = await env.DB.prepare(
+          `SELECT intake_l2_json
+           FROM sessions
+           WHERE intake_l2_json IS NOT NULL
+             AND intake_l2_json != ''`
+        ).all();
+        const scores = [];
+        for (const row of l2Rows || []) {
+          try {
+            const parsed = JSON.parse(String(row?.intake_l2_json || "{}"));
+            const score = Number(parsed?.finalL2Score);
+            if (Number.isFinite(score))
+              scores.push(score);
+          } catch (_) {
+          }
+        }
+        scores.sort((a, b) => a - b);
+        let averageL2Score = 0;
+        let medianL2Score = 0;
+        if (scores.length > 0) {
+          averageL2Score = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+          const mid = Math.floor(scores.length / 2);
+          medianL2Score = scores.length % 2 === 0 ? (scores[mid - 1] + scores[mid]) / 2 : scores[mid];
+        }
+        const scoreHistogram = {
+          lt12: 0,
+          b12to20: 0,
+          b20to35: 0,
+          gte35: 0
+        };
+        for (const score of scores) {
+          if (score < 12)
+            scoreHistogram.lt12 += 1;
+          else if (score < 20)
+            scoreHistogram.b12to20 += 1;
+          else if (score < 35)
+            scoreHistogram.b20to35 += 1;
+          else
+            scoreHistogram.gte35 += 1;
+        }
+        return json({
+          totalSubmissions,
+          counts,
+          l1RejectCount,
+          l2ScoreCount: scores.length,
+          averageL2Score,
+          medianL2Score,
+          scoreHistogram
+        });
+      }
+      if (request.method === "GET" && subPath === "/metrics") {
+        const { results } = await env.DB.prepare(
+          `SELECT intake_state, COUNT(*) AS count
+           FROM sessions
+           GROUP BY intake_state`
+        ).all();
+        const counts = {
+          approved_auto: 0,
+          approved_manual: 0,
+          review_pending: 0,
+          research: 0,
+          legacy_approved: 0
+        };
+        for (const row of results || []) {
+          const state = row?.intake_state;
+          const count = Number(row?.count) || 0;
+          if (state === null || state === "")
+            counts.legacy_approved += count;
+          else if (Object.prototype.hasOwnProperty.call(counts, state))
+            counts[state] = count;
+        }
+        const l1Rejected = await env.DB.prepare("SELECT COUNT(*) AS count FROM session_intake_events WHERE intake_state = ?").bind(SESSION_STATE_L1_REJECT).first();
+        return json({
+          counts,
+          l1RejectCount: Number(l1Rejected?.count) || 0
+        });
+      }
+      const approveMatch = subPath.match(/^\/([^/]+)\/approve$/);
+      if (approveMatch && request.method === "POST") {
+        const id = decodeURIComponent(approveMatch[1] || "");
+        const row = await env.DB.prepare(
+          `SELECT id, intake_state, total_consumed, total_trades, input_value, output_value, scarabs_json, league, league_key,
+                  intake_expected_trades, intake_actual_outputs, intake_drift, intake_reasons_json
+           FROM sessions WHERE id = ?`
+        ).bind(id).first();
+        if (!row)
+          return json({ error: "Session not found" }, 404);
+        if (!SESSION_REVIEWABLE_STATES.includes(String(row.intake_state || "")) && row.intake_state !== SESSION_STATE_APPROVED_AUTO && row.intake_state !== SESSION_STATE_APPROVED_MANUAL) {
+          return json({ error: "Session is not reviewable" }, 409);
+        }
+        let note = null;
+        try {
+          const body = await request.json();
+          note = typeof body?.note === "string" ? body.note.trim().slice(0, 500) : null;
+        } catch (_) {
+          note = null;
+        }
+        const previousState = row.intake_state || null;
+        await env.DB.prepare(
+          "UPDATE sessions SET intake_state = ?, admin_note = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(SESSION_STATE_APPROVED_MANUAL, note, id).run();
+        if (!APPROVED_INTAKE_STATES.includes(String(previousState || ""))) {
+          await applySessionAggregateDelta(env, row, +1);
+        }
+        await insertIntakeEvent(env, {
+          sessionId: String(id),
+          action: "approve",
+          intakeState: SESSION_STATE_APPROVED_MANUAL,
+          adminActor: "admin_key",
+          adminNote: note,
+          league: row.league,
+          leagueKey: row.league_key,
+          totalConsumed: row.total_consumed,
+          totalTrades: row.total_trades,
+          totalInput: row.input_value,
+          totalOutput: row.output_value,
+          expectedTrades: row.intake_expected_trades,
+          actualOutputs: row.intake_actual_outputs,
+          drift: row.intake_drift,
+          reasons: safeParseJsonArray(row.intake_reasons_json)
+        });
+        return json({ ok: true, id, intakeState: SESSION_STATE_APPROVED_MANUAL });
+      }
+      const rejectMatch = subPath.match(/^\/([^/]+)\/reject$/);
+      if (rejectMatch && request.method === "POST") {
+        const id = decodeURIComponent(rejectMatch[1] || "");
+        const row = await env.DB.prepare(
+          `SELECT id, intake_state, total_consumed, total_trades, input_value, output_value, scarabs_json, league, league_key,
+                  intake_expected_trades, intake_actual_outputs, intake_drift, intake_reasons_json
+           FROM sessions WHERE id = ?`
+        ).bind(id).first();
+        if (!row)
+          return json({ error: "Session not found" }, 404);
+        if (String(row.intake_state || "") === SESSION_STATE_RESEARCH)
+          return json({ ok: true, id, intakeState: SESSION_STATE_RESEARCH });
+        let note = null;
+        try {
+          const body = await request.json();
+          note = typeof body?.note === "string" ? body.note.trim().slice(0, 500) : null;
+        } catch (_) {
+          note = null;
+        }
+        const wasApproved = APPROVED_INTAKE_STATES.includes(String(row.intake_state || ""));
+        await env.DB.prepare(
+          "UPDATE sessions SET intake_state = ?, admin_note = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(SESSION_STATE_RESEARCH, note, id).run();
+        if (wasApproved) {
+          await applySessionAggregateDelta(env, row, -1);
+        }
+        await insertIntakeEvent(env, {
+          sessionId: String(id),
+          action: "reject",
+          intakeState: SESSION_STATE_RESEARCH,
+          adminActor: "admin_key",
+          adminNote: note,
+          league: row.league,
+          leagueKey: row.league_key,
+          totalConsumed: row.total_consumed,
+          totalTrades: row.total_trades,
+          totalInput: row.input_value,
+          totalOutput: row.output_value,
+          expectedTrades: row.intake_expected_trades,
+          actualOutputs: row.intake_actual_outputs,
+          drift: row.intake_drift,
+          reasons: safeParseJsonArray(row.intake_reasons_json)
+        });
+        return json({ ok: true, id, intakeState: SESSION_STATE_RESEARCH });
+      }
       if (request.method === "DELETE") {
         const id = decodeURIComponent(path.replace("/admin/sessions/", ""));
+        const row = await env.DB.prepare(
+          "SELECT id, intake_state, total_consumed, total_trades, input_value, output_value, scarabs_json FROM sessions WHERE id = ?"
+        ).bind(id).first();
+        if (!row)
+          return json({ ok: true, deleted: 0 });
+        const wasApproved = APPROVED_INTAKE_STATES.includes(String(row.intake_state || "")) || row.intake_state === null;
         const res = await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(id).run();
+        if (wasApproved && (res?.meta?.changes || 0) > 0) {
+          await applySessionAggregateDelta(env, row, -1);
+        }
         return json({ ok: true, deleted: res.meta.changes ?? 0 });
       }
-      if (request.method === "GET") {
-        const limit = Number(url.searchParams.get("limit") || 200);
+      if (request.method === "GET" && subPath === "/events") {
         const { results } = await env.DB.prepare(
-          "SELECT id, created_at, league, league_key, regex, total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json FROM sessions ORDER BY created_at DESC LIMIT ?"
+          `SELECT id, created_at, session_id, action, intake_state, admin_actor, admin_note, league, league_key,
+                  total_consumed, total_trades, input_value, output_value, expected_trades, actual_outputs, output_drift, reasons_json
+           FROM session_intake_events
+           ORDER BY created_at DESC
+           LIMIT ?`
         ).bind(limit).all();
+        return json(results);
+      }
+      if (request.method === "GET") {
+        const intakeState = String(url.searchParams.get("state") || "").trim();
+        let query = `SELECT id, created_at, league, league_key, regex, total_consumed, total_trades, input_value, output_value,
+                            divine_rate, scarabs_json, intake_state, intake_class, intake_health_pct, intake_expected_trades,
+                            intake_actual_outputs, intake_drift, intake_reasons_json, intake_l1_json, intake_l2_json, admin_note, reviewed_at
+                     FROM sessions`;
+        const bindArgs = [];
+        if (intakeState) {
+          query += " WHERE intake_state = ?";
+          bindArgs.push(intakeState);
+        }
+        query += " ORDER BY created_at DESC LIMIT ?";
+        bindArgs.push(limit);
+        const { results } = await env.DB.prepare(query).bind(...bindArgs).all();
         return json(results);
       }
       return json({ error: "Not found" }, 404);
@@ -955,3 +1775,4 @@ export {
   src_default as default
 };
 //# sourceMappingURL=index.js.map
+
