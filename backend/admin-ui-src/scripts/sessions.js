@@ -14,8 +14,12 @@ function parseReasons(v){try{const rows=JSON.parse(String(v||'[]'));if(Array.isA
 function parseObj(v){try{const o=JSON.parse(String(v||'{}'));return(o&&typeof o==='object')?o:{};}catch(e){return{};}}
 function stateLabel(v){const s=String(v||'').trim();if(!s)return 'legacy_approved';return s;}
 function scarabsOutCount(s,l1){
-  const layer1=(l1&&typeof l1==='object')?l1:parseObj(s&&s.intake_l1_json);
-  return Math.round(safeNum(layer1.actualFinalCount??(s&&s.intake_actual_outputs)));
+  const rows=parseScarabRows(s&&s.scarabs_json);
+  let total=0;
+  for(const row of rows){
+    total+=safeNum(row&&row.received);
+  }
+  return Math.round(total);
 }
 function openSessionCfgModal(){$('sessCfgModalWrap').classList.add('open');}
 function closeSessionCfgModal(){$('sessCfgModalWrap').classList.remove('open');}

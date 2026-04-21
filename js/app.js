@@ -3094,7 +3094,7 @@ function renderSessionHistory() {
   const start = (page - 1) * pageSize;
   const end = Math.min(total, start + pageSize);
   const pageRows = ordered.slice(start, end);
-  const cols = '132px 1fr 72px 72px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
+  const cols = '132px 1fr 84px 98px 72px 72px 72px 64px 56px minmax(80px, 1fr)';
   const gap = '12px';
   const fmtSessionDate = (iso) => {
     if (!iso) return '-';
@@ -3127,9 +3127,9 @@ function renderSessionHistory() {
       const profit = (s.output_value || 0) - (s.input_value || 0);
       const fmtSession = (c) => fmtWithRate(c, s.divine_rate);
       const profitFmt = (c) => (c >= 0 ? '+' : '') + fmtSession(c);
-      const scarabsOut = Number.isFinite(Number(s.intake_actual_outputs))
-        ? Math.round(Number(s.intake_actual_outputs)).toLocaleString()
-        : '-';
+      const scarabsOut = Array.isArray(s.scarabs)
+        ? Math.round(s.scarabs.reduce((sum, row) => sum + (Number(row?.received) || 0), 0)).toLocaleString()
+        : '0';
       return `<div>
         <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
           <span class="cell-left">${fmtSessionDate(s.created_at)}</span>
