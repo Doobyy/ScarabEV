@@ -391,8 +391,8 @@ async function fetchObservedWeights() {
     state._weightTradeCount = data.weightTradeCount || data.totalTrades || data?.weightMeta?.totalTrades || 0;
     state._weightMeta = data.weightMeta || null;
     state._weightUnavailableReason = hasWeights ? null : (data?.weightMeta?.reason || 'Not enough community data for weighted mode yet.');
-    let currentLeagueSharePct = readCurrentLeagueSharePct(data);
-    if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
+    let currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
+    if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data);
     if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(state._weightMeta);
     maybeShowCurrentLeagueCtaFromShare(currentLeagueSharePct, {
       tradesObserved: state._weightTradeCount,
@@ -3553,8 +3553,8 @@ function renderAnalysisFromAggregate(data, emptyEl, contentEl) {
     ? (statisticallySupportedScarabs.toLocaleString() + '/' + totalScarabWithObservations.toLocaleString() + ' scarabs meet the confidence threshold.')
     : 'Not enough observations.';
 
-  let currentLeagueSharePct = readCurrentLeagueSharePct(data);
-  if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
+  let currentLeagueSharePct = readCurrentLeagueSharePct(data.weightMeta);
+  if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(data);
   if (currentLeagueSharePct == null) currentLeagueSharePct = readCurrentLeagueSharePct(state._weightMeta);
   maybeShowCurrentLeagueCtaFromShare(currentLeagueSharePct, {
     tradesObserved: totalTrades,

@@ -223,6 +223,7 @@ function showActionModal({ title, bodyHtml, statusText, footnoteText, primaryLab
 }
 
 export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
+  if (currentLeagueSharePct === null || currentLeagueSharePct === undefined || currentLeagueSharePct === '') return;
   const share = Number(currentLeagueSharePct);
   if (!Number.isFinite(share)) return;
   if (share >= 100) return;
