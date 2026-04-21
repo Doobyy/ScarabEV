@@ -2866,7 +2866,7 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
 		}
 	  }
 
-  const totalTrades = Math.round(totalConsumed / 3);
+  const totalTrades = Math.floor(totalConsumed / 3);
   const roi = totalInputValue > 0 ? ((totalOutputValue - totalInputValue) / totalInputValue * 100) : 0;
   const divRate = getDivineRate();
   const fmt = (c) => divRate && c / divRate >= 1 ? (c / divRate).toFixed(1) + 'd' : Math.round(c) + 'c';
@@ -2941,58 +2941,84 @@ async function submitSession() {
     return;
   }
 
-  if (session.totalInputValue > 0 && Math.abs(session.totalOutputValue - session.totalInputValue) < 1 && session.totalConsumed === 0) {
-    status.textContent = 'No changes detected between snapshots \u2014 session not saved';
+  if (!Array.isArray(session.allRows) || session.allRows.length === 0) {
+    status.textContent = 'Session rows are missing - session not saved';
     status.style.color = 'var(--red)';
     btn.disabled = false;
     return;
   }
 
-  const flags = [];
-  if (session.totalConsumed < 500)
-    flags.push('low sample');
-  if (session.totalInputValue > 0 && Math.abs(session.totalOutputValue - session.totalInputValue) < 1)
-    flags.push('no change detected');
-  const keeperOutputs = session.keeperRows?.length || 0;
-  if (session.totalConsumed >= 500 && keeperOutputs === 0)
-    flags.push('zero keeper outputs');
-  if (totalReceived > session.totalConsumed)
-    flags.push('outputs > inputs');
-  if (session.totalConsumed >= 500 && session.totalTrades > 0) {
-    // Strict single-pass integrity check:
-    // if Snapshot 1 vendor targets were actually vendored once, total outputs should
-    // be close to consumed/3 (full trades), with only small operational noise.
-    const fullTrades = session.totalTrades;
-    const observedOut = totalReceived;
-    const expectedOut = fullTrades;
-    const outDelta = observedOut - expectedOut;
-    const maxOutDelta = 40;
-    if (Math.abs(outDelta) > maxOutDelta) {
-      flags.push(`recycled session \u2014 output count outside single-pass tolerance (${observedOut}/${expectedOut})`);
-    }
-  }
-
-  // outputs should themselves be vendor-target quality scarabs (the vendor hands back
-  // cheap commons frequently). If almost nothing vendor-target came back, the person
-  // recycled their outputs through multiple passes in one session, which contaminates
-  // the weight distribution data. Flag and exclude from community aggregate.
-  if (session.totalConsumed >= 500 && totalReceived >= 10) {
-    const vendorReturnRatio = totalReceived > 0 ? vendorReceived / totalReceived : 0;
-    if (vendorReturnRatio < 0.15) {
-      flags.push('recycled session \u2014 vendor outputs contain <15% vendor-target scarabs');
-    }
-
-    // Partial recycle pattern: user keeps vendoring outputs, then stops once stacks are
-    // messy/small. The session can still show some vendor-target returns (>15%) while
-    // total returns are far below the estimated trade count.
-    const fullTrades = session.totalTrades || 0;
-    const outputCoverage = fullTrades > 0 ? totalReceived / fullTrades : 0;
-    if (fullTrades >= 150 && outputCoverage < 0.55) {
-      flags.push('recycled session \u2014 partial recycle detected (outputs/trades too low)');
-    }
-  }
-
   try {
+    const payload = {
+      total_consumed: session.totalConsumed,
+      total_trades: session.totalTrades,
+      input_value: session.totalInputValue,
+      output_value: session.totalOutputValue,
+      divine_rate: session.divine_rate,
+      league: session.league || undefined,
+      regex: session.regex || undefined,
+      scarabs: (session.allRows || []).map(r => ({
+        name: r.name,
+        received: r.received || 0,
+        consumed: r.consumed || 0,
+        was_vendor: r.was_vendor || false,
+        ninja_price: r.ninja_price || 0
+      }))
+    };
+
+    let intake = {
+      counted: false,
+      classification: 'local_only_unavailable',
+      healthPct: null,
+      reasons: ['Community intake endpoint is unavailable.'],
+      expectedTrades: null,
+      actualOutputs: null,
+      drift: null
+    };
+
+    if (POOL_API_URL) {
+      try {
+        const resp = await fetch(POOL_API_URL + '/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        let body = null;
+        try { body = await resp.json(); } catch (e) { body = null; }
+        if (body && typeof body === 'object') {
+          intake = {
+            counted: body.counted === true,
+            classification: body.classification || (body.counted === true ? 'accepted' : 'rejected'),
+            healthPct: Number.isFinite(Number(body.healthPct)) ? Number(body.healthPct) : null,
+            reasons: Array.isArray(body.reasons) ? body.reasons : (body.error ? [String(body.error)] : []),
+            expectedTrades: Number.isFinite(Number(body.expectedTrades)) ? Number(body.expectedTrades) : null,
+            actualOutputs: Number.isFinite(Number(body.actualOutputs)) ? Number(body.actualOutputs) : null,
+            drift: Number.isFinite(Number(body.drift)) ? Number(body.drift) : null
+          };
+        } else if (!resp.ok) {
+          intake = {
+            counted: false,
+            classification: 'local_only_backend_error',
+            healthPct: null,
+            reasons: ['Community intake returned an invalid response.'],
+            expectedTrades: null,
+            actualOutputs: null,
+            drift: null
+          };
+        }
+      } catch (e) {
+        intake = {
+          counted: false,
+          classification: 'local_only_network_error',
+          healthPct: null,
+          reasons: ['Could not reach community intake endpoint.'],
+          expectedTrades: null,
+          actualOutputs: null,
+          drift: null
+        };
+      }
+    }
+
     const existing = JSON.parse(localStorage.getItem('poepool-sessions') || '[]');
     const record = {
       id: crypto.randomUUID(),
@@ -3006,38 +3032,27 @@ async function submitSession() {
       input_value: session.totalInputValue,
       output_value: session.totalOutputValue,
       roi_pct: session.roi,
-      flagged: flags.length > 0,
-      flags,
+      flagged: !intake.counted,
+      flags: intake.reasons || [],
+      counted_community: !!intake.counted,
+      intake_classification: intake.classification || null,
+      intake_health_pct: intake.healthPct,
+      intake_expected_trades: intake.expectedTrades,
+      intake_actual_outputs: intake.actualOutputs,
+      intake_drift: intake.drift,
       scarabs: session.allRows
     };
     existing.push(record);
     localStorage.setItem('poepool-sessions', JSON.stringify(existing));
-    if (flags.length) {
-      // Positive-only UX: no warning note for local-only sessions.
-      status.textContent = '';
-    } else {
-      status.textContent = 'Counted in community data';
+    if (intake.counted) {
+      status.textContent = `Counted in community data${intake.healthPct != null ? ` \u00B7 Health ${Math.round(intake.healthPct)}%` : ''}`;
       status.style.color = 'var(--green)';
-      if (POOL_API_URL) {
-        const payload = {
-          total_consumed: record.total_consumed,
-          total_trades: record.total_trades,
-          input_value: record.input_value,
-          output_value: record.output_value,
-          league: record.league || undefined,
-          regex: record.regex || undefined,
-          scarabs: (record.scarabs || []).map(r => ({
-            name: r.name,
-            received: r.received || 0,
-            consumed: r.consumed || 0,
-            was_vendor: r.was_vendor || false,
-            ninja_price: r.ninja_price || 0
-          }))
-        };
-        fetch(POOL_API_URL + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-          .then(() => {})
-          .catch(() => {});
-      }
+    } else {
+      const reasonLine = (intake.reasons && intake.reasons.length)
+        ? intake.reasons.slice(0, 2).join(' | ')
+        : 'Backend rejected this session.';
+      status.textContent = `Saved locally only${intake.healthPct != null ? ` \u00B7 Health ${Math.round(intake.healthPct)}%` : ''} - ${reasonLine}`;
+      status.style.color = 'var(--amber)';
     }
     renderSessionHistory();
     // Reset form
@@ -3104,7 +3119,7 @@ function renderSessionHistory() {
       </div>
     </div>
     <div class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center">
-      <span class="cell-left">Date</span><span class="cell-left">League</span><span class="cell-right">Scarabs</span><span class="cell-right">Trades</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
+      <span class="cell-left">Date</span><span class="cell-left">League</span><span class="cell-right">Scarabs In</span><span class="cell-right">Scarabs Out</span><span class="cell-right">Input</span><span class="cell-right">Output</span><span class="cell-right">Profit</span><span class="cell-right">Cutoff</span><span class="cell-right">ROI</span><span class="cell-left"></span>
     </div>
     ${pageRows.map((s, i) => {
       const globalPos = start + i;
@@ -3112,12 +3127,15 @@ function renderSessionHistory() {
       const profit = (s.output_value || 0) - (s.input_value || 0);
       const fmtSession = (c) => fmtWithRate(c, s.divine_rate);
       const profitFmt = (c) => (c >= 0 ? '+' : '') + fmtSession(c);
+      const scarabsOut = Number.isFinite(Number(s.intake_actual_outputs))
+        ? Math.round(Number(s.intake_actual_outputs)).toLocaleString()
+        : '-';
       return `<div>
         <div onclick="toggleSessionDetail(${idx})" class="logger-history-grid" style="grid-template-columns:${cols};gap:${gap};font-size:12px;padding:6px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--row-hover)'" onmouseout="this.style.background=''">
           <span class="cell-left">${fmtSessionDate(s.created_at)}</span>
           <span class="cell-left">${s.league}</span>
           <span class="cell-right">${s.total_consumed?.toLocaleString()}</span>
-          <span class="cell-right">${s.total_trades?.toLocaleString()}</span>
+          <span class="cell-right">${scarabsOut}</span>
           <span class="cell-right">${fmtSession(s.input_value)}</span>
           <span class="cell-right">${fmtSession(s.output_value)}</span>
           <span class="cell-right" style="color:${profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${profitFmt(profit)}</span>

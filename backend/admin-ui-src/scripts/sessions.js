@@ -13,6 +13,10 @@ function parseScarabRows(s){try{const rows=JSON.parse(String(s||'[]'));return Ar
 function parseReasons(v){try{const rows=JSON.parse(String(v||'[]'));if(Array.isArray(rows))return rows.map((x)=>String(x||'').trim()).filter(Boolean);}catch(e){}return [];}
 function parseObj(v){try{const o=JSON.parse(String(v||'{}'));return(o&&typeof o==='object')?o:{};}catch(e){return{};}}
 function stateLabel(v){const s=String(v||'').trim();if(!s)return 'legacy_approved';return s;}
+function scarabsOutCount(s,l1){
+  const layer1=(l1&&typeof l1==='object')?l1:parseObj(s&&s.intake_l1_json);
+  return Math.round(safeNum(layer1.actualFinalCount??(s&&s.intake_actual_outputs)));
+}
 function openSessionCfgModal(){$('sessCfgModalWrap').classList.add('open');}
 function closeSessionCfgModal(){$('sessCfgModalWrap').classList.remove('open');}
 function switchSessionSubtab(tab){
@@ -92,11 +96,11 @@ function sessionApiWithKey(pathSuffix){
 }
 function updateSessionStats(items){
   const total=items.length;
-  let consumed=0,trades=0,totalProfitDiv=0,hasDivCount=0;
+  let consumed=0,scarabsOut=0,totalProfitDiv=0,hasDivCount=0;
   for(const s of items){
     const input=safeNum(s.input_value),output=safeNum(s.output_value),profit=output-input;
     consumed+=safeNum(s.total_consumed);
-    trades+=safeNum(s.total_trades);
+    scarabsOut+=scarabsOutCount(s);
     const d=divFromChaos(profit,s.divine_rate);
     if(d!==null){
       totalProfitDiv+=Number(d.toFixed(2));
@@ -105,7 +109,7 @@ function updateSessionStats(items){
   }
   $('sessMetricCount').textContent=String(total.toLocaleString());
   $('sessMetricConsumed').textContent=String(Math.round(consumed).toLocaleString());
-  $('sessMetricTrades').textContent=String(Math.round(trades).toLocaleString());
+  $('sessMetricTrades').textContent=String(Math.round(scarabsOut).toLocaleString());
   $('sessMetricProfit').textContent=hasDivCount?((totalProfitDiv>=0?'+':'')+totalProfitDiv.toFixed(2)+' div'):'-';
   $('sessMetricProfit').style.color=signColor(totalProfitDiv);
 }
@@ -115,6 +119,7 @@ function buildSessionDetailHtml(s){
   const roi=fmtRoiPct(input,output);
   const l1=parseObj(s.intake_l1_json);
   const l2=parseObj(s.intake_l2_json);
+  const scarabsOut=scarabsOutCount(s,l1);
   const scarabs=parseScarabRows(s.scarabs_json);
   const vendor=scarabs.filter((x)=>x&&x.was_vendor).sort((a,b)=>safeNum(b.consumed)-safeNum(a.consumed));
   const keeper=scarabs.filter((x)=>x&&!x.was_vendor&&safeNum(x.received)>0).sort((a,b)=>safeNum(b.received)-safeNum(a.received));
@@ -142,8 +147,8 @@ function buildSessionDetailHtml(s){
       +'<div><b>League:</b> '+escHtml(String(s.league||'-'))+'</div>'
       +'<div><b>Regex:</b> <span class="mono">'+escHtml(String(s.regex||'-'))+'</span></div>'
       +'<div><b>State:</b> '+escHtml(stateLabel(s.intake_state))+'</div>'
-      +'<div><b>Consumed:</b> '+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</div>'
-      +'<div><b>Trades:</b> '+escHtml(String(Math.round(safeNum(s.total_trades)).toLocaleString()))+'</div>'
+      +'<div><b>Scarabs In:</b> '+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</div>'
+      +'<div><b>Scarabs Out:</b> '+escHtml(String(scarabsOut.toLocaleString()))+'</div>'
       +'<div><b>Divine Rate:</b> '+escHtml(rate>0?rate.toFixed(2)+' c/div':'-')+'</div>'
       +'<div><b>Rows:</b> '+escHtml(String(scarabs.length))+'</div>'
       +'<div><b>Health:</b> '+escHtml(safeNum(s.intake_health_pct)>0?Math.round(safeNum(s.intake_health_pct))+'%':'-')+'</div>'
@@ -220,7 +225,7 @@ function renderSessionRows(){
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
       +'<td>'+escHtml(String(s.league||'-'))+'</td>'
       +'<td>'+Math.round(safeNum(s.total_consumed)).toLocaleString()+'</td>'
-      +'<td>'+Math.round(safeNum(s.total_trades)).toLocaleString()+'</td>'
+      +'<td>'+scarabsOutCount(s).toLocaleString()+'</td>'
       +'<td>'+fmtChaosRaw(s.input_value)+'</td>'
       +'<td>'+fmtChaosRaw(s.output_value)+'</td>'
       +'<td style="font-weight:700;color:'+signColor(profit)+'">'+fmtDivSignedFromChaos(profit,s.divine_rate)+'</td>'
@@ -333,7 +338,7 @@ function renderReviewQueueRows(items){
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
       +'<td>'+escHtml(String(s.league||'-'))+'</td>'
       +'<td>'+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</td>'
-      +'<td>'+escHtml(String(Math.round(safeNum(s.total_trades)).toLocaleString()))+'</td>'
+      +'<td>'+escHtml(String(scarabsOutCount(s).toLocaleString()))+'</td>'
       +'<td>'+escHtml(fmtChaosRaw(s.input_value))+'</td>'
       +'<td>'+escHtml(fmtChaosRaw(s.output_value))+'</td>'
       +'<td>'+escHtml(stateLabel(s.intake_state))+'</td>'
@@ -362,7 +367,7 @@ function renderResearchRows(items){
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
       +'<td>'+escHtml(String(s.league||'-'))+'</td>'
       +'<td>'+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</td>'
-      +'<td>'+escHtml(String(Math.round(safeNum(s.total_trades)).toLocaleString()))+'</td>'
+      +'<td>'+escHtml(String(scarabsOutCount(s).toLocaleString()))+'</td>'
       +'<td>'+escHtml(fmtChaosRaw(s.input_value))+'</td>'
       +'<td>'+escHtml(fmtChaosRaw(s.output_value))+'</td>'
       +'<td>'+escHtml(stateLabel(s.intake_state))+'</td>'
