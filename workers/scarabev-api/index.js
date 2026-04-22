@@ -12,6 +12,22 @@ var L2_WEIGHT_SPIKE = 0.5;
 var L2_WEIGHT_MID_DIV = 0.3;
 var L2_WEIGHT_CONCENTRATION = 0.12;
 var L2_WEIGHT_SUPPORT = 0.08;
+var L2_LENIENCY_OUTPUT_FLOOR = 800;
+var L2_LENIENCY_OUTPUT_FULL = 3200;
+var L2_LENIENCY_MIN_SCALE = 0.35;
+var L2_TRUST_MAX_THRESHOLD_BONUS = 6;
+var L2_TRUST_WARM_DRIFT_RATIO = 0.55;
+var L2_CORROBORATION_SPIKE = 0.2;
+var L2_CORROBORATION_MID_DIV = 0.14;
+var L2_CORROBORATION_CONCENTRATION = 0.1;
+var L2_CORROBORATION_SUPPORT = 0.08;
+var L2_CORROBORATION_EXCESS_MULT = 1.35;
+var L2_MULTI_SIGNAL_HOLD_MIN = 2;
+var L2_EXTREME_HOLD_SCORE = 26;
+var L2_ABSURD_SPIKE = 0.45;
+var L2_ABSURD_MID_DIV = 0.28;
+var L2_ABSURD_CONCENTRATION = 0.22;
+var L2_ABSURD_EXCESS_MULT = 2.4;
 var HANDOVER_CONSUMED = 9e4;
 var MIN_WEIGHT_OUTPUTS = 100;
 var WEIGHT_SEED_VERSION = "phase1-canonical-seeded-v1";
@@ -614,6 +630,11 @@ function evaluateL2Intake(intake, priorReceivedByScarab) {
   const expectedFinal = Math.max(0, Number(intake.expectedFinal) || 0);
   const shape = computeL2ShapeTerms(priorReceivedByScarab || {}, intake.normalizedScarabs || [], expectedFinal);
   const sizeScale = clamp01(expectedFinal / 3500);
+  const volumeEvidence = clamp01((expectedFinal - L2_LENIENCY_OUTPUT_FLOOR) / Math.max(1, L2_LENIENCY_OUTPUT_FULL - L2_LENIENCY_OUTPUT_FLOOR));
+  const volumeLeniencyScale = L2_LENIENCY_MIN_SCALE + (1 - L2_LENIENCY_MIN_SCALE) * volumeEvidence;
+  const driftRatio = Math.abs(Number(intake.drift) || 0) / Math.max(1, Number(intake.allowedDrift) || 1);
+  const l1Trust = clamp01(1 - driftRatio / L2_TRUST_WARM_DRIFT_RATIO);
+  const l1TrustThresholdBonus = L2_TRUST_MAX_THRESHOLD_BONUS * l1Trust;
   const spikeGate = clamp01((shape.spike + shape.midDiv) / 0.25);
   const supportGate = clamp01(shape.spike / 0.15);
   const concentration_adjusted = shape.concentration * sizeScale * spikeGate;
@@ -625,8 +646,37 @@ function evaluateL2Intake(intake, priorReceivedByScarab) {
   const escalation = Math.max(0.08, Math.max(shareEsc, excessEsc) * (0.35 + 0.65 * maturityEsc));
   const spike_guarded = shape.spike * escalation;
   const support_adjusted = support_adjusted_base * escalation;
+  const midDiv_guarded = shape.midDiv * (0.45 + 0.55 * volumeEvidence);
+  const concentration_lenient = concentration_adjusted * volumeLeniencyScale;
+  const spike_lenient = spike_guarded * volumeLeniencyScale;
+  const support_lenient = support_adjusted * volumeLeniencyScale;
   const scoreBeforeGuards = 100 * (L2_WEIGHT_SPIKE * shape.spike + L2_WEIGHT_MID_DIV * shape.midDiv + L2_WEIGHT_CONCENTRATION * concentration_adjusted + L2_WEIGHT_SUPPORT * support_adjusted_base);
-  const finalScore = 100 * (L2_WEIGHT_SPIKE * spike_guarded + L2_WEIGHT_MID_DIV * shape.midDiv + L2_WEIGHT_CONCENTRATION * concentration_adjusted + L2_WEIGHT_SUPPORT * support_adjusted);
+  const scoreAfterGuardsRaw = 100 * (L2_WEIGHT_SPIKE * spike_guarded + L2_WEIGHT_MID_DIV * shape.midDiv + L2_WEIGHT_CONCENTRATION * concentration_adjusted + L2_WEIGHT_SUPPORT * support_adjusted);
+  let corroborationCount = 0;
+  if (shape.spike >= L2_CORROBORATION_SPIKE)
+    corroborationCount += 1;
+  if (shape.midDiv >= L2_CORROBORATION_MID_DIV)
+    corroborationCount += 1;
+  if (concentration_adjusted >= L2_CORROBORATION_CONCENTRATION)
+    corroborationCount += 1;
+  if (support_adjusted >= L2_CORROBORATION_SUPPORT)
+    corroborationCount += 1;
+  if (shape.spikeExcessCount >= excessFloor * L2_CORROBORATION_EXCESS_MULT)
+    corroborationCount += 1;
+  const corroborationLift = 1 + 0.2 * clamp01((corroborationCount - 1) / 3);
+  const finalScoreBase = 100 * (L2_WEIGHT_SPIKE * spike_lenient + L2_WEIGHT_MID_DIV * midDiv_guarded + L2_WEIGHT_CONCENTRATION * concentration_lenient + L2_WEIGHT_SUPPORT * support_lenient);
+  const finalScore = finalScoreBase * corroborationLift;
+  const dynamicPassThreshold = Math.max(
+    L2_PASS_THRESHOLD,
+    Math.min(
+      30,
+      L2_PASS_THRESHOLD + (1 - volumeEvidence) * 7 + l1TrustThresholdBonus - Math.max(0, corroborationCount - 1) * 1.5
+    )
+  );
+  const warmL1 = driftRatio >= L2_TRUST_WARM_DRIFT_RATIO;
+  const absurdComposition = shape.spike >= L2_ABSURD_SPIKE && (shape.midDiv >= L2_ABSURD_MID_DIV || concentration_adjusted >= L2_ABSURD_CONCENTRATION || shape.spikeExcessCount >= excessFloor * L2_ABSURD_EXCESS_MULT);
+  const strongMultiSignal = corroborationCount >= 3 && finalScore >= L2_PASS_THRESHOLD;
+  const shouldHold = finalScore >= dynamicPassThreshold && (corroborationCount >= L2_MULTI_SIGNAL_HOLD_MIN || warmL1 || finalScore >= L2_EXTREME_HOLD_SCORE || absurdComposition || strongMultiSignal);
   const matureGuard = shape.maturePriorTotal >= 400 && shape.spikeExpectedShare >= 0.015;
   const excessGuard = shape.spikeExcessCount >= excessFloor;
   const l2Audit = {
@@ -644,11 +694,20 @@ function evaluateL2Intake(intake, priorReceivedByScarab) {
     concentrationAdjusted: concentration_adjusted,
     supportAdjustedBase: support_adjusted_base,
     supportAdjusted: support_adjusted,
+    volumeEvidence,
+    volumeLeniencyScale,
+    driftRatio,
+    l1Trust,
+    l1TrustThresholdBonus,
+    corroborationCount,
+    corroborationLift,
     scoreBeforeGuards,
+    scoreAfterGuardsRaw,
     scoreAfterGuards: finalScore,
+    dynamicPassThreshold,
     finalL2Score: finalScore,
-    highPriorityReview: finalScore >= L2_HIGH_PRIORITY_THRESHOLD,
-    interpretation: finalScore < L2_PASS_THRESHOLD ? "L2 pass: composition is within low-concern bounds." : finalScore >= L2_HIGH_PRIORITY_THRESHOLD ? "L2 review: high-priority composition anomaly." : "L2 review: composition anomaly requires manual review.",
+    highPriorityReview: shouldHold && (finalScore >= L2_HIGH_PRIORITY_THRESHOLD || absurdComposition || corroborationCount >= 3),
+    interpretation: !shouldHold ? "L2 pass: composition variance stays within lenient low-concern intake bounds." : finalScore >= L2_HIGH_PRIORITY_THRESHOLD || absurdComposition ? "L2 review hold: extreme composition anomaly with high aggregate-risk signal." : "L2 review hold: corroborated composition anomaly requires manual moderation.",
     gates: {
       sizeScale,
       spikeGate,
@@ -657,10 +716,14 @@ function evaluateL2Intake(intake, priorReceivedByScarab) {
       excessEsc,
       maturityEsc,
       escalation,
-      excessFloor
+      excessFloor,
+      volumeEvidence,
+      volumeLeniencyScale,
+      dynamicPassThreshold,
+      warmL1
     }
   };
-  if (finalScore < L2_PASS_THRESHOLD) {
+  if (!shouldHold) {
     return {
       counted: true,
       intakeState: SESSION_STATE_APPROVED_AUTO,
