@@ -752,6 +752,48 @@ function parseScarabRows(raw) {
   }
 }
 __name(parseScarabRows, "parseScarabRows");
+function buildSessionPayloadFromStoredRow(row) {
+  const scarabRows = parseScarabRows(row?.scarabs_json || "[]");
+  const normalizedRows = [];
+  let consumedSeen = false;
+  for (const item of scarabRows || []) {
+    const name = String(item?.name || "").trim();
+    if (!name)
+      continue;
+    const received = Math.max(0, Number(item?.received) || 0);
+    let consumed = Number(item?.consumed);
+    if (!Number.isFinite(consumed) || consumed < 0)
+      consumed = 0;
+    if (consumed > 0)
+      consumedSeen = true;
+    normalizedRows.push({
+      name,
+      consumed: Math.floor(consumed),
+      received: Math.floor(received),
+      was_vendor: !!item?.was_vendor,
+      ninja_price: Math.max(0, Number(item?.ninja_price) || 0)
+    });
+  }
+  if (!normalizedRows.length)
+    return null;
+  if (!consumedSeen) {
+    const declared = Math.max(0, Math.floor(Number(row?.total_consumed) || 0));
+    if (declared > 0) {
+      normalizedRows[0].consumed = declared;
+    }
+  }
+  return {
+    league: row?.league || null,
+    regex: row?.regex || null,
+    total_consumed: Math.max(0, Math.floor(Number(row?.total_consumed) || 0)),
+    total_trades: Math.max(0, Math.floor(Number(row?.total_trades) || 0)),
+    input_value: Math.max(0, Number(row?.input_value) || 0),
+    output_value: Math.max(0, Number(row?.output_value) || 0),
+    divine_rate: Number(row?.divine_rate) || null,
+    scarabs: normalizedRows
+  };
+}
+__name(buildSessionPayloadFromStoredRow, "buildSessionPayloadFromStoredRow");
 function buildReceivedByScarabMap(scarabs) {
   const out = {};
   for (const row of scarabs || []) {
@@ -1845,6 +1887,157 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
         return json({
           counts,
           l1RejectCount: Number(l1Rejected?.count) || 0
+        });
+      }
+      if (request.method === "POST" && subPath === "/backfill-intake") {
+        const dryRun = String(url.searchParams.get("dryRun") || "").trim() === "1";
+        const maxRows = Math.max(1, Math.min(2e3, Number(url.searchParams.get("limit") || 500)));
+        const { results: legacyRows } = await env.DB.prepare(
+          `SELECT id, created_at, league, league_key, regex, total_consumed, total_trades, input_value, output_value,
+                  divine_rate, scarabs_json, intake_state
+           FROM sessions
+           WHERE intake_state IS NULL OR intake_state = ''
+           ORDER BY created_at ASC, id ASC
+           LIMIT ?`
+        ).bind(maxRows).all();
+        if (!Array.isArray(legacyRows) || legacyRows.length === 0) {
+          return json({
+            ok: true,
+            dryRun,
+            selected: 0,
+            processed: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            stateCounts: {
+              approved_auto: 0,
+              review_pending: 0,
+              l1_reject: 0
+            },
+            aggregateRecomputed: false
+          });
+        }
+        const approvedPriorByScarab = {};
+        const { results: streamRows } = await env.DB.prepare(
+          `SELECT id, created_at, scarabs_json, intake_state
+           FROM sessions
+           ORDER BY created_at ASC, id ASC`
+        ).all();
+        const legacyIdSet = new Set((legacyRows || []).map((r) => String(r?.id || "")));
+        const legacyById = {};
+        for (const row of legacyRows || [])
+          legacyById[String(row?.id || "")] = row;
+        let processed = 0;
+        let updated = 0;
+        let skipped = 0;
+        let errors = 0;
+        const stateCounts = {
+          approved_auto: 0,
+          review_pending: 0,
+          l1_reject: 0
+        };
+        for (const row of streamRows || []) {
+          const id = String(row?.id || "");
+          if (!legacyIdSet.has(id)) {
+            const state = String(row?.intake_state || "").trim();
+            if (APPROVED_INTAKE_STATES.includes(state)) {
+              const deltaMap = buildReceivedByScarabMap(parseScarabRows(row?.scarabs_json || "[]"));
+              for (const [name, count] of Object.entries(deltaMap)) {
+                approvedPriorByScarab[name] = (Number(approvedPriorByScarab[name]) || 0) + (Number(count) || 0);
+              }
+            }
+            continue;
+          }
+          const legacy = legacyById[id];
+          processed += 1;
+          try {
+            const payload = buildSessionPayloadFromStoredRow(legacy);
+            if (!payload) {
+              skipped += 1;
+              continue;
+            }
+            const l1 = evaluateSessionIntake(payload);
+            let intakeState = SESSION_STATE_L1_REJECT;
+            let classification = SESSION_STATE_L1_REJECT;
+            let healthPct = Number(l1.healthPct) || 0;
+            let reasons = Array.isArray(l1.reasons) ? l1.reasons : [];
+            let l2Audit = null;
+            if (l1.l1Passed) {
+              const l2 = evaluateL2Intake(l1, approvedPriorByScarab);
+              intakeState = String(l2.intakeState || SESSION_STATE_REVIEW_PENDING);
+              classification = String(l2.classification || intakeState);
+              healthPct = Number(l2.healthPct) || healthPct;
+              reasons = Array.isArray(l2.reasons) ? l2.reasons : reasons;
+              l2Audit = l2.l2Audit || null;
+            }
+            if (intakeState === SESSION_STATE_APPROVED_AUTO) {
+              const deltaMap = buildReceivedByScarabMap(payload.scarabs);
+              for (const [name, count] of Object.entries(deltaMap)) {
+                approvedPriorByScarab[name] = (Number(approvedPriorByScarab[name]) || 0) + (Number(count) || 0);
+              }
+            }
+            if (Object.prototype.hasOwnProperty.call(stateCounts, intakeState))
+              stateCounts[intakeState] += 1;
+            if (!dryRun) {
+              await env.DB.prepare(
+                `UPDATE sessions
+                 SET intake_state = ?, intake_class = ?, intake_health_pct = ?, intake_expected_trades = ?, intake_actual_outputs = ?,
+                     intake_drift = ?, intake_reasons_json = ?, intake_l1_json = ?, intake_l2_json = ?
+                 WHERE id = ?`
+              ).bind(
+                intakeState,
+                classification,
+                healthPct,
+                Number(l1.expectedTrades) || 0,
+                Number(l1.actualOutputs) || 0,
+                Number(l1.drift) || 0,
+                JSON.stringify(reasons || []),
+                JSON.stringify(l1.l1Audit || {}),
+                JSON.stringify(l2Audit || {}),
+                id
+              ).run();
+              await insertIntakeEvent(env, {
+                sessionId: id,
+                action: "backfill_intake",
+                intakeState,
+                adminActor: "admin_key",
+                league: legacy?.league || null,
+                leagueKey: legacy?.league_key || null,
+                totalConsumed: legacy?.total_consumed,
+                totalTrades: legacy?.total_trades,
+                totalInput: legacy?.input_value,
+                totalOutput: legacy?.output_value,
+                expectedTrades: l1.expectedTrades,
+                actualOutputs: l1.actualOutputs,
+                drift: l1.drift,
+                reasons,
+                meta: {
+                  source: "legacy_backfill",
+                  l1Audit: l1.l1Audit || null,
+                  l2Audit
+                }
+              });
+            }
+            updated += 1;
+          } catch (_) {
+            errors += 1;
+          }
+        }
+        let aggregateRecomputed = false;
+        if (!dryRun) {
+          await recomputeAggregate(env);
+          aggregateRecomputed = true;
+        }
+        return json({
+          ok: true,
+          dryRun,
+          selected: legacyRows.length,
+          processed,
+          updated,
+          skipped,
+          errors,
+          stateCounts,
+          aggregateRecomputed
         });
       }
       const approveMatch = subPath.match(/^\/([^/]+)\/approve$/);

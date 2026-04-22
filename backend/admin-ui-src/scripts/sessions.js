@@ -20,6 +20,23 @@ function isHeldForReview(s){return stateLabel(s&&s.intake_state)===SESSION_STATE
 function fmtSignedInt(v){const n=Math.round(safeNum(v));return (n>0?'+':'')+String(n);}
 function sessionRowDrift(s){const l1=parseObj(s&&s.intake_l1_json);return Math.round(safeNum(l1.drift??(s&&s.intake_drift)));}
 function sessionRowNotePreview(s){const raw=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();return raw||'-';}
+function sessionRowMetrics(s){
+  const l1=parseObj(s&&s.intake_l1_json);
+  const l2=parseObj(s&&s.intake_l2_json);
+  const input=safeNum(s&&s.input_value);
+  const output=safeNum(s&&s.output_value);
+  const roiPct=input>0?((output-input)/input)*100:null;
+  const drift=safeNum(l1.drift??(s&&s.intake_drift));
+  const driftPct=Number.isFinite(Number(l1.driftPct))?safeNum(l1.driftPct):((safeNum(l1.expectedFinal)>0)?(drift/safeNum(l1.expectedFinal))*100:null);
+  const allowed=Math.max(0,safeNum(l1.allowedDrift));
+  const driftRatio=allowed>0?(Math.abs(drift)/allowed):(Math.abs(drift)>0?1:0);
+  const health=safeNum(s&&s.intake_health_pct);
+  const l2Score=safeNum(l2.finalL2Score);
+  const l1HealthLevel=health>=95?'green':(health>=85?'yellow':'red');
+  const l1DriftLevel=levelByThresholds(driftRatio,0.4,0.85);
+  const l2Level=l2Score>=L2_HIGH_PRIORITY_THRESHOLD?'red':(l2Score>=L2_PASS_THRESHOLD?'yellow':'green');
+  return {roiPct,drift,driftPct,health,l2Score,l1HealthLevel,l1DriftLevel,l2Level};
+}
 function levelByThresholds(value,greenMax,yellowMax){
   const n=safeNum(value);
   if(n<=greenMax)return 'green';
@@ -278,7 +295,7 @@ function renderSessionTableRows(tb,items,opts){
   const onToggle=(opts&&opts.onToggle)||(()=>{});
   tb.innerHTML='';
   if(rows.length===0){
-    tb.innerHTML='<tr><td colspan="11" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="15" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
     return;
   }
   rows.forEach((s)=>{
@@ -286,6 +303,7 @@ function renderSessionTableRows(tb,items,opts){
     const isOpen=expandedIds.has(id);
     const held=isHeldForReview(s);
     const profit=safeNum(s.output_value)-safeNum(s.input_value);
+    const m=sessionRowMetrics(s);
     const drift=sessionRowDrift(s);
     const notePreview=sessionRowNotePreview(s);
     const noteFull=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();
@@ -300,7 +318,11 @@ function renderSessionTableRows(tb,items,opts){
       +'<td>'+fmtChaosRaw(s.input_value)+'</td>'
       +'<td>'+fmtChaosRaw(s.output_value)+'</td>'
       +'<td style="font-weight:700;color:'+signColor(profit)+'">'+fmtDivSignedFromChaos(profit,s.divine_rate)+'</td>'
+      +'<td style="font-weight:700;color:'+signColor(m.roiPct)+'">'+escHtml(m.roiPct===null?'-':((m.roiPct>=0?'+':'')+m.roiPct.toFixed(1)+'%'))+'</td>'
       +'<td style="font-weight:700;color:'+signColor(drift)+'">'+escHtml(fmtSignedInt(drift))+'</td>'
+      +'<td>'+stoplightValue(m.driftPct===null?'-':((m.driftPct>=0?'+':'')+m.driftPct.toFixed(2)+'%'),m.l1DriftLevel)+'</td>'
+      +'<td>'+stoplightValue(m.health>0?(Math.round(m.health)+'%'):'-',m.l1HealthLevel)+'</td>'
+      +'<td>'+stoplightValue(m.l2Score.toFixed(2),m.l2Level)+'</td>'
       +'<td class="session-note-cell" title="'+escHtml(noteFull||'-')+'"><span class="session-note-text">'+escHtml(notePreview)+'</span></td>'
       +'<td>'+rowActionHtml(s,mode)+'</td>';
     main.onclick=(ev)=>{if(ev.target&&ev.target.tagName==='BUTTON')return;onToggle(id);};
@@ -308,7 +330,7 @@ function renderSessionTableRows(tb,items,opts){
 
     const detail=document.createElement('tr');
     detail.className='session-detail-row'+(isOpen?'':' hidden')+(held?' session-held-detail':'');
-    detail.innerHTML='<td colspan="11">'+buildSessionDetailHtml(s)+'</td>';
+    detail.innerHTML='<td colspan="15">'+buildSessionDetailHtml(s)+'</td>';
     tb.appendChild(detail);
   });
   tb.querySelectorAll('button[data-sess-id]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();deleteSessionRow(btn.dataset.sessId,btn);};});
@@ -367,6 +389,35 @@ async function recomputeAggregate(){
     status('sessStatus','Recompute error: '+formatThrownError(e),'err');
   }finally{
     busy('sessRecomputeBtn',false);
+  }
+}
+
+async function backfillLegacyIntake(){
+  const base=($('sessApiUrl').value||state.sessionApiUrl||'').trim().replace(/\/+$/,'');
+  const key=($('sessAdminKey').value||state.sessionAdminKey||'').trim();
+  if(!base||!key){status('sessStatus','Set session API URL and admin key first.','warn');return;}
+  if(!confirm('Backfill L1/L2 on legacy-approved sessions (intake_state missing)? This may move some sessions into review/reject lanes. Continue?'))return;
+  busy('sessBackfillLegacyBtn',true);
+  try{
+    const url=base+'/backfill-intake?key='+encodeURIComponent(key)+'&limit=2000';
+    const r=await fetch(url,{method:'POST'});
+    const txt=await r.text();
+    let data=null;try{data=JSON.parse(txt);}catch(e){}
+    if(!r.ok){
+      status('sessStatus','Legacy backfill failed ('+formatApiFailure(r,data,txt)+').','err');
+      return;
+    }
+    const updated=safeNum(data&&data.updated);
+    const processed=safeNum(data&&data.processed);
+    const skipped=safeNum(data&&data.skipped);
+    const errors=safeNum(data&&data.errors);
+    const counts=(data&&data.stateCounts&&typeof data.stateCounts==='object')?data.stateCounts:{};
+    status('sessStatus','Legacy backfill complete. processed='+processed+', updated='+updated+', skipped='+skipped+', errors='+errors+' | approved_auto='+(safeNum(counts.approved_auto)||0)+', review_pending='+(safeNum(counts.review_pending)||0)+', l1_reject='+(safeNum(counts.l1_reject)||0)+'.','ok');
+    await Promise.all([loadSessionsManager({quiet:true}),loadReviewQueue({quiet:true}),loadResearchPile({quiet:true}),loadIntakeAnalytics({quiet:true})]);
+  }catch(e){
+    status('sessStatus','Legacy backfill error: '+formatThrownError(e),'err');
+  }finally{
+    busy('sessBackfillLegacyBtn',false);
   }
 }
 
