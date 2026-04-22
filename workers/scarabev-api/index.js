@@ -6,6 +6,8 @@ var MAX_SESSIONS_PER_IP_PER_HOUR = 20;
 var L1_NEGATIVE_DRIFT_RATE = 0.0125;
 var L1_POSITIVE_DRIFT_RATE = 0.015;
 var L1_MIN_ALLOWED_DRIFT = 3;
+var L1_HEALTH_PASS_FLOOR = 85;
+var L1_HEALTH_REJECT_DROP_PER_RATIO = 45;
 var L2_PASS_THRESHOLD = 12;
 var L2_HIGH_PRIORITY_THRESHOLD = 20;
 var L2_WEIGHT_SPIKE = 0.5;
@@ -428,6 +430,16 @@ function evaluateSessionIntake(session) {
   const allowedDrift = Math.max(L1_MIN_ALLOWED_DRIFT, Math.ceil(expectedFinal * driftRate));
   const l1Passed = absDrift <= allowedDrift;
   const driftPct = expectedFinal > 0 ? drift / expectedFinal * 100 : 0;
+  const driftRatio = allowedDrift > 0 ? absDrift / allowedDrift : absDrift > 0 ? 2 : 0;
+  let healthPct;
+  if (l1Passed) {
+    const passPenalty = (100 - L1_HEALTH_PASS_FLOOR) * clamp01(driftRatio);
+    healthPct = Math.max(L1_HEALTH_PASS_FLOOR, 100 - passPenalty);
+  } else {
+    const overRatio = Math.max(0, driftRatio - 1);
+    healthPct = Math.max(0, L1_HEALTH_PASS_FLOOR - overRatio * L1_HEALTH_REJECT_DROP_PER_RATIO);
+  }
+  healthPct = Math.round(healthPct * 10) / 10;
   const l1Audit = {
     inputQty: actualConsumedRowTotal,
     totalConsumed: actualConsumedRowTotal,
@@ -437,7 +449,9 @@ function evaluateSessionIntake(session) {
     actualFinalCount,
     drift,
     driftPct,
+    driftRatio,
     allowedDrift,
+    healthPct,
     l1_result: l1Passed ? "pass" : "reject"
   };
   const reasons = [];
@@ -487,7 +501,7 @@ function evaluateSessionIntake(session) {
     l1Passed,
     intakeState,
     classification,
-    healthPct: l1Passed ? 100 : 0,
+    healthPct,
     reasons,
     expectedTrades,
     leftovers,
@@ -728,7 +742,7 @@ function evaluateL2Intake(intake, priorReceivedByScarab) {
       counted: true,
       intakeState: SESSION_STATE_APPROVED_AUTO,
       classification: SESSION_STATE_APPROVED_AUTO,
-      healthPct: 100,
+      healthPct: Math.max(0, Math.min(100, Number(intake.healthPct) || 0)),
       reasons: intake.reasons,
       l2Audit
     };

@@ -159,8 +159,9 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list th:nth-child(2),.session-list td:nth-child(2){width:90px;min-width:90px}
 .session-list th:nth-child(3),.session-list td:nth-child(3){width:132px;min-width:132px}
 .session-list th:nth-child(4),.session-list td:nth-child(4){width:76px;min-width:76px}
-.session-list th:nth-child(5),.session-list td:nth-child(5){width:90px;min-width:90px}
-.session-list th:nth-child(6),.session-list td:nth-child(6){width:92px;min-width:92px}
+.session-list th:nth-child(5),.session-list td:nth-child(5){width:104px;min-width:104px}
+.session-list th:nth-child(6),.session-list td:nth-child(6){width:110px;min-width:110px}
+.session-list th{white-space:nowrap}
 .session-list th:nth-child(7),.session-list td:nth-child(7){width:72px;min-width:72px}
 .session-list th:nth-child(8),.session-list td:nth-child(8){width:82px;min-width:82px}
 .session-list th:nth-child(9),.session-list td:nth-child(9){width:110px;min-width:110px}

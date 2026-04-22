@@ -290,7 +290,7 @@ function rowActionHtml(s,mode){
 }
 function updateSessionRerunSummaryUi(){
   const n=$('sessRerunSummary');
-  if(n)n.textContent=String(state.sessionLastRerunSummary||'No rerun yet.');
+  if(n)n.textContent=String(state.sessionLastRerunSummary||'');
 }
 function clearSessionRerunFeedback(){
   state.sessionRecentRerunIds=new Set();
@@ -322,7 +322,7 @@ function syncSessionSelectionUi(rows){
   const btn=$('sessRerunSelectedBtn');
   if(btn){
     btn.disabled=state.sessionSelectedIds.size===0;
-    btn.textContent=state.sessionSelectedIds.size>0?('Rerun Selected L1/L2 ('+state.sessionSelectedIds.size+')'):'Rerun Selected L1/L2';
+    btn.textContent=state.sessionSelectedIds.size>0?('Rerun Validation ('+state.sessionSelectedIds.size+')'):'Rerun Validation';
   }
 }
 function pruneSessionSelections(){
