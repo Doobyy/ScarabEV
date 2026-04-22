@@ -155,8 +155,13 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list table{table-layout:auto}
 .session-list th:nth-child(1),.session-list td:nth-child(1){min-width:210px}
 .session-list th:nth-child(2),.session-list td:nth-child(2){min-width:128px}
+.session-list th:nth-child(9),.session-list td:nth-child(9){width:84px;min-width:84px;text-align:right}
+.session-list th:nth-child(10),.session-list td:nth-child(10){min-width:220px;max-width:320px}
 .session-list th:last-child,.session-list td:last-child{width:220px}
 .session-list td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.session-note-cell{padding-top:4px!important;padding-bottom:4px!important}
+.session-note-text{display:block;font-size:10px;line-height:1.05;white-space:normal;overflow:hidden;max-height:16px;overflow-wrap:anywhere}
+.session-detail-note{font-size:12px;line-height:1.35;color:var(--text);overflow-wrap:anywhere;word-break:break-word}
 .session-list th,.session-list td{padding:6px}
 .session-list .session-detail-row td{white-space:normal;overflow:visible}
 .session-main-id .mono,.session-main-id{min-width:0;overflow:hidden;text-overflow:ellipsis}

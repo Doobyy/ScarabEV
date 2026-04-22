@@ -17,6 +17,9 @@ function parseReasons(v){try{const rows=JSON.parse(String(v||'[]'));if(Array.isA
 function parseObj(v){try{const o=JSON.parse(String(v||'{}'));return(o&&typeof o==='object')?o:{};}catch(e){return{};}}
 function stateLabel(v){const s=String(v||'').trim();if(!s)return 'legacy_approved';return s;}
 function isHeldForReview(s){return stateLabel(s&&s.intake_state)===SESSION_STATE_REVIEW_PENDING;}
+function fmtSignedInt(v){const n=Math.round(safeNum(v));return (n>0?'+':'')+String(n);}
+function sessionRowDrift(s){const l1=parseObj(s&&s.intake_l1_json);return Math.round(safeNum(l1.drift??(s&&s.intake_drift)));}
+function sessionRowNotePreview(s){const raw=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();return raw||'-';}
 function levelByThresholds(value,greenMax,yellowMax){
   const n=safeNum(value);
   if(n<=greenMax)return 'green';
@@ -185,7 +188,7 @@ function buildSessionDetailHtml(s){
       +'<div><b>Divine Rate:</b> '+escHtml(rate>0?rate.toFixed(2)+' c/div':'-')+'</div>'
       +'<div><b>Rows:</b> '+escHtml(String(scarabs.length))+'</div>'
       +'<div><b>L1 Structural Health:</b> '+stoplightValue(healthPct>0?Math.round(healthPct)+'%':'-',l1HealthLevel)+'</div>'
-      +'<div><b>Admin Note:</b> '+escHtml(String(s.admin_note||'-'))+'</div>'
+      +'<div><b>Admin Note:</b> <span class="session-detail-note">'+escHtml(String(s.admin_note||'-'))+'</span></div>'
       +'<div><b>Reasons:</b> '+escHtml(reasons.length?reasons.join(' | '):'-')+'</div>'
     +'</div>'
     +'<div class="session-meta" style="margin-top:8px">'
@@ -275,7 +278,7 @@ function renderSessionTableRows(tb,items,opts){
   const onToggle=(opts&&opts.onToggle)||(()=>{});
   tb.innerHTML='';
   if(rows.length===0){
-    tb.innerHTML='<tr><td colspan="9" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="11" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
     return;
   }
   rows.forEach((s)=>{
@@ -283,6 +286,9 @@ function renderSessionTableRows(tb,items,opts){
     const isOpen=expandedIds.has(id);
     const held=isHeldForReview(s);
     const profit=safeNum(s.output_value)-safeNum(s.input_value);
+    const drift=sessionRowDrift(s);
+    const notePreview=sessionRowNotePreview(s);
+    const noteFull=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();
     const main=document.createElement('tr');
     main.className='row session-main'+(isOpen?' open':'')+(held?' session-held':'');
     main.innerHTML=''
@@ -294,13 +300,15 @@ function renderSessionTableRows(tb,items,opts){
       +'<td>'+fmtChaosRaw(s.input_value)+'</td>'
       +'<td>'+fmtChaosRaw(s.output_value)+'</td>'
       +'<td style="font-weight:700;color:'+signColor(profit)+'">'+fmtDivSignedFromChaos(profit,s.divine_rate)+'</td>'
+      +'<td style="font-weight:700;color:'+signColor(drift)+'">'+escHtml(fmtSignedInt(drift))+'</td>'
+      +'<td class="session-note-cell" title="'+escHtml(noteFull||'-')+'"><span class="session-note-text">'+escHtml(notePreview)+'</span></td>'
       +'<td>'+rowActionHtml(s,mode)+'</td>';
     main.onclick=(ev)=>{if(ev.target&&ev.target.tagName==='BUTTON')return;onToggle(id);};
     tb.appendChild(main);
 
     const detail=document.createElement('tr');
     detail.className='session-detail-row'+(isOpen?'':' hidden')+(held?' session-held-detail':'');
-    detail.innerHTML='<td colspan="9">'+buildSessionDetailHtml(s)+'</td>';
+    detail.innerHTML='<td colspan="11">'+buildSessionDetailHtml(s)+'</td>';
     tb.appendChild(detail);
   });
   tb.querySelectorAll('button[data-sess-id]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();deleteSessionRow(btn.dataset.sessId,btn);};});
