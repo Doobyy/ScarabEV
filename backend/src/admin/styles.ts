@@ -126,10 +126,14 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list .row.session-main{cursor:pointer}
 .session-list .row.session-main:hover{background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
 .session-list .row.session-main.open{background:color-mix(in srgb,var(--accent) 22%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,var(--line))}
+.session-list .row.session-main.session-held{background:color-mix(in srgb,var(--danger) 20%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 48%,var(--line))}
+.session-list .row.session-main.session-held:hover{background:color-mix(in srgb,var(--danger) 26%,var(--surface))}
+.session-list .row.session-main.session-held.open{background:color-mix(in srgb,var(--danger) 28%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 60%,var(--line))}
 .session-main-id{display:flex;align-items:center;gap:6px}
 .session-chev{display:inline-block;width:10px;color:var(--muted);font-size:10px;transition:transform .12s ease}
 .session-chev.open{transform:rotate(90deg)}
 .session-detail-row td{padding:0;border-bottom:1px solid var(--line-soft)}
+.session-detail-row.session-held-detail td{border-top:1px solid color-mix(in srgb,var(--danger) 55%,var(--line))}
 .session-detail{background:color-mix(in srgb,var(--surface) 58%,var(--card));padding:10px;display:grid;gap:10px;border-top:1px solid color-mix(in srgb,var(--accent) 45%,var(--line))}
 .session-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .session-detail-card{border:1px solid var(--line-soft);border-radius:8px;background:var(--card);padding:8px}
@@ -138,15 +142,20 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;font-size:11px;color:var(--muted)}
 .session-meta b{color:var(--heading);font-weight:700}
 .session-meta .mono{color:var(--text);word-break:break-all;overflow-wrap:anywhere}
+.intake-stoplight{font-weight:700}
+.intake-stoplight.intake-green{color:var(--ok)}
+.intake-stoplight.intake-yellow{color:var(--warn)}
+.intake-stoplight.intake-red{color:var(--danger)}
 .session-scarab-split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .session-scarab-box{border:1px solid var(--line-soft);border-radius:8px;background:var(--card);padding:8px}
 .session-scarab-head{font-size:10px;color:var(--heading);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .session-scarab-row{display:grid;grid-template-columns:1fr 56px 56px 56px;gap:6px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--line-soft)}
 .session-scarab-row:last-child{border-bottom:none}
+.session-actions{display:flex;gap:6px;flex-wrap:wrap}
 .session-list table{table-layout:auto}
 .session-list th:nth-child(1),.session-list td:nth-child(1){min-width:210px}
 .session-list th:nth-child(2),.session-list td:nth-child(2){min-width:128px}
-.session-list th:last-child,.session-list td:last-child{width:90px}
+.session-list th:last-child,.session-list td:last-child{width:220px}
 .session-list td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .session-list th,.session-list td{padding:6px}
 .session-list .session-detail-row td{white-space:normal;overflow:visible}

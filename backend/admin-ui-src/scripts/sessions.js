@@ -4,6 +4,9 @@ function signColor(v){const n=safeNum(v);if(n>0)return 'var(--ok)';if(n<0)return
 const SESS_CFG_PERSIST_KEY='scarabev-admin-session-manager-v2';
 const SESS_CFG_SESSION_KEY='scarabev-admin-session-admin-key-v1';
 const SESS_CFG_PERSISTED_ADMIN_KEY='scarabev-admin-session-admin-key-persisted-v1';
+const SESSION_STATE_REVIEW_PENDING='review_pending';
+const L2_PASS_THRESHOLD=12;
+const L2_HIGH_PRIORITY_THRESHOLD=20;
 function fmtChaosRaw(v){const n=safeNum(v);return Math.round(n).toLocaleString()+'c';}
 function fmtRoiPct(input,output){const i=safeNum(input),o=safeNum(output);if(i<=0)return '-';const pct=((o-i)/i)*100;return (pct>=0?'+':'')+pct.toFixed(1)+'%';}
 function divFromChaos(chaos,divineRate){const rate=safeNum(divineRate);if(rate<=0)return null;return safeNum(chaos)/rate;}
@@ -13,6 +16,17 @@ function parseScarabRows(s){try{const rows=JSON.parse(String(s||'[]'));return Ar
 function parseReasons(v){try{const rows=JSON.parse(String(v||'[]'));if(Array.isArray(rows))return rows.map((x)=>String(x||'').trim()).filter(Boolean);}catch(e){}return [];}
 function parseObj(v){try{const o=JSON.parse(String(v||'{}'));return(o&&typeof o==='object')?o:{};}catch(e){return{};}}
 function stateLabel(v){const s=String(v||'').trim();if(!s)return 'legacy_approved';return s;}
+function isHeldForReview(s){return stateLabel(s&&s.intake_state)===SESSION_STATE_REVIEW_PENDING;}
+function levelByThresholds(value,greenMax,yellowMax){
+  const n=safeNum(value);
+  if(n<=greenMax)return 'green';
+  if(n<=yellowMax)return 'yellow';
+  return 'red';
+}
+function stoplightValue(value,level){
+  const txt=escHtml(String(value));
+  return level?'<span class="intake-stoplight intake-'+escHtml(level)+'">'+txt+'</span>':txt;
+}
 function scarabsOutCount(s,l1){
   const rows=parseScarabRows(s&&s.scarabs_json);
   let total=0;
@@ -132,6 +146,21 @@ function buildSessionDetailHtml(s){
   const reasons=parseReasons(s.intake_reasons_json);
   const pct=(n)=>Number.isFinite(Number(n))?(Number(n)*100).toFixed(2)+'%':'-';
   const pctSigned=(n)=>Number.isFinite(Number(n))?((Number(n)>=0?'+':'')+Number(n).toFixed(2)+'%'):'-';
+  const drift=safeNum(l1.drift??s.intake_drift);
+  const allowedDrift=Math.max(0,safeNum(l1.allowedDrift));
+  const driftRatio=allowedDrift>0?(Math.abs(drift)/allowedDrift):(Math.abs(drift)>0?1:0);
+  const healthPct=safeNum(s.intake_health_pct);
+  const l1Result=String(l1.l1_result||'-');
+  const l2Final=safeNum(l2.finalL2Score);
+  const l2Interpretation=String(l2.interpretation||'-');
+  const l1HealthLevel=healthPct>=95?'green':(healthPct>=85?'yellow':'red');
+  const l1DriftLevel=levelByThresholds(driftRatio,0.4,0.85);
+  const l1ResultLevel=l1Result.toLowerCase().includes('reject')?'red':'green';
+  const l2SpikeLevel=levelByThresholds(l2.spikeSeverity,0.12,0.2);
+  const l2ConcentrationLevel=levelByThresholds(l2.concentration,0.12,0.22);
+  const l2SupportLevel=levelByThresholds(l2.supportInconsistency,0.08,0.16);
+  const l2FinalLevel=l2Final>=L2_HIGH_PRIORITY_THRESHOLD?'red':(l2Final>=L2_PASS_THRESHOLD?'yellow':'green');
+  const l2InterpretationLevel=l2FinalLevel;
 
   const rowHtml=(name,a,b,c,cColor)=>'<div class="session-scarab-row"><span title="'+escHtml(name)+'">'+escHtml(name)+'</span><span style="text-align:right">'+escHtml(String(a))+'</span><span style="text-align:right">'+escHtml(String(b))+'</span><span style="text-align:right;color:'+escHtml(cColor||'var(--muted)')+';font-weight:700">'+escHtml(String(c))+'</span></div>';
   const vendorBody=vendor.length?vendor.map((r)=>{const net=Math.round(safeNum(r.received)-safeNum(r.consumed));return rowHtml(r.name||'-',Math.round(safeNum(r.consumed)),Math.round(safeNum(r.received)),(net>=0?'+':'')+String(net),signColor(net));}).join(''):'<div class="sub">No vendor rows.</div>';
@@ -155,7 +184,7 @@ function buildSessionDetailHtml(s){
       +'<div><b>Scarabs Out:</b> '+escHtml(String(scarabsOut.toLocaleString()))+'</div>'
       +'<div><b>Divine Rate:</b> '+escHtml(rate>0?rate.toFixed(2)+' c/div':'-')+'</div>'
       +'<div><b>Rows:</b> '+escHtml(String(scarabs.length))+'</div>'
-      +'<div><b>Health:</b> '+escHtml(safeNum(s.intake_health_pct)>0?Math.round(safeNum(s.intake_health_pct))+'%':'-')+'</div>'
+      +'<div><b>L1 Structural Health:</b> '+stoplightValue(healthPct>0?Math.round(healthPct)+'%':'-',l1HealthLevel)+'</div>'
       +'<div><b>Admin Note:</b> '+escHtml(String(s.admin_note||'-'))+'</div>'
       +'<div><b>Reasons:</b> '+escHtml(reasons.length?reasons.join(' | '):'-')+'</div>'
     +'</div>'
@@ -165,26 +194,26 @@ function buildSessionDetailHtml(s){
       +'<div><b>L1 Leftovers:</b> '+escHtml(String(Math.round(safeNum(l1.leftovers)).toLocaleString()))+'</div>'
       +'<div><b>L1 Expected Final:</b> '+escHtml(String(Math.round(safeNum(l1.expectedFinal)).toLocaleString()))+'</div>'
       +'<div><b>L1 Actual Final:</b> '+escHtml(String(Math.round(safeNum(l1.actualFinalCount??s.intake_actual_outputs)).toLocaleString()))+'</div>'
-      +'<div><b>L1 Drift:</b> '+escHtml(String((safeNum(l1.drift??s.intake_drift)>=0?'+':'')+Math.round(safeNum(l1.drift??s.intake_drift))))+'</div>'
-      +'<div><b>L1 Drift %:</b> '+escHtml(pctSigned(l1.driftPct))+'</div>'
+      +'<div><b>L1 Drift:</b> '+stoplightValue(String((drift>=0?'+':'')+Math.round(drift)),l1DriftLevel)+'</div>'
+      +'<div><b>L1 Drift %:</b> '+stoplightValue(pctSigned(l1.driftPct),l1DriftLevel)+'</div>'
       +'<div><b>L1 Allowed Drift:</b> '+escHtml(String(Math.round(safeNum(l1.allowedDrift)).toLocaleString()))+'</div>'
-      +'<div><b>L1 Result:</b> '+escHtml(String(l1.l1_result||'-'))+'</div>'
+      +'<div><b>L1 Result:</b> '+stoplightValue(l1Result,l1ResultLevel)+'</div>'
       +'<div><b>L2 Spike Scarab:</b> '+escHtml(String(l2.spikeScarab||'-'))+'</div>'
       +'<div><b>L2 Expected Share:</b> '+escHtml(pct(l2.expectedShare))+'</div>'
       +'<div><b>L2 Actual Share:</b> '+escHtml(pct(l2.actualShare))+'</div>'
       +'<div><b>L2 Excess Count:</b> '+escHtml(String(safeNum(l2.excessCount).toFixed(2)))+'</div>'
       +'<div><b>L2 Mature Guard:</b> '+escHtml(String(!!l2.matureGuard))+'</div>'
       +'<div><b>L2 Excess Guard:</b> '+escHtml(String(!!l2.excessGuard))+'</div>'
-      +'<div><b>L2 Spike Severity:</b> '+escHtml(String(safeNum(l2.spikeSeverity).toFixed(4)))+'</div>'
+      +'<div><b>L2 Spike Severity:</b> '+stoplightValue(String(safeNum(l2.spikeSeverity).toFixed(4)),l2SpikeLevel)+'</div>'
       +'<div><b>L2 MidDiv:</b> '+escHtml(String(safeNum(l2.midDiv).toFixed(4)))+'</div>'
-      +'<div><b>L2 Concentration:</b> '+escHtml(String(safeNum(l2.concentration).toFixed(4)))+'</div>'
+      +'<div><b>L2 Concentration:</b> '+stoplightValue(String(safeNum(l2.concentration).toFixed(4)),l2ConcentrationLevel)+'</div>'
       +'<div><b>L2 Concentration (Adjusted):</b> '+escHtml(String(safeNum(l2.concentrationAdjusted).toFixed(4)))+'</div>'
-      +'<div><b>L2 Support Inconsistency:</b> '+escHtml(String(safeNum(l2.supportInconsistency).toFixed(4)))+'</div>'
+      +'<div><b>L2 Support Inconsistency:</b> '+stoplightValue(String(safeNum(l2.supportInconsistency).toFixed(4)),l2SupportLevel)+'</div>'
       +'<div><b>L2 Support (Adjusted):</b> '+escHtml(String(safeNum(l2.supportAdjusted).toFixed(4)))+'</div>'
       +'<div><b>L2 Score Before Guards:</b> '+escHtml(String(safeNum(l2.scoreBeforeGuards).toFixed(2)))+'</div>'
       +'<div><b>L2 Score After Guards:</b> '+escHtml(String(safeNum(l2.scoreAfterGuards).toFixed(2)))+'</div>'
-      +'<div><b>L2 Final Score:</b> '+escHtml(String(safeNum(l2.finalL2Score).toFixed(2)))+'</div>'
-      +'<div><b>L2 Interpretation:</b> '+escHtml(String(l2.interpretation||'-'))+'</div>'
+      +'<div><b>L2 Final Score:</b> '+stoplightValue(String(l2Final.toFixed(2)),l2FinalLevel)+'</div>'
+      +'<div><b>L2 Interpretation:</b> '+stoplightValue(l2Interpretation,l2InterpretationLevel)+'</div>'
     +'</div>'
     +(legacy
       ?'<div class="session-scarab-box"><div class="session-scarab-head">Scarab Outputs (Legacy)</div>'
@@ -211,19 +240,51 @@ function toggleSessionDetail(id){
   renderSessionRows();
 }
 
-function renderSessionRows(){
-  const tb=$('sessRows');
+function toggleReviewSessionDetail(id){
+  const key=String(id||'');
+  if(state.sessionReviewExpandedIds.has(key))state.sessionReviewExpandedIds.delete(key);
+  else state.sessionReviewExpandedIds.add(key);
+  renderReviewQueueRows(state.sessionReviewQueue||[]);
+}
+
+function reviewActionButtons(id){
+  return '<div class="session-actions"><button class="btn mini" data-review-approve="'+escHtml(id)+'" type="button">Accept</button><button class="btn warn mini" data-review-reject="'+escHtml(id)+'" type="button">Reject</button></div>';
+}
+function researchActionButtons(id){
+  return '<div class="session-actions"><button class="btn mini" data-research-approve="'+escHtml(id)+'" type="button">Accept</button></div>';
+}
+function deleteActionButton(id){
+  return '<button class="btn danger mini" data-sess-id="'+escHtml(id)+'" type="button">Delete</button>';
+}
+function reasonsText(s){
+  const reasons=parseReasons(s&&s.intake_reasons_json);
+  return reasons.length?reasons.join(' | '):'-';
+}
+function rowActionHtml(s,mode){
+  const id=String(s&&s.id||'-');
+  if(mode==='review')return reviewActionButtons(id);
+  if(isHeldForReview(s))return reviewActionButtons(id);
+  return deleteActionButton(id);
+}
+
+function renderSessionTableRows(tb,items,opts){
+  if(!tb)return;
+  const rows=Array.isArray(items)?items:[];
+  const mode=String(opts&&opts.mode||'sessions');
+  const expandedIds=(opts&&opts.expandedIds)||new Set();
+  const onToggle=(opts&&opts.onToggle)||(()=>{});
   tb.innerHTML='';
-  const total=state.sessions.length;
-  const pager=syncSessionPager(total);
-  const startIdx=(state.sessionPage-1)*pager.size;
-  const pageRows=state.sessions.slice(startIdx,startIdx+pager.size);
-  for(const s of pageRows){
+  if(rows.length===0){
+    tb.innerHTML='<tr><td colspan="9" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
+    return;
+  }
+  rows.forEach((s)=>{
     const id=String(s.id||'');
-    const isOpen=state.sessionExpandedIds.has(id);
+    const isOpen=expandedIds.has(id);
+    const held=isHeldForReview(s);
     const profit=safeNum(s.output_value)-safeNum(s.input_value);
     const main=document.createElement('tr');
-    main.className='row session-main'+(isOpen?' open':'');
+    main.className='row session-main'+(isOpen?' open':'')+(held?' session-held':'');
     main.innerHTML=''
       +'<td class="mono"><span class="session-main-id"><span class="session-chev'+(isOpen?' open':'')+'">></span>'+escHtml(id)+'</span></td>'
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
@@ -233,16 +294,28 @@ function renderSessionRows(){
       +'<td>'+fmtChaosRaw(s.input_value)+'</td>'
       +'<td>'+fmtChaosRaw(s.output_value)+'</td>'
       +'<td style="font-weight:700;color:'+signColor(profit)+'">'+fmtDivSignedFromChaos(profit,s.divine_rate)+'</td>'
-      +'<td><button class="btn danger mini" data-sess-id="'+escHtml(id)+'" type="button">Delete</button></td>';
-    main.onclick=(ev)=>{if(ev.target&&ev.target.tagName==='BUTTON')return;toggleSessionDetail(id);};
+      +'<td>'+rowActionHtml(s,mode)+'</td>';
+    main.onclick=(ev)=>{if(ev.target&&ev.target.tagName==='BUTTON')return;onToggle(id);};
     tb.appendChild(main);
 
     const detail=document.createElement('tr');
-    detail.className='session-detail-row'+(isOpen?'':' hidden');
+    detail.className='session-detail-row'+(isOpen?'':' hidden')+(held?' session-held-detail':'');
     detail.innerHTML='<td colspan="9">'+buildSessionDetailHtml(s)+'</td>';
     tb.appendChild(detail);
-  }
+  });
   tb.querySelectorAll('button[data-sess-id]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();deleteSessionRow(btn.dataset.sessId,btn);};});
+  tb.querySelectorAll('button[data-review-approve]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();runSessionReviewAction(btn.dataset.reviewApprove,'approve',btn);};});
+  tb.querySelectorAll('button[data-review-reject]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();runSessionReviewAction(btn.dataset.reviewReject,'reject',btn);};});
+}
+
+function renderSessionRows(){
+  const tb=$('sessRows');
+  if(!tb)return;
+  const total=state.sessions.length;
+  const pager=syncSessionPager(total);
+  const startIdx=(state.sessionPage-1)*pager.size;
+  const pageRows=state.sessions.slice(startIdx,startIdx+pager.size);
+  renderSessionTableRows(tb,pageRows,{mode:'sessions',expandedIds:state.sessionExpandedIds,onToggle:toggleSessionDetail});
 }
 
 async function loadSessionsManager(opts){
@@ -314,44 +387,9 @@ async function deleteSessionRow(id,btn){
   }
 }
 
-function reviewActionButtons(id){
-  return '<div class="toolbar"><button class="btn mini" data-review-approve="'+escHtml(id)+'" type="button">Approve</button><button class="btn warn mini" data-review-reject="'+escHtml(id)+'" type="button">Reject</button></div>';
-}
-function researchActionButtons(id){
-  return '<div class="toolbar"><button class="btn mini" data-research-approve="'+escHtml(id)+'" type="button">Approve</button></div>';
-}
-function reasonsText(s){
-  const reasons=parseReasons(s&&s.intake_reasons_json);
-  return reasons.length?reasons.join(' | '):'-';
-}
-
 function renderReviewQueueRows(items){
   const tb=$('sessReviewRows');
-  if(!tb)return;
-  tb.innerHTML='';
-  if(!Array.isArray(items)||items.length===0){
-    tb.innerHTML='<tr><td colspan="10" class="sub">No sessions are currently pending review.</td></tr>';
-    return;
-  }
-  items.forEach((s)=>{
-    const id=String(s.id||'-');
-    const tr=document.createElement('tr');
-    tr.className='row';
-    tr.innerHTML=''
-      +'<td class="mono">'+escHtml(id)+'</td>'
-      +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
-      +'<td>'+escHtml(String(s.league||'-'))+'</td>'
-      +'<td>'+escHtml(String(Math.round(safeNum(s.total_consumed)).toLocaleString()))+'</td>'
-      +'<td>'+escHtml(String(scarabsOutCount(s).toLocaleString()))+'</td>'
-      +'<td>'+escHtml(fmtChaosRaw(s.input_value))+'</td>'
-      +'<td>'+escHtml(fmtChaosRaw(s.output_value))+'</td>'
-      +'<td>'+escHtml(stateLabel(s.intake_state))+'</td>'
-      +'<td title="'+escHtml(reasonsText(s))+'">'+escHtml(reasonsText(s))+'</td>'
-      +'<td>'+reviewActionButtons(id)+'</td>';
-    tb.appendChild(tr);
-  });
-  tb.querySelectorAll('button[data-review-approve]').forEach((btn)=>{btn.onclick=()=>runSessionReviewAction(btn.dataset.reviewApprove,'approve',btn);});
-  tb.querySelectorAll('button[data-review-reject]').forEach((btn)=>{btn.onclick=()=>runSessionReviewAction(btn.dataset.reviewReject,'reject',btn);});
+  renderSessionTableRows(tb,items,{mode:'review',expandedIds:state.sessionReviewExpandedIds,onToggle:toggleReviewSessionDetail});
 }
 
 function renderResearchRows(items){
@@ -394,6 +432,7 @@ async function loadReviewQueue(opts){
     let data=null;try{data=JSON.parse(txt);}catch(e){}
     if(!Array.isArray(data)){if(!quiet)status('sessReviewStatus','Unexpected review queue payload format.','err');return false;}
     state.sessionReviewQueue=data;
+    state.sessionReviewExpandedIds=new Set((state.sessionReviewExpandedIds||new Set()).size?Array.from(state.sessionReviewExpandedIds).filter((id)=>data.some((x)=>String(x&&x.id||'')===String(id))):[]);
     renderReviewQueueRows(data);
     if(!quiet)status('sessReviewStatus','Loaded '+data.length+' review session(s).','ok');
     return true;
@@ -512,7 +551,7 @@ async function loadIntakeAnalytics(opts){
 }
 
 function promptDecisionNote(action,id){
-  const text=prompt((action==='approve'?'Approve ':'Reject ')+'session '+id+'. Optional admin note:','');
+  const text=prompt((action==='approve'?'Accept ':'Reject ')+'session '+id+'. Optional admin note:','');
   if(text===null)return null;
   return String(text||'').trim();
 }
@@ -530,13 +569,13 @@ async function runSessionReviewAction(id,action,btn){
     const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note})});
     const txt=await r.text();
     if(!r.ok){
-      status('sessStatus',(action==='approve'?'Approve':'Reject')+' failed ('+formatApiFailure(r,null,txt)+').','err');
+      status('sessStatus',(action==='approve'?'Accept':'Reject')+' failed ('+formatApiFailure(r,null,txt)+').','err');
       return;
     }
-    status('sessStatus','Session '+id+' '+(action==='approve'?'approved':'moved to research')+'.','ok');
+    status('sessStatus','Session '+id+' '+(action==='approve'?'accepted':'moved to research')+'.','ok');
     await Promise.all([loadSessionsManager({quiet:true}),loadReviewQueue({quiet:true}),loadResearchPile({quiet:true}),loadIntakeAnalytics({quiet:true})]);
   }catch(e){
-    status('sessStatus',(action==='approve'?'Approve':'Reject')+' error: '+formatThrownError(e),'err');
+    status('sessStatus',(action==='approve'?'Accept':'Reject')+' error: '+formatThrownError(e),'err');
   }finally{
     if(btn){btn.disabled=false;}
   }

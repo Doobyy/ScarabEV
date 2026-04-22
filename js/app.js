@@ -3044,9 +3044,14 @@ async function submitSession() {
     };
     existing.push(record);
     localStorage.setItem('poepool-sessions', JSON.stringify(existing));
+    const intakeClass = String(intake.classification || '').trim().toLowerCase();
+    const heldForReview = intakeClass === 'review_pending';
     if (intake.counted) {
       status.textContent = `Counted in community data${intake.healthPct != null ? ` \u00B7 Health ${Math.round(intake.healthPct)}%` : ''}`;
       status.style.color = 'var(--green)';
+    } else if (heldForReview) {
+      status.textContent = 'Saved locally only - held for admin review before it is added to community aggregate.';
+      status.style.color = 'var(--amber)';
     } else {
       const reasonLine = (intake.reasons && intake.reasons.length)
         ? intake.reasons.slice(0, 2).join(' | ')

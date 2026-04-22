@@ -30,7 +30,7 @@ export function buildAdminMarkup(): string {
       <div class="sess-filetabs"><button id="sessTabSessions" class="sess-tab active" type="button">Session Manager</button><button id="sessTabBackups" class="sess-tab" type="button">Session Backups</button><button id="sessTabReview" class="sess-tab" type="button">Review Queue</button><button id="sessTabResearch" class="sess-tab" type="button">Research Pile</button><button id="sessTabAnalytics" class="sess-tab" type="button">Intake Analytics</button></div>
       <div class="card sess-frame">
         <section id="sessPaneSessions" class="sess-pane active">
-          <div class="toolbar session-head"><div class="sub">Front-facing session log manager for aggregated community data. Review sessions and delete bad entries.</div><button id="sessOpenCfgBtn" class="btn ghost mini subtle" type="button">API Settings</button></div>
+          <div class="toolbar session-head"><div class="sub">Primary intake workspace. L1 is the structural gate; L2 holds only composition outliers worth manual moderation before aggregate inclusion.</div><button id="sessOpenCfgBtn" class="btn ghost mini subtle" type="button">API Settings</button></div>
           <div class="toolbar sess-rows-top"><span class="sub">Rows</span><select id="sessPageSize"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select></div>
           <div class="toolbar">
             <button id="sessLoadBtn" class="btn" type="button">Refresh Sessions</button>
@@ -64,9 +64,9 @@ export function buildAdminMarkup(): string {
           <div id="opsStatus" class="status">Use this section to run or inspect backup snapshots in staging.</div>
         </section>
         <section id="sessPaneReview" class="sess-pane">
-          <div class="sub">L2 review queue (newest first). Approve to include in aggregate, reject to move into Research Pile.</div>
+          <div class="sub">Filtered moderation view for held submissions only. Same expandable context as Session Manager, with Accept/Reject actions inline.</div>
           <div class="toolbar"><button id="sessReviewRefreshBtn" class="btn ghost" type="button">Refresh Review Queue</button></div>
-          <div class="list ops-list"><table><thead><tr><th style="width:110px">Session ID</th><th style="width:140px">Date</th><th style="width:100px">League</th><th style="width:80px">Scarabs In</th><th style="width:70px">Scarabs Out</th><th style="width:90px">Input</th><th style="width:90px">Output</th><th style="width:90px">State</th><th>Reasons</th><th style="width:220px">Action</th></tr></thead><tbody id="sessReviewRows"></tbody></table></div>
+          <div class="list session-list"><table><thead><tr><th>ID</th><th>Date</th><th>League</th><th>Scarabs In</th><th>Scarabs Out</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>Action</th></tr></thead><tbody id="sessReviewRows"></tbody></table></div>
           <div id="sessReviewStatus" class="status">Load review queue.</div>
         </section>
         <section id="sessPaneResearch" class="sess-pane">
