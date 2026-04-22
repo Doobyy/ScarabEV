@@ -371,12 +371,13 @@ function renderSessionTableRows(tb,items,opts){
   if(!tb)return;
   const rows=Array.isArray(items)?items:[];
   const mode=String(opts&&opts.mode||'sessions');
+  const selectionEnabled=mode==='sessions';
   const expandedIds=(opts&&opts.expandedIds)||new Set();
   const onToggle=(opts&&opts.onToggle)||(()=>{});
   tb.innerHTML='';
   if(rows.length===0){
     tb.innerHTML='<tr><td colspan="16" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
-    syncSessionSelectionUi([]);
+    if(selectionEnabled)syncSessionSelectionUi([]);
     return;
   }
   rows.forEach((s)=>{
@@ -388,13 +389,13 @@ function renderSessionTableRows(tb,items,opts){
     const drift=sessionRowDrift(s);
     const notePreview=sessionRowNotePreview(s);
     const noteFull=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();
-    const selected=state.sessionSelectedIds.has(id);
+    const selected=selectionEnabled&&state.sessionSelectedIds.has(id);
     const rerunRecent=state.sessionRecentRerunIds&&state.sessionRecentRerunIds.has(id);
     const rerunChanged=state.sessionRecentChangedIds&&state.sessionRecentChangedIds.has(id);
     const main=document.createElement('tr');
     main.className='row session-main'+(isOpen?' open':'')+(held?' session-held':'')+(rerunRecent?' session-rerun-row':'')+(rerunChanged?' session-rerun-changed':'');
     main.innerHTML=''
-      +'<td class="session-select-col"><input type="checkbox" data-sess-select="'+escHtml(id)+'"'+(selected?' checked':'')+' aria-label="Select session '+escHtml(id)+'"/></td>'
+      +'<td class="session-select-col">'+(selectionEnabled?('<input type="checkbox" data-sess-select="'+escHtml(id)+'"'+(selected?' checked':'')+' aria-label="Select session '+escHtml(id)+'"/>'):'')+'</td>'
       +'<td class="mono"><span class="session-main-id"><span class="session-chev'+(isOpen?' open':'')+'">></span>'+escHtml(id)+'</span></td>'
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
       +'<td>'+escHtml(String(s.league||'-'))+'</td>'
@@ -418,18 +419,20 @@ function renderSessionTableRows(tb,items,opts){
     detail.innerHTML='<td colspan="16">'+buildSessionDetailHtml(s)+'</td>';
     tb.appendChild(detail);
   });
-  tb.querySelectorAll('input[data-sess-select]').forEach((box)=>{
-    box.onclick=(ev)=>ev.stopPropagation();
-    box.onchange=(ev)=>{
-      const id=box.dataset.sessSelect||'';
-      toggleSessionSelected(id,!!box.checked);
-      syncSessionSelectionUi(rows);
-    };
-  });
+  if(selectionEnabled){
+    tb.querySelectorAll('input[data-sess-select]').forEach((box)=>{
+      box.onclick=(ev)=>ev.stopPropagation();
+      box.onchange=(ev)=>{
+        const id=box.dataset.sessSelect||'';
+        toggleSessionSelected(id,!!box.checked);
+        syncSessionSelectionUi(rows);
+      };
+    });
+  }
   tb.querySelectorAll('button[data-sess-id]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();deleteSessionRow(btn.dataset.sessId,btn);};});
   tb.querySelectorAll('button[data-review-approve]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();runSessionReviewAction(btn.dataset.reviewApprove,'approve',btn);};});
   tb.querySelectorAll('button[data-review-reject]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();runSessionReviewAction(btn.dataset.reviewReject,'reject',btn);};});
-  syncSessionSelectionUi(rows);
+  if(selectionEnabled)syncSessionSelectionUi(rows);
 }
 
 function renderSessionRows(){
