@@ -134,6 +134,37 @@ function sessionApiWithKey(pathSuffix){
   const sep=pathSuffix.includes('?')?'&':'?';
   return base+pathSuffix+sep+'key='+encodeURIComponent(key);
 }
+function resolveCurrentLeague(items){
+  const rows=Array.isArray(items)?items:[];
+  if(!rows.length)return '';
+  let best=rows[0]||null;
+  let bestTs=Date.parse(best&&best.created_at||'')||0;
+  for(const row of rows){
+    const ts=Date.parse(row&&row.created_at||'')||0;
+    if(ts>bestTs){
+      best=row;
+      bestTs=ts;
+    }
+  }
+  return String((best&&best.league)||'').trim();
+}
+function metricLevelByHealth(v){
+  const n=safeNum(v);
+  if(n>=95)return 'green';
+  if(n>=85)return 'yellow';
+  return 'red';
+}
+function renderSessionHealthScopeBtn(){
+  const btn=$('sessHealthScopeBtn');
+  if(!btn)return;
+  const isCurrent=state.sessionHealthScope==='current_league';
+  btn.textContent=isCurrent?'Health Scope: Current League':'Health Scope: Aggregate';
+}
+function toggleSessionHealthScope(){
+  state.sessionHealthScope=state.sessionHealthScope==='current_league'?'aggregate':'current_league';
+  renderSessionHealthScopeBtn();
+  updateSessionStats(state.sessions||[]);
+}
 function updateSessionStats(items){
   const total=items.length;
   let consumed=0,scarabsOut=0,totalProfitDiv=0,hasDivCount=0;
@@ -152,6 +183,19 @@ function updateSessionStats(items){
   $('sessMetricTrades').textContent=String(Math.round(scarabsOut).toLocaleString());
   $('sessMetricProfit').textContent=hasDivCount?((totalProfitDiv>=0?'+':'')+totalProfitDiv.toFixed(2)+' div'):'-';
   $('sessMetricProfit').style.color=signColor(totalProfitDiv);
+  const currentLeague=resolveCurrentLeague(items);
+  const scopeCurrent=state.sessionHealthScope==='current_league'&&!!currentLeague;
+  const scopedRows=scopeCurrent?items.filter((s)=>String((s&&s.league)||'').trim()===currentLeague):items;
+  const healthVals=scopedRows.map((s)=>safeNum(s&&s.intake_health_pct)).filter((n)=>Number.isFinite(n)&&n>0);
+  const avgHealth=healthVals.length?(healthVals.reduce((a,b)=>a+b,0)/healthVals.length):null;
+  if($('sessMetricHealthLabel'))$('sessMetricHealthLabel').textContent=scopeCurrent?('Avg Health ('+currentLeague+')'):'Avg Health (All)';
+  if($('sessMetricHealth')){
+    $('sessMetricHealth').textContent=avgHealth===null?'-':(avgHealth.toFixed(1)+'%');
+    $('sessMetricHealth').style.color=avgHealth===null?'var(--muted)':'var(--text)';
+    const lvl=avgHealth===null?'':metricLevelByHealth(avgHealth);
+    $('sessMetricHealth').className='metric-health '+(lvl?('intake-stoplight intake-'+lvl):'');
+  }
+  renderSessionHealthScopeBtn();
 }
 
 function buildSessionDetailHtml(s){
@@ -438,6 +482,7 @@ function renderSessionTableRows(tb,items,opts){
 function renderSessionRows(){
   const tb=$('sessRows');
   if(!tb)return;
+  renderSessionHealthScopeBtn();
   updateSessionRerunSummaryUi();
   const total=state.sessions.length;
   const pager=syncSessionPager(total);

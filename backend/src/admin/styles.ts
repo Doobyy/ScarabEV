@@ -55,6 +55,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .badge.danger{border-color:var(--danger);color:var(--danger)}
 .chip{font-size:11px;border:1px solid var(--line);border-radius:8px;padding:2px 6px;display:inline-block;background:var(--surface)}
 .kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.metric{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 9px}.metric b{display:block;font-size:18px;color:var(--heading)}.metric span{font-size:11px;color:var(--muted);text-transform:uppercase}
+.sess-kpi{grid-template-columns:repeat(5,minmax(0,1fr))}
+.metric .metric-health{color:var(--text)}
 .hidden{display:none!important}.check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)} .check input{width:auto}
 #login{position:relative;overflow:hidden;min-height:100vh;display:grid;place-items:center;padding:18px;background:radial-gradient(1040px 520px at 56% -10%,rgba(133,197,238,.18) 0%,rgba(95,149,214,.11) 34%,transparent 84%),radial-gradient(860px 420px at 14% 94%,rgba(39,98,194,.13) 0%,rgba(31,68,144,.08) 48%,transparent 84%),radial-gradient(900px 430px at 96% 84%,rgba(43,154,166,.08) 0%,rgba(31,91,141,.05) 44%,transparent 88%),linear-gradient(170deg,#071120,#0a172d 47%,#091223)}
 #login::before{content:"";position:absolute;right:-120px;top:-120px;width:520px;height:520px;border-radius:50%;pointer-events:none;filter:blur(16px);background:radial-gradient(circle at 36% 34%,rgba(162,206,236,.44) 0%,rgba(118,170,224,.30) 19%,rgba(82,124,196,.14) 44%,rgba(58,88,155,.05) 62%,transparent 90%),radial-gradient(circle at 58% 62%,rgba(104,160,208,.08) 0%,transparent 76%);opacity:.48}
@@ -263,6 +265,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
   .mgr-tab,.sess-tab{flex:0 0 auto}
   #panel-scarab .card,#panel-sessions .card{padding:8px}
   .kpi{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sess-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}
   .list{height:auto;min-height:220px;max-height:420px}
   .scarab-list,.token-set-list{height:auto;min-height:0;max-height:none}
   .modal{width:min(96vw,960px);max-height:90vh}
@@ -293,6 +296,7 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
   #sessPaneBackups>.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   #sessPaneBackups>.toolbar .btn{width:100%}
   .kpi{grid-template-columns:1fr}
+  .sess-kpi{grid-template-columns:1fr}
   .metric b{font-size:16px}
   .list{min-height:180px;max-height:360px}
   .session-list,.scarab-list,.token-set-list,.ops-list{overflow:auto;max-width:100%}
