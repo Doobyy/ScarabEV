@@ -158,7 +158,8 @@ function renderSessionHealthScopeBtn(){
   const btn=$('sessHealthScopeBtn');
   if(!btn)return;
   const isCurrent=state.sessionHealthScope==='current_league';
-  btn.textContent=isCurrent?'Health Scope: Current League':'Health Scope: Aggregate';
+  btn.textContent=isCurrent?'League':'All';
+  btn.title=isCurrent?'Scope: current league':'Scope: all leagues';
 }
 function toggleSessionHealthScope(){
   state.sessionHealthScope=state.sessionHealthScope==='current_league'?'aggregate':'current_league';
@@ -188,7 +189,7 @@ function updateSessionStats(items){
   const scopedRows=scopeCurrent?items.filter((s)=>String((s&&s.league)||'').trim()===currentLeague):items;
   const healthVals=scopedRows.map((s)=>safeNum(s&&s.intake_health_pct)).filter((n)=>Number.isFinite(n)&&n>0);
   const avgHealth=healthVals.length?(healthVals.reduce((a,b)=>a+b,0)/healthVals.length):null;
-  if($('sessMetricHealthLabel'))$('sessMetricHealthLabel').textContent=scopeCurrent?('Avg Health ('+currentLeague+')'):'Avg Health (All)';
+  if($('sessMetricHealthLabel'))$('sessMetricHealthLabel').textContent='Avg Health';
   if($('sessMetricHealth')){
     $('sessMetricHealth').textContent=avgHealth===null?'-':(avgHealth.toFixed(1)+'%');
     $('sessMetricHealth').style.color=avgHealth===null?'var(--muted)':'var(--text)';

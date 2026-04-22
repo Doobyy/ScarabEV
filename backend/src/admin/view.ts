@@ -36,7 +36,6 @@ export function buildAdminMarkup(): string {
             <button id="sessLoadBtn" class="btn" type="button">Refresh Sessions</button>
             <button id="sessRecomputeBtn" class="btn warn" type="button">Recompute Aggregate</button>
             <button id="sessRerunSelectedBtn" class="btn ghost" type="button" disabled>Rerun Validation</button>
-            <button id="sessHealthScopeBtn" class="btn ghost mini subtle" type="button">Health Scope: Aggregate</button>
             <span id="sessRerunSummary" class="sub mono"></span>
           </div>
           <div class="kpi sess-kpi">
@@ -44,7 +43,10 @@ export function buildAdminMarkup(): string {
             <div class="metric"><span>Scarabs In</span><b id="sessMetricConsumed">0</b></div>
             <div class="metric"><span>Scarabs Out</span><b id="sessMetricTrades">0</b></div>
             <div class="metric"><span>Total Profit (div)</span><b id="sessMetricProfit">0</b></div>
-            <div class="metric"><span id="sessMetricHealthLabel">Avg Health (All)</span><b id="sessMetricHealth">-</b></div>
+            <div class="metric">
+              <span class="metric-head-inline"><span id="sessMetricHealthLabel">Avg Health</span><button id="sessHealthScopeBtn" class="metric-scope-toggle" type="button">All</button></span>
+              <b id="sessMetricHealth">-</b>
+            </div>
           </div>
           <div class="list session-list">
             <table>
