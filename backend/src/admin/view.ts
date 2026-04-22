@@ -35,7 +35,7 @@ export function buildAdminMarkup(): string {
           <div class="toolbar">
             <button id="sessLoadBtn" class="btn" type="button">Refresh Sessions</button>
             <button id="sessRecomputeBtn" class="btn warn" type="button">Recompute Aggregate</button>
-            <button id="sessBackfillLegacyBtn" class="btn ghost" type="button">Backfill Legacy L1/L2</button>
+            <button id="sessRerunSelectedBtn" class="btn ghost" type="button" disabled>Rerun Selected L1/L2</button>
           </div>
           <div class="kpi">
             <div class="metric"><span>Sessions</span><b id="sessMetricCount">0</b></div>
@@ -47,7 +47,7 @@ export function buildAdminMarkup(): string {
             <table>
               <thead>
                 <tr>
-                  <th>ID</th><th>Date</th><th>League</th><th>S-IN</th><th>S-OUT</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>ROI%</th><th>Drift</th><th>Drift%</th><th>L1 Health</th><th>L2 Score</th><th>Notes</th><th>Action</th>
+                  <th><input id="sessSelectAllVisible" type="checkbox" aria-label="Select all visible sessions"/></th><th>ID</th><th>Date</th><th>League</th><th>S-IN</th><th>S-OUT</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>ROI%</th><th>Drift</th><th>Drift%</th><th>L1 Health</th><th>L2 Score</th><th>Notes</th><th>Action</th>
                 </tr>
               </thead>
               <tbody id="sessRows"></tbody>
@@ -67,7 +67,7 @@ export function buildAdminMarkup(): string {
         <section id="sessPaneReview" class="sess-pane">
           <div class="sub">Filtered moderation view for held submissions only. Same expandable context as Session Manager, with Accept/Reject actions inline.</div>
           <div class="toolbar"><button id="sessReviewRefreshBtn" class="btn ghost" type="button">Refresh Review Queue</button></div>
-          <div class="list session-list"><table><thead><tr><th>ID</th><th>Date</th><th>League</th><th>S-IN</th><th>S-OUT</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>ROI%</th><th>Drift</th><th>Drift%</th><th>L1 Health</th><th>L2 Score</th><th>Notes</th><th>Action</th></tr></thead><tbody id="sessReviewRows"></tbody></table></div>
+          <div class="list session-list"><table><thead><tr><th></th><th>ID</th><th>Date</th><th>League</th><th>S-IN</th><th>S-OUT</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>ROI%</th><th>Drift</th><th>Drift%</th><th>L1 Health</th><th>L2 Score</th><th>Notes</th><th>Action</th></tr></thead><tbody id="sessReviewRows"></tbody></table></div>
           <div id="sessReviewStatus" class="status">Load review queue.</div>
         </section>
         <section id="sessPaneResearch" class="sess-pane">

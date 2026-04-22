@@ -288,6 +288,67 @@ function rowActionHtml(s,mode){
   if(isHeldForReview(s))return reviewActionButtons(id);
   return deleteActionButton(id);
 }
+function syncSessionSelectionUi(rows){
+  const visible=(Array.isArray(rows)?rows:[]).map((s)=>String(s&&s.id||'')).filter(Boolean);
+  let selectedVisible=0;
+  for(const id of visible){
+    if(state.sessionSelectedIds.has(id))selectedVisible+=1;
+  }
+  const all=visible.length>0&&selectedVisible===visible.length;
+  const partial=selectedVisible>0&&selectedVisible<visible.length;
+  const box=$('sessSelectAllVisible');
+  if(box){
+    box.checked=all;
+    box.indeterminate=partial;
+    box.disabled=visible.length===0;
+  }
+  const btn=$('sessRerunSelectedBtn');
+  if(btn){
+    btn.disabled=state.sessionSelectedIds.size===0;
+    btn.textContent=state.sessionSelectedIds.size>0?('Rerun Selected L1/L2 ('+state.sessionSelectedIds.size+')'):'Rerun Selected L1/L2';
+  }
+}
+function pruneSessionSelections(){
+  const idSet=new Set((state.sessions||[]).map((s)=>String(s&&s.id||'')).filter(Boolean));
+  for(const id of Array.from(state.sessionSelectedIds||[])){
+    if(!idSet.has(id))state.sessionSelectedIds.delete(id);
+  }
+}
+function setVisibleSessionSelection(checked){
+  const total=state.sessions.length;
+  const size=Math.max(1,Number(state.sessionPageSize)||25);
+  const page=Math.max(1,Number(state.sessionPage)||1);
+  const startIdx=(page-1)*size;
+  const pageRows=state.sessions.slice(startIdx,startIdx+size);
+  for(const s of pageRows){
+    const id=String(s&&s.id||'');
+    if(!id)continue;
+    if(checked)state.sessionSelectedIds.add(id);
+    else state.sessionSelectedIds.delete(id);
+  }
+  renderSessionRows();
+}
+function toggleSessionSelected(id,checked){
+  const key=String(id||'');
+  if(!key)return;
+  if(checked)state.sessionSelectedIds.add(key);
+  else state.sessionSelectedIds.delete(key);
+}
+function selectedSessionIdsAsc(){
+  const byId={};
+  for(const s of state.sessions||[])byId[String(s&&s.id||'')]=s;
+  return Array.from(state.sessionSelectedIds||[])
+    .filter((id)=>!!byId[id])
+    .sort((a,b)=>{
+      const sa=byId[a],sb=byId[b];
+      const da=Date.parse(sa&&sa.created_at||'')||0;
+      const db=Date.parse(sb&&sb.created_at||'')||0;
+      if(da!==db)return da-db;
+      const na=Number(a),nb=Number(b);
+      if(Number.isFinite(na)&&Number.isFinite(nb))return na-nb;
+      return String(a).localeCompare(String(b));
+    });
+}
 
 function renderSessionTableRows(tb,items,opts){
   if(!tb)return;
@@ -297,7 +358,8 @@ function renderSessionTableRows(tb,items,opts){
   const onToggle=(opts&&opts.onToggle)||(()=>{});
   tb.innerHTML='';
   if(rows.length===0){
-    tb.innerHTML='<tr><td colspan="15" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="16" class="sub">'+escHtml(mode==='review'?'No sessions are currently pending review.':'No sessions to display.')+'</td></tr>';
+    syncSessionSelectionUi([]);
     return;
   }
   rows.forEach((s)=>{
@@ -309,9 +371,11 @@ function renderSessionTableRows(tb,items,opts){
     const drift=sessionRowDrift(s);
     const notePreview=sessionRowNotePreview(s);
     const noteFull=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();
+    const selected=state.sessionSelectedIds.has(id);
     const main=document.createElement('tr');
     main.className='row session-main'+(isOpen?' open':'')+(held?' session-held':'');
     main.innerHTML=''
+      +'<td class="session-select-col"><input type="checkbox" data-sess-select="'+escHtml(id)+'"'+(selected?' checked':'')+' aria-label="Select session '+escHtml(id)+'"/></td>'
       +'<td class="mono"><span class="session-main-id"><span class="session-chev'+(isOpen?' open':'')+'">></span>'+escHtml(id)+'</span></td>'
       +'<td class="mono">'+escHtml(formatAdminTime(s.created_at))+'</td>'
       +'<td>'+escHtml(String(s.league||'-'))+'</td>'
@@ -327,17 +391,26 @@ function renderSessionTableRows(tb,items,opts){
       +'<td>'+stoplightValue(m.l2Score.toFixed(2),m.l2Level)+'</td>'
       +'<td class="session-note-cell" title="'+escHtml(noteFull||'-')+'"><span class="session-note-text">'+escHtml(notePreview)+'</span></td>'
       +'<td>'+rowActionHtml(s,mode)+'</td>';
-    main.onclick=(ev)=>{if(ev.target&&ev.target.tagName==='BUTTON')return;onToggle(id);};
+    main.onclick=(ev)=>{if(ev.target&&(/BUTTON|INPUT|LABEL/.test(ev.target.tagName)))return;onToggle(id);};
     tb.appendChild(main);
 
     const detail=document.createElement('tr');
     detail.className='session-detail-row'+(isOpen?'':' hidden')+(held?' session-held-detail':'');
-    detail.innerHTML='<td colspan="15">'+buildSessionDetailHtml(s)+'</td>';
+    detail.innerHTML='<td colspan="16">'+buildSessionDetailHtml(s)+'</td>';
     tb.appendChild(detail);
+  });
+  tb.querySelectorAll('input[data-sess-select]').forEach((box)=>{
+    box.onclick=(ev)=>ev.stopPropagation();
+    box.onchange=(ev)=>{
+      const id=box.dataset.sessSelect||'';
+      toggleSessionSelected(id,!!box.checked);
+      syncSessionSelectionUi(rows);
+    };
   });
   tb.querySelectorAll('button[data-sess-id]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();deleteSessionRow(btn.dataset.sessId,btn);};});
   tb.querySelectorAll('button[data-review-approve]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();runSessionReviewAction(btn.dataset.reviewApprove,'approve',btn);};});
   tb.querySelectorAll('button[data-review-reject]').forEach((btn)=>{btn.onclick=(ev)=>{ev.stopPropagation();runSessionReviewAction(btn.dataset.reviewReject,'reject',btn);};});
+  syncSessionSelectionUi(rows);
 }
 
 function renderSessionRows(){
@@ -362,6 +435,7 @@ async function loadSessionsManager(opts){
     let data=null;try{data=JSON.parse(txt);}catch(e){}
     if(!Array.isArray(data)){if(!quiet)status('sessStatus','Unexpected session payload format.','err');return false;}
     state.sessions=data;
+    pruneSessionSelections();
     state.sessionPage=1;
     if($('sessPageSize'))$('sessPageSize').value=String(state.sessionPageSize||25);
     state.sessionExpandedIds=new Set();
@@ -394,32 +468,36 @@ async function recomputeAggregate(){
   }
 }
 
-async function backfillLegacyIntake(){
+async function rerunSelectedSessionsIntake(){
   const base=($('sessApiUrl').value||state.sessionApiUrl||'').trim().replace(/\/+$/,'');
   const key=($('sessAdminKey').value||state.sessionAdminKey||'').trim();
   if(!base||!key){status('sessStatus','Set session API URL and admin key first.','warn');return;}
-  if(!confirm('Backfill L1/L2 on legacy-approved sessions (intake_state missing)? This may move some sessions into review/reject lanes. Continue?'))return;
-  busy('sessBackfillLegacyBtn',true);
+  const ids=selectedSessionIdsAsc();
+  if(ids.length===0){status('sessStatus','Select at least one session first.','warn');return;}
+  if(!confirm('Rerun intake L1/L2 on '+ids.length+' selected session(s)? This can change hold/pass outcomes based on current logic. Continue?'))return;
+  busy('sessRerunSelectedBtn',true);
   try{
-    const url=base+'/backfill-intake?key='+encodeURIComponent(key)+'&limit=2000';
-    const r=await fetch(url,{method:'POST'});
+    const url=base+'/rerun-intake?key='+encodeURIComponent(key);
+    const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ids})});
     const txt=await r.text();
     let data=null;try{data=JSON.parse(txt);}catch(e){}
     if(!r.ok){
-      status('sessStatus','Legacy backfill failed ('+formatApiFailure(r,data,txt)+').','err');
+      status('sessStatus','Selected rerun failed ('+formatApiFailure(r,data,txt)+').','err');
       return;
     }
+    const selected=safeNum(data&&data.selected);
     const updated=safeNum(data&&data.updated);
     const processed=safeNum(data&&data.processed);
     const skipped=safeNum(data&&data.skipped);
     const errors=safeNum(data&&data.errors);
+    const changed=safeNum(data&&data.changed);
     const counts=(data&&data.stateCounts&&typeof data.stateCounts==='object')?data.stateCounts:{};
-    status('sessStatus','Legacy backfill complete. processed='+processed+', updated='+updated+', skipped='+skipped+', errors='+errors+' | approved_auto='+(safeNum(counts.approved_auto)||0)+', review_pending='+(safeNum(counts.review_pending)||0)+', l1_reject='+(safeNum(counts.l1_reject)||0)+'.','ok');
+    status('sessStatus','Selected rerun complete. selected='+selected+', processed='+processed+', updated='+updated+', changed='+changed+', skipped='+skipped+', errors='+errors+' | approved_auto='+(safeNum(counts.approved_auto)||0)+', review_pending='+(safeNum(counts.review_pending)||0)+', l1_reject='+(safeNum(counts.l1_reject)||0)+'.','ok');
     await Promise.all([loadSessionsManager({quiet:true}),loadReviewQueue({quiet:true}),loadResearchPile({quiet:true}),loadIntakeAnalytics({quiet:true})]);
   }catch(e){
-    status('sessStatus','Legacy backfill error: '+formatThrownError(e),'err');
+    status('sessStatus','Selected rerun error: '+formatThrownError(e),'err');
   }finally{
-    busy('sessBackfillLegacyBtn',false);
+    busy('sessRerunSelectedBtn',false);
   }
 }
 

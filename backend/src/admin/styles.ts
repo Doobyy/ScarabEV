@@ -153,22 +153,22 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-scarab-row:last-child{border-bottom:none}
 .session-actions{display:flex;gap:6px;flex-wrap:wrap}
 .session-list table{table-layout:fixed}
-.session-list th:nth-child(1),.session-list td:nth-child(1){width:90px;min-width:90px}
-.session-list th:nth-child(2),.session-list td:nth-child(2){width:132px;min-width:132px}
-.session-list th:nth-child(3),.session-list td:nth-child(3){width:76px;min-width:76px}
-.session-list th:nth-child(4),.session-list td:nth-child(4){width:90px;min-width:90px}
-.session-list th:nth-child(5),.session-list td:nth-child(5){width:92px;min-width:92px}
-.session-list th:nth-child(6),.session-list td:nth-child(6){width:72px;min-width:72px}
-.session-list th:nth-child(7),.session-list td:nth-child(7){width:82px;min-width:82px}
-.session-list th:nth-child(8),.session-list td:nth-child(8){width:110px;min-width:110px}
-.session-list th:nth-child(9),.session-list td:nth-child(9){width:74px;min-width:74px}
-.session-list th:nth-child(10),.session-list td:nth-child(10){width:56px;min-width:56px}
-.session-list th:nth-child(11),.session-list td:nth-child(11){width:74px;min-width:74px}
-.session-list th:nth-child(12),.session-list td:nth-child(12){width:82px;min-width:82px}
-.session-list th:nth-child(13),.session-list td:nth-child(13){width:78px;min-width:78px}
-.session-list th:nth-child(14),.session-list td:nth-child(14){min-width:110px}
-.session-list th:nth-child(15),.session-list td:nth-child(15){width:170px;min-width:170px;text-align:right}
-.session-list th:nth-child(4),.session-list td:nth-child(4),
+.session-list th:nth-child(1),.session-list td:nth-child(1){width:30px;min-width:30px;text-align:center}
+.session-list th:nth-child(2),.session-list td:nth-child(2){width:90px;min-width:90px}
+.session-list th:nth-child(3),.session-list td:nth-child(3){width:132px;min-width:132px}
+.session-list th:nth-child(4),.session-list td:nth-child(4){width:76px;min-width:76px}
+.session-list th:nth-child(5),.session-list td:nth-child(5){width:90px;min-width:90px}
+.session-list th:nth-child(6),.session-list td:nth-child(6){width:92px;min-width:92px}
+.session-list th:nth-child(7),.session-list td:nth-child(7){width:72px;min-width:72px}
+.session-list th:nth-child(8),.session-list td:nth-child(8){width:82px;min-width:82px}
+.session-list th:nth-child(9),.session-list td:nth-child(9){width:110px;min-width:110px}
+.session-list th:nth-child(10),.session-list td:nth-child(10){width:74px;min-width:74px}
+.session-list th:nth-child(11),.session-list td:nth-child(11){width:56px;min-width:56px}
+.session-list th:nth-child(12),.session-list td:nth-child(12){width:74px;min-width:74px}
+.session-list th:nth-child(13),.session-list td:nth-child(13){width:82px;min-width:82px}
+.session-list th:nth-child(14),.session-list td:nth-child(14){width:78px;min-width:78px}
+.session-list th:nth-child(15),.session-list td:nth-child(15){min-width:110px}
+.session-list th:nth-child(16),.session-list td:nth-child(16){width:170px;min-width:170px;text-align:right}
 .session-list th:nth-child(5),.session-list td:nth-child(5),
 .session-list th:nth-child(6),.session-list td:nth-child(6),
 .session-list th:nth-child(7),.session-list td:nth-child(7),
@@ -177,8 +177,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list th:nth-child(10),.session-list td:nth-child(10),
 .session-list th:nth-child(11),.session-list td:nth-child(11),
 .session-list th:nth-child(12),.session-list td:nth-child(12),
-.session-list th:nth-child(13),.session-list td:nth-child(13){text-align:right}
-.session-list td:nth-child(4),
+.session-list th:nth-child(13),.session-list td:nth-child(13),
+.session-list th:nth-child(14),.session-list td:nth-child(14){text-align:right}
 .session-list td:nth-child(5),
 .session-list td:nth-child(6),
 .session-list td:nth-child(7),
@@ -187,7 +187,9 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list td:nth-child(10),
 .session-list td:nth-child(11),
 .session-list td:nth-child(12),
-.session-list td:nth-child(13){font-variant-numeric:tabular-nums}
+.session-list td:nth-child(13),
+.session-list td:nth-child(14){font-variant-numeric:tabular-nums}
+.session-select-col input[type="checkbox"],#sessSelectAllVisible{width:14px;height:14px;vertical-align:middle}
 .session-list td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .session-note-cell{padding-top:4px!important;padding-bottom:4px!important}
 .session-note-text{display:block;font-size:10px;line-height:1.05;white-space:normal;overflow:hidden;max-height:16px;overflow-wrap:anywhere}

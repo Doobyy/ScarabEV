@@ -1889,6 +1889,155 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
           l1RejectCount: Number(l1Rejected?.count) || 0
         });
       }
+      if (request.method === "POST" && subPath === "/rerun-intake") {
+        let ids = [];
+        let dryRun = false;
+        try {
+          const body = await request.json();
+          if (body && Array.isArray(body.ids))
+            ids = body.ids;
+          dryRun = String(body?.dryRun || "").trim() === "1" || body?.dryRun === true;
+        } catch (_) {
+        }
+        const selectedIdList = Array.from(
+          new Set(
+            ids.map((id) => String(id || "").trim()).filter(Boolean)
+          )
+        ).slice(0, 2e3);
+        if (selectedIdList.length === 0) {
+          return json({ error: "Provide at least one session id in ids[]" }, 400);
+        }
+        const selectedIdSet = new Set(selectedIdList);
+        const approvedPriorByScarab = {};
+        const { results: streamRows } = await env.DB.prepare(
+          `SELECT id, created_at, league, league_key, regex, total_consumed, total_trades, input_value, output_value,
+                  divine_rate, scarabs_json, intake_state
+           FROM sessions
+           ORDER BY created_at ASC, id ASC`
+        ).all();
+        let found = 0;
+        let processed = 0;
+        let updated = 0;
+        let skipped = 0;
+        let errors = 0;
+        let changed = 0;
+        const stateCounts = {
+          approved_auto: 0,
+          review_pending: 0,
+          l1_reject: 0
+        };
+        for (const row of streamRows || []) {
+          const rowId = String(row?.id || "");
+          const isSelected = selectedIdSet.has(rowId);
+          if (!isSelected) {
+            const state = String(row?.intake_state || "").trim();
+            if (APPROVED_INTAKE_STATES.includes(state)) {
+              const deltaMap = buildReceivedByScarabMap(parseScarabRows(row?.scarabs_json || "[]"));
+              for (const [name, count] of Object.entries(deltaMap)) {
+                approvedPriorByScarab[name] = (Number(approvedPriorByScarab[name]) || 0) + (Number(count) || 0);
+              }
+            }
+            continue;
+          }
+          found += 1;
+          processed += 1;
+          const prevState = String(row?.intake_state || "").trim();
+          try {
+            const payload = buildSessionPayloadFromStoredRow(row);
+            if (!payload) {
+              skipped += 1;
+              continue;
+            }
+            const l1 = evaluateSessionIntake(payload);
+            let intakeState = SESSION_STATE_L1_REJECT;
+            let classification = SESSION_STATE_L1_REJECT;
+            let healthPct = Number(l1.healthPct) || 0;
+            let reasons = Array.isArray(l1.reasons) ? l1.reasons : [];
+            let l2Audit = null;
+            if (l1.l1Passed) {
+              const l2 = evaluateL2Intake(l1, approvedPriorByScarab);
+              intakeState = String(l2.intakeState || SESSION_STATE_REVIEW_PENDING);
+              classification = String(l2.classification || intakeState);
+              healthPct = Number(l2.healthPct) || healthPct;
+              reasons = Array.isArray(l2.reasons) ? l2.reasons : reasons;
+              l2Audit = l2.l2Audit || null;
+            }
+            if (prevState !== intakeState)
+              changed += 1;
+            if (Object.prototype.hasOwnProperty.call(stateCounts, intakeState))
+              stateCounts[intakeState] += 1;
+            if (!dryRun) {
+              await env.DB.prepare(
+                `UPDATE sessions
+                 SET intake_state = ?, intake_class = ?, intake_health_pct = ?, intake_expected_trades = ?, intake_actual_outputs = ?,
+                     intake_drift = ?, intake_reasons_json = ?, intake_l1_json = ?, intake_l2_json = ?
+                 WHERE id = ?`
+              ).bind(
+                intakeState,
+                classification,
+                healthPct,
+                Number(l1.expectedTrades) || 0,
+                Number(l1.actualOutputs) || 0,
+                Number(l1.drift) || 0,
+                JSON.stringify(reasons || []),
+                JSON.stringify(l1.l1Audit || {}),
+                JSON.stringify(l2Audit || {}),
+                rowId
+              ).run();
+              await insertIntakeEvent(env, {
+                sessionId: rowId,
+                action: "rerun_intake_selected",
+                intakeState,
+                adminActor: "admin_key",
+                league: row?.league || null,
+                leagueKey: row?.league_key || null,
+                totalConsumed: row?.total_consumed,
+                totalTrades: row?.total_trades,
+                totalInput: row?.input_value,
+                totalOutput: row?.output_value,
+                expectedTrades: l1.expectedTrades,
+                actualOutputs: l1.actualOutputs,
+                drift: l1.drift,
+                reasons,
+                meta: {
+                  source: "selected_rerun",
+                  previousState: prevState || null,
+                  l1Audit: l1.l1Audit || null,
+                  l2Audit
+                }
+              });
+            }
+            updated += 1;
+            if (intakeState === SESSION_STATE_APPROVED_AUTO) {
+              const deltaMap = buildReceivedByScarabMap(payload.scarabs);
+              for (const [name, count] of Object.entries(deltaMap)) {
+                approvedPriorByScarab[name] = (Number(approvedPriorByScarab[name]) || 0) + (Number(count) || 0);
+              }
+            }
+          } catch (_) {
+            errors += 1;
+          }
+        }
+        let aggregateRecomputed = false;
+        if (!dryRun) {
+          await recomputeAggregate(env);
+          aggregateRecomputed = true;
+        }
+        return json({
+          ok: true,
+          dryRun,
+          selected: selectedIdList.length,
+          found,
+          missing: Math.max(0, selectedIdList.length - found),
+          processed,
+          updated,
+          changed,
+          skipped,
+          errors,
+          stateCounts,
+          aggregateRecomputed
+        });
+      }
       if (request.method === "POST" && subPath === "/backfill-intake") {
         const dryRun = String(url.searchParams.get("dryRun") || "").trim() === "1";
         const maxRows = Math.max(1, Math.min(2e3, Number(url.searchParams.get("limit") || 500)));
