@@ -1921,6 +1921,7 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
         let skipped = 0;
         let errors = 0;
         let changed = 0;
+        const changedIds = [];
         const stateCounts = {
           approved_auto: 0,
           review_pending: 0,
@@ -1962,8 +1963,10 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
               reasons = Array.isArray(l2.reasons) ? l2.reasons : reasons;
               l2Audit = l2.l2Audit || null;
             }
-            if (prevState !== intakeState)
+            if (prevState !== intakeState) {
+              changedIds.push(rowId);
               changed += 1;
+            }
             if (Object.prototype.hasOwnProperty.call(stateCounts, intakeState))
               stateCounts[intakeState] += 1;
             if (!dryRun) {
@@ -2032,6 +2035,7 @@ if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
           processed,
           updated,
           changed,
+          changedIds,
           skipped,
           errors,
           stateCounts,

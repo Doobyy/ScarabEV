@@ -286,6 +286,23 @@ function rowActionHtml(s,mode){
   if(isHeldForReview(s))return reviewActionButtons(id);
   return deleteActionButton(id);
 }
+function updateSessionRerunSummaryUi(){
+  const n=$('sessRerunSummary');
+  if(n)n.textContent=String(state.sessionLastRerunSummary||'No rerun yet.');
+}
+function clearSessionRerunFeedback(){
+  state.sessionRecentRerunIds=new Set();
+  state.sessionRecentChangedIds=new Set();
+  renderSessionRows();
+}
+function setSessionRerunFeedback(selectedIds,changedIds){
+  const selected=Array.isArray(selectedIds)?selectedIds:[];
+  const changed=Array.isArray(changedIds)?changedIds:[];
+  state.sessionRecentRerunIds=new Set(selected.map((id)=>String(id||'')).filter(Boolean));
+  state.sessionRecentChangedIds=new Set(changed.map((id)=>String(id||'')).filter(Boolean));
+  if(window.__sessRerunFlashTimer)clearTimeout(window.__sessRerunFlashTimer);
+  window.__sessRerunFlashTimer=setTimeout(()=>clearSessionRerunFeedback(),12000);
+}
 function syncSessionSelectionUi(rows){
   const visible=(Array.isArray(rows)?rows:[]).map((s)=>String(s&&s.id||'')).filter(Boolean);
   let selectedVisible=0;
@@ -370,8 +387,10 @@ function renderSessionTableRows(tb,items,opts){
     const notePreview=sessionRowNotePreview(s);
     const noteFull=String((s&&s.admin_note)||'').replace(/\s+/g,' ').trim();
     const selected=state.sessionSelectedIds.has(id);
+    const rerunRecent=state.sessionRecentRerunIds&&state.sessionRecentRerunIds.has(id);
+    const rerunChanged=state.sessionRecentChangedIds&&state.sessionRecentChangedIds.has(id);
     const main=document.createElement('tr');
-    main.className='row session-main'+(isOpen?' open':'')+(held?' session-held':'');
+    main.className='row session-main'+(isOpen?' open':'')+(held?' session-held':'')+(rerunRecent?' session-rerun-row':'')+(rerunChanged?' session-rerun-changed':'');
     main.innerHTML=''
       +'<td class="session-select-col"><input type="checkbox" data-sess-select="'+escHtml(id)+'"'+(selected?' checked':'')+' aria-label="Select session '+escHtml(id)+'"/></td>'
       +'<td class="mono"><span class="session-main-id"><span class="session-chev'+(isOpen?' open':'')+'">></span>'+escHtml(id)+'</span></td>'
@@ -414,6 +433,7 @@ function renderSessionTableRows(tb,items,opts){
 function renderSessionRows(){
   const tb=$('sessRows');
   if(!tb)return;
+  updateSessionRerunSummaryUi();
   const total=state.sessions.length;
   const pager=syncSessionPager(total);
   const startIdx=(state.sessionPage-1)*pager.size;
@@ -489,9 +509,16 @@ async function rerunSelectedSessionsIntake(){
     const skipped=safeNum(data&&data.skipped);
     const errors=safeNum(data&&data.errors);
     const changed=safeNum(data&&data.changed);
+    const changedIds=Array.isArray(data&&data.changedIds)?data.changedIds.map((x)=>String(x||'')).filter(Boolean):[];
     const counts=(data&&data.stateCounts&&typeof data.stateCounts==='object')?data.stateCounts:{};
+    state.sessionSelectedIds=new Set();
+    setSessionRerunFeedback(ids,changedIds);
+    state.sessionLastRerunSummary='Last rerun: '+new Date().toLocaleTimeString()+' | selected='+selected+', changed='+changed+', errors='+errors;
+    updateSessionRerunSummaryUi();
     status('sessStatus','Selected rerun complete. selected='+selected+', processed='+processed+', updated='+updated+', changed='+changed+', skipped='+skipped+', errors='+errors+' | approved_auto='+(safeNum(counts.approved_auto)||0)+', review_pending='+(safeNum(counts.review_pending)||0)+', l1_reject='+(safeNum(counts.l1_reject)||0)+'.','ok');
+    toast('Rerun complete: '+selected+' selected, '+changed+' changed');
     await Promise.all([loadSessionsManager({quiet:true}),loadReviewQueue({quiet:true}),loadResearchPile({quiet:true}),loadIntakeAnalytics({quiet:true})]);
+    renderSessionRows();
   }catch(e){
     status('sessStatus','Selected rerun error: '+formatThrownError(e),'err');
   }finally{

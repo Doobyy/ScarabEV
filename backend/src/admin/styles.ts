@@ -129,6 +129,8 @@ tr.row{cursor:pointer} tr.row:nth-child(even){background:color-mix(in srgb,var(-
 .session-list .row.session-main.session-held{background:color-mix(in srgb,var(--danger) 20%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 48%,var(--line))}
 .session-list .row.session-main.session-held:hover{background:color-mix(in srgb,var(--danger) 26%,var(--surface))}
 .session-list .row.session-main.session-held.open{background:color-mix(in srgb,var(--danger) 28%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 60%,var(--line))}
+.session-list .row.session-main.session-rerun-row{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 62%,var(--line));background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.session-list .row.session-main.session-rerun-changed{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 70%,var(--line));background:color-mix(in srgb,var(--warn) 18%,var(--surface))}
 .session-main-id{display:flex;align-items:center;gap:6px}
 .session-chev{display:inline-block;width:10px;color:var(--muted);font-size:10px;transition:transform .12s ease}
 .session-chev.open{transform:rotate(90deg)}

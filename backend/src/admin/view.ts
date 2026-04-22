@@ -36,6 +36,7 @@ export function buildAdminMarkup(): string {
             <button id="sessLoadBtn" class="btn" type="button">Refresh Sessions</button>
             <button id="sessRecomputeBtn" class="btn warn" type="button">Recompute Aggregate</button>
             <button id="sessRerunSelectedBtn" class="btn ghost" type="button" disabled>Rerun Selected L1/L2</button>
+            <span id="sessRerunSummary" class="sub mono">No rerun yet.</span>
           </div>
           <div class="kpi">
             <div class="metric"><span>Sessions</span><b id="sessMetricCount">0</b></div>

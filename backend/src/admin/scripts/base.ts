@@ -14,7 +14,7 @@ const state={
   user:null,scarabs:[],filtered:[],selected:null,selectedId:null,creating:false,
   tokensByName:{},draftTokensByScarabId:{},latestDraftEntries:[],sets:[],selectedIds:new Set(),
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
-  captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionReviewExpandedIds:new Set(),sessionSelectedIds:new Set(),sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,bulkToolsAutoLoaded:false,
+  captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionReviewExpandedIds:new Set(),sessionSelectedIds:new Set(),sessionRecentRerunIds:new Set(),sessionRecentChangedIds:new Set(),sessionLastRerunSummary:'No rerun yet.',sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,bulkToolsAutoLoaded:false,
   sessionDupes:[],sessionSignals:[],sessionReviewQueue:[],sessionResearchPile:[],sessionIntakeAnalytics:null,healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
   failureLogsAutoLoaded:false,failureLogs:[],manualRetryBusy:false
 };
