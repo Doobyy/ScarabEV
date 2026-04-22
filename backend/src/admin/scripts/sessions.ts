@@ -157,9 +157,10 @@ function metricLevelByHealth(v){
 function renderSessionHealthScopeBtn(){
   const btn=$('sessHealthScopeBtn');
   if(!btn)return;
+  const leagueName=resolveCurrentLeague(state.sessions||[])||'Current';
   const isCurrent=state.sessionHealthScope==='current_league';
-  btn.textContent=isCurrent?'League':'All';
-  btn.title=isCurrent?'Scope: current league':'Scope: all leagues';
+  btn.textContent=isCurrent?leagueName:'All';
+  btn.title=isCurrent?('Scope: '+leagueName):'Scope: all leagues';
 }
 function toggleSessionHealthScope(){
   state.sessionHealthScope=state.sessionHealthScope==='current_league'?'aggregate':'current_league';
