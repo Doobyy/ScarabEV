@@ -774,23 +774,63 @@ function initFaq() {
   if (!list) return;
   list.innerHTML = ''; // always rebuild fresh
 
+  let activeGroupBody = null;
+  let groupIndex = 0;
+  let defaultExpandedQuestions = 0;
+
   FAQ_SECTIONS.forEach((section, i) => {
+    if (section.groupTitle) {
+      const groupId = `faq-group-${i}`;
+      const groupBodyId = `faq-group-body-${i}`;
+      const groupChevronId = `faq-group-chevron-${i}`;
+      const openByDefault = groupIndex < 2;
+      groupIndex += 1;
+      const group = document.createElement('div');
+      group.innerHTML = `
+        <div onclick="toggleFaqGroup('${groupBodyId}','${groupChevronId}','${groupId}')" class="faq-question faq-group-header${openByDefault ? ' open' : ''}" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:10px 14px;border:1px solid var(--border);border-radius:7px;transition:background 0.15s" id="${groupId}">
+          <span class="faq-chevron" style="font-size:24px;font-weight:700;transition:transform 0.15s;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;overflow:visible;transform-origin:center center;${openByDefault ? 'transform:rotate(90deg);' : ''}" id="${groupChevronId}">&#9656;</span>
+          <span class="faq-question-title">${section.groupTitle}</span>
+        </div>
+        <div id="${groupBodyId}" class="faq-group-body" style="display:${openByDefault ? '' : 'none'}"></div>
+      `;
+      list.appendChild(group);
+      activeGroupBody = document.getElementById(groupBodyId);
+      return;
+    }
+
     const id = `faq-item-${i}`;
     const bodyId = `faq-body-${i}`;
     const chevronId = `faq-chevron-${i}`;
+    const openQuestionByDefault = groupIndex === 1 && defaultExpandedQuestions < 2;
+    if (openQuestionByDefault) defaultExpandedQuestions += 1;
 
     const wrapper = document.createElement('div');
     wrapper.innerHTML = `
-      <div onclick="toggleFaqItem('${bodyId}','${chevronId}','${id}')" class="faq-question" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;background:var(--bg-table-head);border:1px solid var(--border);border-radius:7px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-row-alt)'" onmouseout="this.style.background='var(--bg-table-head)'" id="${id}">
-      <span style="font-size:24px;font-weight:700;color:var(--accent);transition:transform 0.15s;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;overflow:visible;transform-origin:center center" id="${chevronId}">&#9656;</span>
-        <span class="faq-question-title" style="font-size:12px;font-weight:600;color:var(--text-2)">${section.title}</span>
+      <div onclick="toggleFaqItem('${bodyId}','${chevronId}','${id}')" class="faq-question faq-subquestion${openQuestionByDefault ? ' open' : ''}" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 14px;border:1px solid var(--border);border-radius:7px;transition:background 0.15s" id="${id}">
+      <span class="faq-chevron" style="font-size:24px;font-weight:700;transition:transform 0.15s;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;overflow:visible;transform-origin:center center;${openQuestionByDefault ? 'transform:rotate(90deg);' : ''}" id="${chevronId}">&#9656;</span>
+        <span class="faq-question-title">${section.title}</span>
       </div>
-      <div id="${bodyId}" class="faq-body" style="display:none;margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:14px 18px;font-size:12px;line-height:1.8">
+      <div id="${bodyId}" class="faq-body" style="display:${openQuestionByDefault ? '' : 'none'};margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;padding:14px 18px;font-size:12px;line-height:1.8">
         ${section.body}
       </div>
     `;
-    list.appendChild(wrapper);
+    if (activeGroupBody) {
+      activeGroupBody.appendChild(wrapper);
+    } else {
+      list.appendChild(wrapper);
+    }
   });
+}
+
+function toggleFaqGroup(bodyId, chevronId, groupId) {
+  const body = document.getElementById(bodyId);
+  const chevron = document.getElementById(chevronId);
+  const group = groupId ? document.getElementById(groupId) : null;
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+  if (group) group.classList.toggle('open', !open);
 }
 
 function toggleFaqItem(bodyId, chevronId, questionId) {
@@ -5794,6 +5834,7 @@ exposeGlobals({
   toggleLoggerHowTo,
   ensureLoggerHowToExpanded,
   initFaq,
+  toggleFaqGroup,
   toggleFaqItem,
   calcEV,
   buildRegex,

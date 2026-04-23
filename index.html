@@ -2089,16 +2089,45 @@ body.graph-palette-ruby {
 [data-theme="dark"] { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 /* FAQ + how-to visual system */
 #tab-faq .faq-question {
-  background: #dbe4ee !important;
+  background: #d4e0ec !important;
   border: 1px solid var(--border) !important;
   border-left: 3px solid var(--border-strong) !important;
   padding-left: 11px !important;
 }
-#tab-faq .faq-question.open {
-  background: color-mix(in srgb, #dbe4ee 88%, var(--accent-dim) 12%) !important;
+#tab-faq .faq-group-header:hover {
+  background: color-mix(in srgb, #c8d7e8 70%, var(--accent-dim) 30%) !important;
+}
+#tab-faq .faq-subquestion {
+  background: color-mix(in srgb, #d4e0ec 74%, var(--bg-card) 26%) !important;
+}
+#tab-faq .faq-subquestion:hover {
+  background: color-mix(in srgb, #d4e0ec 66%, var(--bg-card) 10%, var(--accent-dim) 24%) !important;
+}
+#tab-faq .faq-subquestion.open {
+  background: color-mix(in srgb, #d4e0ec 62%, var(--bg-card) 10%, var(--accent-dim) 28%) !important;
   border-left-color: var(--accent) !important;
 }
 #tab-faq .faq-question-title { color: var(--text) !important; }
+#tab-faq .faq-group-header {
+  background: color-mix(in srgb, #c8d7e8 86%, var(--bg-table-head) 14%) !important;
+  border-left-color: var(--accent) !important;
+}
+#tab-faq .faq-group-header .faq-question-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text) !important;
+}
+#tab-faq .faq-group-header .faq-chevron { color: var(--accent) !important; }
+#tab-faq .faq-group-body { margin-top: 0; padding-left: 8px; }
+#tab-faq .faq-subquestion { border-left-width: 2px !important; }
+#tab-faq .faq-subquestion .faq-question-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text) !important;
+}
+#tab-faq .faq-subquestion .faq-chevron { color: var(--text-3) !important; }
 #tab-faq .faq-body {
   background: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
@@ -2116,10 +2145,25 @@ body.graph-palette-ruby {
   background: color-mix(in srgb, var(--bg-card) 82%, #233a57 18%) !important;
   border-color: color-mix(in srgb, var(--border) 85%, #3d5f86 15%) !important;
 }
-[data-theme="dark"] #tab-faq .faq-question.open {
-  background: color-mix(in srgb, var(--bg-table-head) 76%, var(--accent-dim) 24%) !important;
+[data-theme="dark"] #tab-faq .faq-group-header:hover {
+  background: color-mix(in srgb, var(--bg-table-head) 62%, #3d6fa8 38%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-subquestion {
+  background: color-mix(in srgb, var(--bg-card) 88%, #1a2a3f 12%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-subquestion:hover {
+  background: color-mix(in srgb, var(--bg-card) 76%, #2f5f93 24%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-group-header {
+  background: color-mix(in srgb, var(--bg-table-head) 72%, #27456a 28%) !important;
+}
+[data-theme="dark"] #tab-faq .faq-group-header .faq-chevron { color: #8db8ee !important; }
+[data-theme="dark"] #tab-faq .faq-subquestion .faq-chevron { color: #7faedc !important; }
+[data-theme="dark"] #tab-faq .faq-subquestion.open {
+  background: color-mix(in srgb, var(--bg-card) 70%, var(--accent-dim) 30%) !important;
 }
 [data-theme="dark"] #tab-faq .faq-question-title { color: var(--text-2) !important; }
+[data-theme="dark"] #tab-faq .faq-group-header .faq-question-title { color: #7faedc !important; }
 [data-theme="dark"] #tab-faq .faq-body,
 [data-theme="dark"] #loggerHowToBody {
   color: var(--text-2) !important;
@@ -3477,10 +3521,10 @@ body.graph-palette-ruby {
 
     <div class="logger-intro">
       <div class="logger-intro-title">FAQ</div>
-      <div class="logger-intro-sub">Quick answers to common questions about how ScarabEV works, how the math is calculated, and how community data is aggregated.</div>
+      <div class="logger-intro-sub">Clear answers on how the tool works, how recommendations are calculated, and how community data improves results over time.</div>
     </div>
 
-    <div id="faq-list" style="display:flex;flex-direction:column;gap:4px;max-width:860px;margin:0 auto">
+    <div id="faq-list" style="display:flex;flex-direction:column;gap:0;max-width:860px;margin:0 auto">
     </div>
 
   </div>

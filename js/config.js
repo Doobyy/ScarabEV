@@ -165,98 +165,174 @@ export const POOL_API_URL = 'https://scarabev-api.paperpandastacks.workers.dev';
 
 export const FAQ_SECTIONS = [
   {
-    title: 'What is the scarab vendor recipe?',
-    body: `Trade <strong>any 3 scarabs</strong> to any vendor NPC and receive <strong>1 random scarab</strong> from the vendor recipe pool. Most returns are cheap commons, but occasionally you get something worth 50–500× your inputs. Over enough trades, outputs can exceed input cost when market conditions make the recipe favorable.`
+    groupTitle: 'GETTING STARTED'
   },
   {
-    title: 'Why vendor instead of just selling?',
-    body: `<strong>Liquidity</strong> — low-value scarabs tend to move slowly on the market. Listing hundreds of them and waiting days for buyers is impractical. The vendor recipe converts that unsellable bulk into fewer, higher-value scarabs that actually sell. <strong>Profitability</strong> — when your vendor targets cost less than what the vendor returns on average, every trade is mathematically in your favor. When scarabs are priced below your active threshold, vendoring is usually more profitable than direct selling. ScarabEV shows exactly which scarabs fall below that line.`
+    title: 'What does this tool do?',
+    body: `<p>This helps identify profitable scarabs to vendor through the <strong>3-for-1 vendor recipe</strong>, estimate expected returns, analyze <strong>bulk listings</strong>, and optimize <strong>atlas scarab drop value</strong>.</p>
+<p>It combines live market prices with community data so recommendations can adapt as league conditions change.</p>`
   },
   {
-    title: 'What is vendor threshold, how is it calculated, and which model should I use?',
-    body: `The <code>vendor_threshold</code> is the highest price per scarab that still makes the 3:1 vendor recipe worth doing.<br>
-Scarabs at or below that price are usually better to vendor, while scarabs above it are usually better traded through Faustus.<br><br>
-The core calculation is:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">vendor_threshold = expected_value / 3</code>
-The difference between Harmonic and Weighted is how <code>expected_value</code> is estimated:<br><br>
-<strong>Harmonic EV:</strong> best while current-league weight data is still being established. It does not depend on unstable early weight estimates, so it gives a safer threshold during this phase.<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_ev = scarab_count / SUM(1 / each_scarab_price)<br>vendor_threshold = harmonic_ev / 3</code>
-<strong>Weighted EV:</strong> best once current-league weights look stable and solved to an acceptable level of accuracy. At that point, it is the more accurate model for threshold recommendations.<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_ev = SUM(observed_weight * current_price) / 3<br>vendor_threshold = weighted_ev / 3</code><br>
-In short, both models use the same threshold framework, but they are meant for different data conditions: Harmonic EV is the safer default while weights are still stabilizing, and Weighted EV is the more accurate default once weight data is stable enough to trust.`
+    title: 'What is the 3-for-1 scarab vendor recipe, and why can it be profitable?',
+    body: `<p>Trading any three scarabs to a vendor returns one random scarab from the <strong>vendor recipe pool</strong>.</p>
+<p>Most outcomes are common low-value returns, but occasional premium outcomes can be worth many times the cost of the inputs. When the average value returned by the pool rises above the cost of the scarabs being fed into the recipe, repeated trades become favorable over time.</p>
+<p>This helps identify when those market conditions exist and which scarabs currently fall below the <strong>profitable threshold</strong>.</p>`
+  },
+  {
+    title: 'What is the vendor threshold?',
+    body: `<p>The <strong>threshold</strong> is the maximum chaos value per scarab worth feeding into the recipe.</p>
+<p>Any scarab priced at or below the threshold is generally better used as vendor input. Any scarab above the threshold is usually more valuable sold directly.</p>
+<p>The list updates automatically whenever prices or model recommendations change.</p>`
+  },
+  {
+    title: 'Does a profitable threshold guarantee profit?',
+    body: `<p>No.</p>
+<p>Profitability is based on <strong>long-run averages</strong> over many trades, not guaranteed short sessions. Smaller samples can run above or below expectation depending on luck.</p>
+<p>Over enough volume, results tend to move closer to projected averages.</p>`
+  },
+  {
+    title: 'Which EV model should I use?',
+    body: `<p>Both models are valid. The recommendation depends on data maturity.</p>
+<p>Use <strong>harmonic_EV</strong> while current-league weighting data is still developing. It is more conservative and less sensitive to early sample noise.</p>
+<p>Use <strong>weighted_EV</strong> once enough <strong>current-league data</strong> has been collected. At that point it becomes the more representative long-run estimate.</p>`
+  },
+  {
+    groupTitle: 'MODELS & CALCULATIONS'
+  },
+  {
+    title: 'What is harmonic_EV?',
+    body: `<p><strong>harmonic_EV</strong> treats every scarab type as an equal possible output and uses the harmonic mean of market prices.</p>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_EV = scarab_count / SUM(1 ÷ each_scarab_price)</code>
+<p>Because cheap scarabs influence the result more than expensive outliers, harmonic_EV is naturally more conservative and stable.</p>
+<p>This is the <strong>recommended model</strong> while <strong>current-league weighting data</strong> is still developing.</p>`
+  },
+  {
+    title: 'What is weighted_EV?',
+    body: `<p><strong>weighted_EV</strong> uses observed vendor output frequencies from submitted sessions, then applies current market prices on top.</p>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_EV = SUM(drop_weight × current_price) / 3</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">drop_weight = scarab_outputs_observed / total_outputs_observed</code>
+<p>This estimates long-run expected value using real community data from the active league.</p>
+<p>Once enough <strong>current-league data</strong> has been collected, weighted_EV becomes the <strong>recommended model</strong>.</p>`
+  },
+  {
+    title: 'Why do harmonic_EV and weighted_EV sometimes disagree?',
+    body: `<p>They measure value differently.</p>
+<p><strong>harmonic_EV</strong> is more influenced by cheap/common scarabs and less influenced by rare expensive outliers. <strong>weighted_EV</strong> uses observed output frequencies and reflects long-run expected value more directly.</p>
+<p>As prices, rarity distribution, and data maturity change, the gap between the two models can widen, narrow, or occasionally reverse.</p>`
+  },
+  {
+    title: 'When does weighted_EV become the recommended model?',
+    body: `<p><strong>weighted_EV</strong> becomes preferred once enough <strong>current-league data</strong> has been collected for output frequencies to stabilize.</p>
+<p>Until then, harmonic_EV remains the safer default.</p>`
   },
   {
     title: 'What happens when a new league starts, and how does weight blending work?',
-    body: `At the start of a new league, current-league weight data is still sparse. Using only fresh observations immediately would make early recommendations too reactive, since small sample noise can distort scarab frequencies before enough data has been collected.<br><br>
-To smooth that transition, prior-league weights are blended with current-league weights. This provides stability early on, while still allowing the model to adapt as real current-league data builds.<br><br>
-The blend is calculated as:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blend factor = current-league data share / 100<br>blended weight = (blend factor × current-league weight) + ((1 - blend factor) × prior-league weight)</code>
-As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league’s actual observed output distribution. This makes early-league recommendations more stable without locking the model to outdated data.<br><br>
-Once enough current-league data has been collected, prior-league influence is fully phased out and recommendations rely entirely on current-league weights.`
-  },
-    {
-    title: 'How does the Vendor Profit Estimator work?',
-    body: `Import your Wealthy Exile CSV and the estimator computes four numbers using current market prices:<br><br>
-<strong>Scarabs to Vendor</strong> - how many of your scarabs fall below the current threshold.<br>
-<strong>Input Value</strong> - their current market value if you sold them all (<code>SUM(quantity * current_price)</code>).<br>
-<strong>Est. Return</strong> - expected keeper value back from vendoring, using a recycle-loop model at your selected threshold.<br>
-<strong>Est. Profit</strong> - return minus input value.<br><br>
-Estimator return uses the calibrated loop rate. At your threshold, outputs at or below threshold are treated as re-vendored, and outputs above threshold are treated as keepers. This is solved as:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">loop_rate = keeper_value_share / (3 - vendor_chance)</code>
-This keeps estimates aligned with real workflows where you keep vendoring until only keepers remain.<br><br>
-<em>Note: a negative est. profit does not always mean a practical loss. Those scarabs may be slow or unrealistic to liquidate individually, and vendoring can still be the cleaner conversion path.</em>`
+    body: `<p>At the start of a new league, <strong>current-league weight data</strong> is still sparse. Using only fresh observations immediately would make early recommendations too reactive, since small sample noise can distort scarab frequencies before enough data has been collected.</p>
+<p>To smooth that transition, prior-league weights are blended with current-league weights using <strong>blend_factor</strong>. This provides stability early on, while still allowing the model to adapt as real current-league data builds.</p>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blend_factor = current_league_data_share / 100</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blended_weight = (blend_factor × current_league_weight) + ((1 - blend_factor) × prior_league_weight)</code>
+<p>As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league’s actual observed output distribution.</p>
+<p>Once enough current-league data has been collected, prior-league influence is fully phased out and recommendations rely entirely on current-league weights.</p>`
   },
   {
-    title: 'How is community data aggregated and validated?',
-    body: `Every submitted session passes automated quality checks before contributing to the shared database. Sessions that fail are saved to your local history but <strong>never affect community weights or calibration</strong>.<br><br>
-<strong>What gets accepted:</strong> sessions with ≥500 scarabs consumed, meaningful keeper outputs, and a healthy mix of cheap vendor-target scarabs in the return pool.<br><br>
-<strong>What gets excluded:</strong><br>
-• <em>Low sample</em> — fewer than 500 scarabs consumed<br>
-• <em>Zero keeper outputs</em> — nothing came back worth keeping<br>
-• <em>Recycled session</em> — recycled runs are excluded using multiple integrity checks (including vendor-target ratio, output-count tolerance, and output/trade coverage) because re-vendoring returns in the same session inflates expensive scarab frequency in weight data.<br>
-• <em>Outputs exceed inputs</em> — physically impossible in a single pass<br>
-• <em>No movement / no meaningful change</em> — before/after snapshots show no valid session delta, so submission is blocked<br><br>
-The recycling checks matter most. A clean single-pass session usually returns a mix of cheap commons and occasional keepers — cheap commons dominate the vendor pool. If almost nothing vendor-target came back, the session was likely recycled and the data is unusable for weight calibration.`
+    title: 'How does the recycle-loop estimator work?',
+    body: `<p>Low-value outputs are not treated as dead value. Outputs at or below the selected threshold are assumed to be <strong>re-vendored</strong> until only keeper outputs remain.</p>
+<p>This better reflects real workflows where cheap returns are continuously recycled into future rolls instead of being treated as final outcomes immediately.</p>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">loop_rate = keep_value_share / (3 - vendor_probability)</code>
+<p>That <strong>loop_rate</strong> model powers estimator return values and keeps estimates aligned with repeated vendoring behavior.</p>`
   },
   {
-    title: 'How do I log a session?',
-    body: `<strong>Standard tracking</strong> (personal profit, no data contribution requirements):<br>
-Export Wealthy Exile before your session → vendor your marked scarabs → export after → upload both CSVs on the Session Logger tab with your regex → submit.<br><br>
-<div class="notice notice-amber"><strong>For clean community data:</strong> use a dedicated returns stash tab. Vendor once, place all returns there, then export and log before re-vendoring anything. Each single pass = one session submission. This keeps the weight data accurate for everyone. For full step-by-step instructions, see the <a href="#logger" onclick="switchTab('logger'); ensureLoggerHowToExpanded(); return false;" style="color:var(--accent);font-weight:600;text-decoration:none">Session Logger How-to</a>.</div>`
-  },
-    {
-    title: 'How does the Bulk Buy Analyzer work, and how do I get the most accurate results?',
-    body: `The Bulk Buy Analyzer evaluates TFT bulk listings against current market prices and your current EV threshold - showing expected return, net value, and a per-scarab breakdown.<br><br>
-<strong>Two ways to get listing data in:</strong><br>
-- <strong>API image parsing</strong> - drop a screenshot and let Gemini parse it automatically (requires a free API key from aistudio.google.com). Convenient but less accurate, especially on dense or cluttered listings.<br>
-- <strong>Manual CSV</strong> - paste <code>Name,Qty</code> directly and click Analyze CSV only. Most reliable.<br><br>
-<div class="notice notice-amber"><strong>Best method for accuracy:</strong> paste your listing screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to extract the data as <code>Name,Qty</code> CSV. In practice, the full Gemini web interface often handles complex listings better than the API and does not need an API key. Copy the output, paste it into the CSV box here, and use <strong>Analyze CSV only</strong>.</div><br>
-Regardless of method, always cross-reference the parsed data against the original listing before committing to a purchase.`
-  },
-    {
-    title: 'Where do prices come from?',
-    body: `Prices come from <strong>poe.ninja</strong>. The app pulls current market data on load/refresh. The divine orb rate is fetched separately and used to display larger values in divines. Because poe.ninja updates in intervals rather than continuously, fast market moves can create temporary price discrepancies between live trade and displayed values, especially during high volatility.`
+    groupTitle: 'TOOLS & FEATURES'
   },
   {
-    title: 'Is my data private?',
-    body: `Session history, price overrides, and settings are stored in your <strong>browser's localStorage only</strong>. Only session submissions are sent as contribution data. The community database stores only anonymous aggregate data: scarab output counts, total trades, and input/output values. No account, no login, no way to identify individual contributors.`
+    title: 'How does the Profit Estimator work?',
+    body: `<p>Import a Wealthy Exile CSV and the estimator calculates four live values using current market prices.</p>
+<p><strong>Scarabs to Vendor</strong><br>How many scarabs currently fall at or below the selected threshold.</p>
+<p><strong>Input Value</strong><br>What those scarabs are worth if sold directly right now.</p>
+<p><strong>Estimated Return</strong><br>Expected keeper value returned through repeated vendoring.</p>
+<p><strong>Estimated Profit</strong><br>Estimated return minus the direct market value of the inputs.</p>
+<p>Together, these values give a practical view of whether vendoring a pile is worth doing at the current threshold.</p>`
   },
   {
-    title: 'Why do I have to manually export CSVs? Can\'t this be automated?',
-    body: `Yes — and it's the most common piece of feedback. Right now the tool relies on <strong>Wealthy Exile CSV exports</strong> for inventory snapshots because that's the only reliable way to read your stash contents without GGG's direct involvement.<br><br>
-The proper solution is <strong>OAuth access via GGG's official API</strong>. With OAuth, the tool could read your stash tabs directly — no Wealthy Exile, no manual exports, no before/after snapshots. Session logging would be as simple as clicking a button before and after vendoring. Everything tedious about the current workflow goes away.<br><br>
-GGG does offer OAuth access to third-party developers, but it requires a formal application and approval process.<br><br>
-<strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application.`
+    title: 'How does the Bulk Buy Analyzer work?',
+    body: `<p>The <strong>Bulk Buy Analyzer</strong> compares TFT bulk listings against live market prices and the <strong>active threshold</strong>.</p>
+<p>It estimates expected return, net value, profit margin, and a per-scarab breakdown. This makes it easier to judge whether a listing is attractive, fairly priced, or overpriced before committing to a purchase.</p>`
   },
   {
-    title: 'What is the Atlas Optimizer and how does it calculate EV?',
-    body: `The Atlas Optimizer helps you find the best atlas passive configuration for maximizing the value of scarab drops in your maps.<br><br>
-<strong>How it works:</strong> every scarab type has an observed drop weight — how often it appears relative to others, derived from community vendor sessions. The map drop EV is the weighted average price across all active scarabs in the pool:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(observed_weight * current_price) / SUM(observed_weight)</code>
-<strong>Block nodes</strong> remove a mechanic's scarabs from the pool entirely — their weight drops to zero and the remaining weights are renormalised. This raises the EV if the blocked group is below-average value, because every drop that would have been a cheap common now rolls against a higher-value pool instead.<br><br>
-<strong>Boost nodes</strong> apply a ×2 weight multiplier to a group before renormalising — doubling that mechanic's share of the drop pool. This pays off most when the boosted group's average scarab price is well above the current pool EV.<br><br>
-The <strong>Delta</strong> column shows exactly how much each toggle moves the EV — positive means it helps, negative means it hurts. The <strong>Suggested</strong> badge marks the single toggle with the highest positive delta given your current configuration.<br><br>
-<div class="notice notice-amber"><strong>Weight data variance:</strong> The drop weights come from vendor session outputs submitted by the community. With a smaller dataset, rare expensive scarabs can appear more or less frequently than their true long-run rate — which shifts the EV figures. Relative rankings are often directionally useful, while exact values tighten as more sessions accumulate. Treat this as directional guidance, not a precision instrument.</div>`
+    title: 'What is the best way to import bulk listings?',
+    body: `<p>Two supported methods:</p>
+<p><strong>API image parsing</strong><br>Drop a screenshot and let Gemini extract the data automatically. Fast and convenient, but less reliable on dense listings.</p>
+<p><strong>Manual CSV</strong><br>Paste Name,Qty data directly. Most reliable.</p>
+<p>For best accuracy, paste the screenshot directly into <a href="https://gemini.google.com/app" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">gemini.google.com</a> and ask it to convert the listing into Name,Qty CSV, then paste that result into the analyzer.</p>
+<p>Always verify parsed results before purchasing.</p>`
+  },
+  {
+    title: 'How does the Atlas Optimizer work?',
+    body: `<p>Each scarab type has an observed <strong>drop_weight</strong> based on community data. Those weights are combined with live prices to estimate the average value of future scarab drops.</p>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(drop_weight × current_price) / SUM(drop_weight)</code>
+<p><strong>Block nodes</strong> remove weaker mechanics from the pool entirely.</p>
+<p>Boost nodes double a mechanic’s pool weight before the pool is rebalanced.</p>
+<p>Every toggle recalculates instantly so the value impact of each atlas decision can be seen immediately.</p>`
+  },
+  {
+    title: 'How accurate are Atlas Optimizer values?',
+    body: `<p>The optimizer uses real observed data, but rare scarabs naturally need more samples before their frequencies fully stabilize.</p>
+<p>That means exact EV values improve over time as more sessions are submitted. Relative rankings are often useful earlier, while precision improves as the dataset matures.</p>
+<p>Use it as directional guidance rather than a perfect fixed forecast.</p>`
+  },
+  {
+    groupTitle: 'DATA & TRUST'
+  },
+  {
+    title: 'How is community data protected from bad submissions?',
+    body: `<p>Every submitted session passes <strong>automated integrity checks</strong> before it can influence shared weights or calibration.</p>
+<p>Sessions that fail are still saved to local history, but they do not affect the shared dataset.</p>
+<p>This keeps recommendations stable without requiring manual review for every submission.</p>`
+  },
+  {
+    title: 'What kinds of sessions are accepted?',
+    body: `<p>Accepted sessions generally show:</p>
+<ul style="margin:8px 0 8px 18px;padding:0">
+  <li>meaningful sample size</li>
+  <li>real keeper outputs</li>
+  <li>credible input and output relationships</li>
+  <li>clean <strong>single pass</strong> behavior</li>
+</ul>
+<p>At a minimum, sessions need at least <strong>600 scarabs consumed</strong> before they can contribute to shared data.</p>
+<p>This helps keep the weighting model grounded in sessions with enough volume to be useful.</p>`
+  },
+  {
+    title: 'What gets excluded from the shared dataset?',
+    body: `<p>Sessions are excluded when they are too small, show no keeper outputs, contain impossible input and output relationships, or do not show a meaningful before-and-after change.</p>
+<p><strong>Recycled sessions</strong> are also excluded, since same-session re-vendoring distorts output frequencies and makes shared weight data less reliable.</p>
+<p>These sessions can still be stored in personal history, but they do not contribute to the community model.</p>`
+  },
+  {
+    title: 'Why are recycled sessions excluded?',
+    body: `<p>The shared dataset is designed to measure what the vendor recipe returns on a clean <strong>single pass</strong>.</p>
+<p>If outputs are immediately re-vendored in the same logged session, cheap commons disappear while expensive survivors remain visible. That artificially overstates premium scarab frequency and pushes weighted_EV higher than it should be.</p>
+<p>Single-pass sessions preserve cleaner output data and produce more reliable long-run recommendations.</p>`
+  },
+  {
+    title: 'How should clean community data be logged?',
+    body: `<p>For personal tracking, the standard before-and-after workflow is fine.</p>
+<p>For clean shared data, <strong>each vendor pass</strong> should be logged as its own session. Export before starting, vendor one pass only, place all returns in a dedicated tab, export again, and submit those two snapshots together.</p>
+<p>If vendoring continues after that, the new snapshot becomes the starting point for the next session. Keeping each pass separate preserves cleaner weight data for everyone.</p>`
+  },
+  {
+    title: 'Where do market prices come from?',
+    body: `<p>Prices are pulled from poe.ninja and refreshed through the live market feed.</p>
+<p>Divine orb rates are fetched separately for larger-value displays. Because poe.ninja updates in intervals rather than continuously, fast market moves can occasionally create short-lived gaps between displayed prices and live trade listings.</p>`
+  },
+  {
+    title: 'Is any personal data stored?',
+    body: `<p>Session history, price overrides, and settings are <strong>stored locally in the browser</strong>.</p>
+<p>Only session submissions are sent as <strong>anonymous contribution data</strong>. The shared dataset stores aggregate counts, trade totals, and value totals only. There is no login, no account requirement, and no personal identity data attached to contributions.</p>`
+  },
+  {
+    title: 'Can this eventually work without Wealthy Exile CSV exports?',
+    body: `<p>Yes. The proper long-term solution would be <strong>official OAuth stash access</strong>.</p>
+<p>That would allow direct stash reads before and after vendoring without manual exports, making session logging much faster and easier. Official access would require third-party approval from GGG.</p>`
   },
 ];
 
