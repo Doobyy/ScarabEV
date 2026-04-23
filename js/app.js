@@ -1,4 +1,4 @@
-﻿// Frontend UI shell for ScarabEV.
+// Frontend UI shell for ScarabEV.
 // Owns page startup, DOM rendering, event wiring, and user interactions.
 // Coordinates shared state and extracted engines across all tabs.
 // Keeps orchestration logic in one place for browser runtime flow.
@@ -373,6 +373,39 @@ function maybeShowCurrentLeagueCtaFromShare(currentLeagueSharePct, progress = {}
   });
 }
 
+function getCurrentLeagueSharePctFromState() {
+  return readCurrentLeagueSharePct(state._weightMeta);
+}
+
+function getRecommendedEVModeForShare(currentLeagueSharePct) {
+  return Number.isFinite(currentLeagueSharePct) && currentLeagueSharePct >= 100 ? 'weighted' : 'harmonic';
+}
+
+function updateEVModeRecommendationWarning(mode, currentLeagueSharePct = getCurrentLeagueSharePctFromState()) {
+  const hint = document.getElementById('weightedEvWarning');
+  if (!hint) return;
+  const recommendedMode = getRecommendedEVModeForShare(currentLeagueSharePct);
+  if (mode === recommendedMode) {
+    hint.style.display = 'none';
+    return;
+  }
+  if (recommendedMode === 'harmonic') {
+    hint.innerHTML = 'Warning: Current-league weighting data is still maturing and may not yet be fully representative. While coverage is still building, Harmonic EV is the recommended model.';
+  } else {
+    hint.innerHTML = 'Warning: Current-league weighting data is now fully established and reliable. At this stage, Weighted EV is the recommended model.';
+  }
+  hint.style.display = '';
+}
+
+function applyRecommendedEVMode(currentLeagueSharePct = getCurrentLeagueSharePctFromState()) {
+  const recommendedMode = getRecommendedEVModeForShare(currentLeagueSharePct);
+  if (state._evMode !== recommendedMode) {
+    setEVMode(recommendedMode);
+    return;
+  }
+  updateEVModeRecommendationWarning(state._evMode, currentLeagueSharePct);
+}
+
 async function fetchObservedWeights() {
   if (!POOL_API_URL) return;
   const league = document.getElementById('leagueSelect')?.value || '';
@@ -403,6 +436,7 @@ async function fetchObservedWeights() {
       if (previousWeights) {
         // Keep last known good weights to avoid transient weighted-mode/chart flicker.
         state._weightUnavailableReason = data?.weightMeta?.reason || state._weightUnavailableReason || 'Using last known weight snapshot.';
+        applyRecommendedEVMode(currentLeagueSharePct);
         calcEstimator();
         if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
         return;
@@ -414,6 +448,8 @@ async function fetchObservedWeights() {
         setEVMode('harmonic');
         const threshModeEl = document.getElementById('thresholdModeLabel');
         if (threshModeEl) threshModeEl.textContent = 'harmonic EV';
+      } else {
+        updateEVModeRecommendationWarning(state._evMode, currentLeagueSharePct);
       }
       calcEstimator();
       if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
@@ -441,6 +477,7 @@ async function fetchObservedWeights() {
       if (state.currentTab === 'atlas') renderAtlas();
       if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
     }
+    applyRecommendedEVMode(currentLeagueSharePct);
   } catch(e) { /* silent \u2014 estimator shows nothing until data is available */ }
 }
 
@@ -786,8 +823,9 @@ function syncLoggerRegex() {
   field.value = regex;
   setLoggerRegexMode(false);
   if (regex) {
-    const { matched, unmatched } = parseRegexToScarabs(regex);
-    let hint = `${matched.length} scarab types identified`;
+    const { matched, unmatched, identifiedCount } = parseRegexToScarabs(regex);
+    const count = Number.isFinite(identifiedCount) ? identifiedCount : matched.length;
+    let hint = `${count} scarab types identified`;
     if (unmatched.length) hint += ` \u00B7 ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
     document.getElementById('loggerRegexHint').textContent = hint;
   } else {
@@ -1646,18 +1684,13 @@ function setEVMode(mode) {
   if (btnH) btnH.classList.toggle('active', mode === 'harmonic');
   if (btnW) btnW.classList.toggle('active', mode === 'weighted');
 
-  // Show/hide weighted warning
-  const hint = document.getElementById('weightedEvWarning');
-  const countEl = document.getElementById('weightedTradeCount');
-  if (hint) hint.style.display = mode === 'weighted' ? '' : 'none';
-  if (countEl) countEl.textContent = state._weightTradeCount > 0 ? state._weightTradeCount.toLocaleString() : '\u2014';
-
   // Only switch to weighted if data is ready
   if (mode === 'weighted' && state._calibratedMean === null) {
     const reason = state._weightUnavailableReason || 'waiting for weight data...';
     document.getElementById('thresholdModeLabel').textContent = reason;
     return setEVMode('harmonic');
   }
+  updateEVModeRecommendationWarning(mode);
   // Reset to auto EV (no manual override) so the new mode takes effect immediately
   state.ninjaEvOverride = null;
   try { localStorage.removeItem('poepool28v2-ninja-evoverride'); } catch(e) {}
@@ -1689,7 +1722,11 @@ function updateSliderROI(threshold) {
   const avgInput = vendorPrices.length
     ? vendorPrices.reduce((s, p) => s + p, 0) / vendorPrices.length
     : 0;
-  const returnPerInput = state._calibratedRate || autoEV;
+  // Keep ROI model-consistent with the active EV mode:
+  // harmonic mode uses harmonic return baseline, weighted mode uses calibrated weighted return.
+  const returnPerInput = weightedMode && state._calibratedRate !== null
+    ? state._calibratedRate
+    : autoEV;
   const estROI = avgInput > 0 ? Math.round((returnPerInput - avgInput) / avgInput * 100) : 0;
 
   if (roiEl) {
@@ -2796,8 +2833,9 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
     tryPreview();
     return;
   }
-  const { matched, unmatched } = parseRegexToScarabs(val);
-  let hint = `${matched.length} scarab types identified`;
+  const { matched, unmatched, identifiedCount } = parseRegexToScarabs(val);
+  const count = Number.isFinite(identifiedCount) ? identifiedCount : matched.length;
+  let hint = `${count} scarab types identified`;
   if (unmatched.length) hint += ` \u00B7 ${unmatched.length} unrecognised tokens: ${unmatched.join(', ')}`;
   document.getElementById('loggerRegexHint').textContent = hint;
   tryPreview();
@@ -5739,6 +5777,7 @@ exposeGlobals({
   switchTab,
   toggleHamburger,
   toggleLoggerHowTo,
+  ensureLoggerHowToExpanded,
   initFaq,
   toggleFaqItem,
   calcEV,
@@ -5871,4 +5910,5 @@ Object.defineProperty(window, '_bulkImageFile', {
   get() { return state._bulkImageFile; },
   set(v) { state._bulkImageFile = v; }
 });
+
 

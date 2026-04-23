@@ -173,25 +173,27 @@ export const FAQ_SECTIONS = [
     body: `<strong>Liquidity</strong> — low-value scarabs tend to move slowly on the market. Listing hundreds of them and waiting days for buyers is impractical. The vendor recipe converts that unsellable bulk into fewer, higher-value scarabs that actually sell. <strong>Profitability</strong> — when your vendor targets cost less than what the vendor returns on average, every trade is mathematically in your favor. When scarabs are priced below your active threshold, vendoring is usually more profitable than direct selling. ScarabEV shows exactly which scarabs fall below that line.`
   },
     {
-    title: 'What is the vendor threshold and how is it calculated?',
-    body: `The threshold is the <strong>maximum price per scarab worth feeding into the recipe</strong>. Anything at or below it goes to the vendor; anything above gets sold directly.<br><br>
-<strong>Harmonic EV</strong> (default) - treats all scarab types as equally likely outputs. Uses the harmonic mean of all market prices, which naturally resists distortion from rare expensive scarabs:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic EV = N / SUM(1 / price_i)</code>
-<strong>Weighted EV</strong> - uses observed community session data to weight each scarab by how often it actually appears as a vendor output, then applies current market prices:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = SUM(weight_i * price_i) / 3<br>weight_i = times scarab_i appeared as output / total outputs observed</code>
-The weights are purely frequency data from real sessions - no historical prices involved. Current market prices are applied on top so the threshold reflects the current economy.<br><br>
-<div class="notice notice-amber"><strong>How to choose:</strong> Use <strong>Weighted</strong> if you want the best average result over many trades and you’re comfortable with higher variance. Use <strong>Harmonic</strong> if you want a steadier, safer threshold that isn’t overly influenced by rare big jackpot hits. Pick based on your risk tolerance and strategy, not whichever number is higher right now.</div><br>
-Both modes recalculate whenever market prices are refreshed.`
+    title: 'What is vendor threshold, how is it calculated, and which model should I use?',
+    body: `The <code>vendor_threshold</code> is the highest price per scarab that still makes the 3:1 vendor recipe worth doing.<br>
+Scarabs at or below that price are usually better to vendor, while scarabs above it are usually better traded through Faustus.<br><br>
+The core calculation is:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">vendor_threshold = expected_value / 3</code>
+The difference between Harmonic and Weighted is how <code>expected_value</code> is estimated:<br><br>
+<strong>Harmonic EV:</strong> best while current-league weight data is still being established. It does not depend on unstable early weight estimates, so it gives a safer threshold during this phase.<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_ev = scarab_count / SUM(1 / each_scarab_price)<br>vendor_threshold = harmonic_ev / 3</code>
+<strong>Weighted EV:</strong> best once current-league weights look stable and solved to an acceptable level of accuracy. At that point, it is the more accurate model for threshold recommendations.<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_ev = SUM(observed_weight * current_price) / 3<br>vendor_threshold = weighted_ev / 3</code><br>
+In short, both models use the same threshold framework, but they are meant for different data conditions: Harmonic EV is the safer default while weights are still stabilizing, and Weighted EV is the more accurate default once weight data is stable enough to trust.`
   },
     {
     title: 'How does the Vendor Profit Estimator work?',
     body: `Import your Wealthy Exile CSV and the estimator computes four numbers using current market prices:<br><br>
 <strong>Scarabs to Vendor</strong> - how many of your scarabs fall below the current threshold.<br>
-<strong>Input Value</strong> - their current market value if you sold them all (<code>SUM qty * market price</code>).<br>
+<strong>Input Value</strong> - their current market value if you sold them all (<code>SUM(quantity * current_price)</code>).<br>
 <strong>Est. Return</strong> - expected keeper value back from vendoring, using a recycle-loop model at your selected threshold.<br>
 <strong>Est. Profit</strong> - return minus input value.<br><br>
 Estimator return uses the calibrated loop rate. At your threshold, outputs at or below threshold are treated as re-vendored, and outputs above threshold are treated as keepers. This is solved as:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">loop rate = keep_value_share / (3 - vendor_probability)</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">loop_rate = keeper_value_share / (3 - vendor_chance)</code>
 This keeps estimates aligned with real workflows where you keep vendoring until only keepers remain.<br><br>
 <em>Note: a negative est. profit does not always mean a practical loss. Those scarabs may be slow or unrealistic to liquidate individually, and vendoring can still be the cleaner conversion path.</em>`
   },
@@ -211,7 +213,7 @@ The recycling checks matter most. A clean single-pass session usually returns a 
     title: 'How do I log a session?',
     body: `<strong>Standard tracking</strong> (personal profit, no data contribution requirements):<br>
 Export Wealthy Exile before your session → vendor your marked scarabs → export after → upload both CSVs on the Session Logger tab with your regex → submit.<br><br>
-<div class="notice notice-amber"><strong>For clean community data:</strong> use a dedicated returns stash tab. Vendor once, place all returns there, then export and log before re-vendoring anything. Each single pass = one session submission. This keeps the weight data accurate for everyone.</div>`
+<div class="notice notice-amber"><strong>For clean community data:</strong> use a dedicated returns stash tab. Vendor once, place all returns there, then export and log before re-vendoring anything. Each single pass = one session submission. This keeps the weight data accurate for everyone. For full step-by-step instructions, see the <a href="#logger" onclick="switchTab('logger'); ensureLoggerHowToExpanded(); return false;" style="color:var(--accent);font-weight:600;text-decoration:none">Session Logger How-to</a>.</div>`
   },
     {
     title: 'How does the Bulk Buy Analyzer work, and how do I get the most accurate results?',
@@ -238,26 +240,10 @@ GGG does offer OAuth access to third-party developers, but it requires a formal 
 <strong>If you'd like to see this happen</strong> — leave a comment on the Reddit post. If there's enough interest I'll put in the OAuth application.`
   },
   {
-    title: 'Harmonic vs Weighted EV — which should I use?',
-    body: `Both models are valid, but they optimize for different outcomes.<br><br>
-<strong>Harmonic EV</strong> uses the harmonic mean of market prices:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic EV = N / SUM(1 / price_i)</code>
-Because it works on reciprocals, very expensive scarabs have limited influence, while cheap/common scarabs dominate the threshold. This makes Harmonic more conservative and stable for day-to-day decisions.<br><br>
-<strong>Weighted EV</strong> uses observed output frequencies from community sessions with current market prices:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted EV = SUM(weight_i * price_i) / 3</code>
-This captures full long-run expected value, including rare expensive outcomes, so it can run higher variance in practice.<br><br>
-The gap between Harmonic and Weighted is dynamic, not fixed. As market prices shift, the two lines can widen, converge, or occasionally cross. That behavior is expected: Harmonic emphasizes common outcomes, while Weighted reflects long-run average value including rare outcomes. Neither model is more correct in every moment — they are tools for different risk profiles.<br><br>
-<div class="notice notice-amber"><strong>Practical recommendation:</strong> use Harmonic as your default for stable, risk-aware thresholds. Switch to Weighted when your goal is maximizing long-run average return and you’re comfortable with higher variance.</div>`
-  },
-  {
-    title: 'Why use harmonic mean instead of arithmetic mean for EV?',
-    body: `Arithmetic mean is distorted by expensive outliers. With 100 scarabs averaging 0.5c plus one Horned Scarab at 560c, the arithmetic mean implies a threshold of ~6c — far too generous. The harmonic mean weights by reciprocal: a 560c scarab contributes <code>1/560 ≈ 0.002</code> to the calculation, almost nothing, while 100 cheap scarabs at 0.5c each contribute <code>200</code>. The result stays grounded in what the vendor actually returns most of the time.`
-  },
-  {
     title: 'What is the Atlas Optimizer and how does it calculate EV?',
     body: `The Atlas Optimizer helps you find the best atlas passive configuration for maximizing the value of scarab drops in your maps.<br><br>
 <strong>How it works:</strong> every scarab type has an observed drop weight — how often it appears relative to others, derived from community vendor sessions. The map drop EV is the weighted average price across all active scarabs in the pool:<br>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">Map Drop EV = Σ(weight_i × price_i) / Σ(weight_i)</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(observed_weight * current_price) / SUM(observed_weight)</code>
 <strong>Block nodes</strong> remove a mechanic's scarabs from the pool entirely — their weight drops to zero and the remaining weights are renormalised. This raises the EV if the blocked group is below-average value, because every drop that would have been a cheap common now rolls against a higher-value pool instead.<br><br>
 <strong>Boost nodes</strong> apply a ×2 weight multiplier to a group before renormalising — doubling that mechanic's share of the drop pool. This pays off most when the boosted group's average scarab price is well above the current pool EV.<br><br>
 The <strong>Delta</strong> column shows exactly how much each toggle moves the EV — positive means it helps, negative means it hurts. The <strong>Suggested</strong> badge marks the single toggle with the highest positive delta given your current configuration.<br><br>
@@ -426,6 +412,8 @@ export const WORKER_URL = 'https://scarabev-market-worker.paperpandastacks.worke
 export const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum'];
 export const ATLAS_BOOSTABLE = ['Essence','Beyond','Torment','Titanic','Cartography','Divination','Ambush','Anarchy','Domination'];
 export const ATLAS_SAVE_KEY = 'scarabev-atlas-config';
+
+
 
 
 

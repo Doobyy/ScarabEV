@@ -248,7 +248,7 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
     : (tradesObserved * 3);
 
   const bodyHtml = `
-    <p>At league start, prior-league data is blended in until enough current-league observations are collected. Once current-league data share reaches 100%, weighting becomes fully current-league based. Fresh logs help keep scarab weights accurate after league changes.</p>
+    <p>At league start, prior-league data is blended in until enough current-league observations are collected. While current-league coverage is still building, Harmonic EV is recommended. Once current-league coverage is complete, Weighted EV is recommended. Fresh logs help keep scarab weights accurate after league changes.</p>
   `;
   const statusText = `
     <div class="scarabev-action-modal-progress-title">Current progress</div>
@@ -267,7 +267,7 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
       </div>
     </div>
     <div class="scarabev-action-modal-validation" style="margin-top:6px">
-      Harmonic EV works without weighting data. Fresh observations mainly improve Atlas Optimizer and Weighted EV.
+      Harmonic EV is recommended while current-league weighting is still maturing. Weighted EV is recommended once coverage is complete.
     </div>
     <div class="scarabev-action-modal-progress-divider"></div>
     <div class="scarabev-action-modal-validation">
@@ -286,10 +286,6 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
       closeActionModal();
       if (typeof opts.switchTab === 'function') opts.switchTab('logger');
       if (typeof opts.ensureLoggerHowToExpanded === 'function') opts.ensureLoggerHowToExpanded();
-      const loggerHowTo = document.getElementById('loggerHowToToggle');
-      if (loggerHowTo && typeof loggerHowTo.scrollIntoView === 'function') {
-        loggerHowTo.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
     },
     onSecondary: () => {
       markLeagueCtaHandledToday(league, dayKey);
@@ -297,3 +293,4 @@ export function maybeShowLeagueSessionCta(currentLeagueSharePct, opts = {}) {
     }
   });
 }
+

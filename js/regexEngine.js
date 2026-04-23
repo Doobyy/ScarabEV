@@ -71,6 +71,18 @@ export function parseRegexToScarabs(regexStr) {
       unmatched.push(tok);
     }
   }
-  
-  return { matched, unmatched, is_inverted: is_inverted };
+
+  const matchedUniqueCount = new Set(matched).size;
+  const totalScarabTypes = Object.keys(POE_RE_TOKENS || {}).length;
+  const identifiedCount = is_inverted
+    ? Math.max(0, totalScarabTypes - matchedUniqueCount)
+    : matchedUniqueCount;
+
+  return {
+    matched,
+    unmatched,
+    is_inverted: is_inverted,
+    identifiedCount,
+    totalScarabTypes
+  };
 }
