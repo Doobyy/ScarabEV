@@ -1611,6 +1611,17 @@ function positionMarker(ev) {
   btn.style.left = marker.style.left;
   const manual = state.ninjaEvOverride !== null;
   btn.className = 'slider-marker-btn ' + (manual ? 'is-reset' : 'is-auto');
+  const recommendedMode = getRecommendedEVModeForShare(getCurrentLeagueSharePctFromState());
+  const usingRecommendedMode = state._evMode === recommendedMode;
+  if (!manual) {
+    btn.style.borderColor = usingRecommendedMode ? 'var(--green)' : 'var(--amber)';
+    btn.style.color = usingRecommendedMode ? 'var(--green)' : 'var(--amber)';
+    btn.style.background = usingRecommendedMode ? 'rgba(36, 232, 158, 0.08)' : 'rgba(245, 185, 73, 0.14)';
+  } else {
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    btn.style.background = '';
+  }
   const resetPrefix = String.fromCodePoint(0x21BA) + ' ';
   btn.textContent = manual ? (resetPrefix + 'Reset to auto EV') : ('auto EV ' + ev.toFixed(2) + 'c');
   btn.type = 'button';
@@ -1750,8 +1761,10 @@ function updateSliderROI(threshold) {
   const roiEl   = document.getElementById('sliderROI');
   const hintEl  = document.getElementById('sliderHint');
   const weightedMode = state._evMode === 'weighted';
-  const primaryGoodColor = weightedMode ? 'var(--amber)' : 'var(--green)';
-  const warningZoneColor = weightedMode ? '#d4a72c' : 'var(--amber)';
+  const recommendedMode = getRecommendedEVModeForShare(getCurrentLeagueSharePctFromState());
+  const usingRecommendedMode = state._evMode === recommendedMode;
+  const primaryGoodColor = usingRecommendedMode ? 'var(--green)' : 'var(--amber)';
+  const warningZoneColor = usingRecommendedMode ? 'var(--amber)' : '#d4a72c';
   const dangerColor = 'var(--red)';
 
   // Compute real average price of vendor targets from live ninja prices.
