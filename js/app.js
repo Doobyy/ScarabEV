@@ -2947,9 +2947,17 @@ document.getElementById('loggerRegex').addEventListener('input', function() {
   document.getElementById('loggerPreview').style.display = '';
   btn.disabled = false;
 
+  const loggedThreshold = state.ninjaEvOverride !== null
+    ? Number(state.ninjaEvOverride)
+    : Number(calcAutoEV());
+  const loggedThresholdMode = state.ninjaEvOverride !== null
+    ? 'manual'
+    : (state._evMode === 'weighted' ? 'weighted' : 'harmonic');
+
   // Store parsed session for submit
   window._parsedSession = {
-    threshold: state.ninjaEvOverride !== null ? state.ninjaEvOverride : (calcEV(getNinjaEntries().filter(e => e.chaosEa > 0)) || 0),
+    threshold: Number.isFinite(loggedThreshold) && loggedThreshold > 0 ? loggedThreshold : 0,
+    threshold_mode: loggedThresholdMode,
     divine_rate: divRate,
     league: document.getElementById('leagueSelect')?.value || 'Unknown',
     regex: document.getElementById('loggerRegex').value.trim(),
@@ -3063,6 +3071,7 @@ async function submitSession() {
       created_at: new Date().toISOString(),
       league: session.league,
       threshold: session.threshold,
+      threshold_mode: session.threshold_mode,
       divine_rate: session.divine_rate,
       regex: session.regex,
       total_consumed: session.totalConsumed,
@@ -3181,6 +3190,13 @@ function renderSessionHistory() {
       const globalPos = start + i;
       const idx = sessions.length - 1 - globalPos;
       const profit = (s.output_value || 0) - (s.input_value || 0);
+      const thresholdValue = Number(s.threshold);
+      const thresholdText = Number.isFinite(thresholdValue) ? (thresholdValue.toFixed(2) + 'c') : '-';
+      const thresholdMode = String(s.threshold_mode || '').trim().toLowerCase();
+      const thresholdModeMarker = thresholdMode === 'weighted' ? 'W' : (thresholdMode === 'manual' ? 'M' : (thresholdMode === 'harmonic' ? 'H' : ''));
+      const thresholdModeTitle = thresholdMode === 'weighted'
+        ? 'Weighted EV cutoff used for this session'
+        : (thresholdMode === 'manual' ? 'Manual cutoff used for this session' : 'Harmonic EV cutoff used for this session');
       const fmtSession = (c) => fmtWithRate(c, s.divine_rate);
       const profitFmt = (c) => (c >= 0 ? '+' : '') + fmtSession(c);
       const scarabsOut = Array.isArray(s.scarabs)
@@ -3195,7 +3211,7 @@ function renderSessionHistory() {
           <span class="cell-right">${fmtSession(s.input_value)}</span>
           <span class="cell-right">${fmtSession(s.output_value)}</span>
           <span class="cell-right" style="color:${profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${profitFmt(profit)}</span>
-          <span class="cell-right" style="color:var(--chaos)">${s.threshold?.toFixed(2)}c</span>
+          <span class="cell-right" style="color:var(--chaos)" title="${thresholdModeTitle}">${thresholdText}${thresholdModeMarker ? `<span style="font-size:9px;opacity:0.75;margin-left:3px">${thresholdModeMarker}</span>` : ''}</span>
           <span class="cell-right" style="color:${s.roi_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct?.toFixed(1)}%</span>
           <span class="cell-left" style="display:flex;align-items:center;gap:6px;min-width:0" onclick="event.stopPropagation()">
             <button onclick="deleteSession('${s.id}')" title="Delete session" style="font-family:inherit;font-size:14px;padding:2px 4px;border:none;background:transparent;color:var(--text-3);cursor:pointer;opacity:0.4;transition:all 0.15s;line-height:1;flex-shrink:0" onmouseover="this.style.opacity='1';this.style.color='var(--red)'" onmouseout="this.style.opacity='0.4';this.style.color='var(--text-3)'">&#128465;</button>
@@ -5910,5 +5926,4 @@ Object.defineProperty(window, '_bulkImageFile', {
   get() { return state._bulkImageFile; },
   set(v) { state._bulkImageFile = v; }
 });
-
 
