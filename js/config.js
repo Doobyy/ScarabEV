@@ -172,7 +172,7 @@ export const FAQ_SECTIONS = [
     title: 'Why vendor instead of just selling?',
     body: `<strong>Liquidity</strong> — low-value scarabs tend to move slowly on the market. Listing hundreds of them and waiting days for buyers is impractical. The vendor recipe converts that unsellable bulk into fewer, higher-value scarabs that actually sell. <strong>Profitability</strong> — when your vendor targets cost less than what the vendor returns on average, every trade is mathematically in your favor. When scarabs are priced below your active threshold, vendoring is usually more profitable than direct selling. ScarabEV shows exactly which scarabs fall below that line.`
   },
-    {
+  {
     title: 'What is vendor threshold, how is it calculated, and which model should I use?',
     body: `The <code>vendor_threshold</code> is the highest price per scarab that still makes the 3:1 vendor recipe worth doing.<br>
 Scarabs at or below that price are usually better to vendor, while scarabs above it are usually better traded through Faustus.<br><br>
@@ -184,6 +184,15 @@ The difference between Harmonic and Weighted is how <code>expected_value</code> 
 <strong>Weighted EV:</strong> best once current-league weights look stable and solved to an acceptable level of accuracy. At that point, it is the more accurate model for threshold recommendations.<br>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_ev = SUM(observed_weight * current_price) / 3<br>vendor_threshold = weighted_ev / 3</code><br>
 In short, both models use the same threshold framework, but they are meant for different data conditions: Harmonic EV is the safer default while weights are still stabilizing, and Weighted EV is the more accurate default once weight data is stable enough to trust.`
+  },
+  {
+    title: 'What happens when a new league starts, and how does weight blending work?',
+    body: `At the start of a new league, current-league weight data is still sparse. Using only fresh observations immediately would make early recommendations too reactive, since small sample noise can distort scarab frequencies before enough data has been collected.<br><br>
+To smooth that transition, prior-league weights are blended with current-league weights. This provides stability early on, while still allowing the model to adapt as real current-league data builds.<br><br>
+The blend is calculated as:<br>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blend factor = current-league data share / 100<br>blended weight = (blend factor × current-league weight) + ((1 - blend factor) × prior-league weight)</code>
+As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league’s actual observed output distribution. This makes early-league recommendations more stable without locking the model to outdated data.<br><br>
+Once enough current-league data has been collected, prior-league influence is fully phased out and recommendations rely entirely on current-league weights.`
   },
     {
     title: 'How does the Vendor Profit Estimator work?',
