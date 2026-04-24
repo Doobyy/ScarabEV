@@ -2444,6 +2444,7 @@ function renderAtlasTrendPreview(history) {
     };
   };
   const yAxis = buildNiceAxis(allY, 6);
+  const pointHitRadius = series.length <= 24 ? 14 : (series.length <= 72 ? 10 : (series.length <= 160 ? 7 : 5));
 
   state._atlasTrendPreviewChart = new Chart(canvas, {
     type: 'line',
@@ -2467,6 +2468,7 @@ function renderAtlasTrendPreview(history) {
           tension: 0.3,
           pointRadius: series.length <= 14 ? 3 : 0,
           pointHoverRadius: 3,
+          pointHitRadius,
           pointBackgroundColor: baseColor,
           borderWidth: 1.5,
         },
@@ -2487,6 +2489,7 @@ function renderAtlasTrendPreview(history) {
           tension: 0.3,
           pointRadius: series.length <= 14 ? 3 : 0,
           pointHoverRadius: 3,
+          pointHitRadius,
           pointBackgroundColor: optColor,
           borderWidth: 1.5,
         }
@@ -2496,9 +2499,16 @@ function renderAtlasTrendPreview(history) {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      interaction: {
+        mode: 'nearest',
+        axis: 'xy',
+        intersect: true
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
+          mode: 'nearest',
+          intersect: true,
           callbacks: {
             title: items => items[0].label,
             label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}c`
@@ -2855,6 +2865,7 @@ function renderEVChart(history) {
   const harmonicFillFallbackAlpha = isDark ? 0.11 : 0.09;
   const weightedFillTopAlpha = isDark ? 0.16 : 0.15;
   const weightedFillFallbackAlpha = isDark ? 0.11 : 0.09;
+  const pointHitRadius = dates.length <= 24 ? 14 : (dates.length <= 72 ? 10 : (dates.length <= 160 ? 7 : 5));
 
   if (state._evChartInstance) {
     state._evChartInstance.destroy();
@@ -2886,6 +2897,7 @@ function renderEVChart(history) {
         spanGaps: true,
         pointRadius: dates.length <= 14 ? 3 : 0,
         pointHoverRadius: 3,
+        pointHitRadius,
         pointBackgroundColor: harmonicColor,
         borderWidth: 1.5,
       }, {
@@ -2906,6 +2918,7 @@ function renderEVChart(history) {
         spanGaps: true,
         pointRadius: dates.length <= 14 ? 3 : 0,
         pointHoverRadius: 3,
+        pointHitRadius,
         pointBackgroundColor: weightedColor,
         borderWidth: 1.5,
       }]
@@ -2914,9 +2927,16 @@ function renderEVChart(history) {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      interaction: {
+        mode: 'nearest',
+        axis: 'xy',
+        intersect: true
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
+          mode: 'nearest',
+          intersect: true,
           callbacks: {
             title: items => items[0].label,
             label: ctx => ` ${ctx.dataset.label} threshold: ${ctx.parsed.y.toFixed(3)}c`
