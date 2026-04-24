@@ -13,6 +13,7 @@ import { ADMIN_OPS_SCRIPT } from "./scripts/ops.js";
 import { ADMIN_HEALTH_SCRIPT } from "./scripts/health.js";
 import { ADMIN_FAILURES_SCRIPT } from "./scripts/failures.js";
 import { ADMIN_BULKTOOLS_SCRIPT } from "./scripts/bulktools.js";
+import { ADMIN_DOCUMENTATION_SCRIPT } from "./scripts/documentation.js";
 import { ADMIN_WIRE_SCRIPT } from "./scripts/wire.js";
 
 const ADMIN_UI_SCRIPT = [
@@ -29,6 +30,7 @@ const ADMIN_UI_SCRIPT = [
   ADMIN_HEALTH_SCRIPT,
   ADMIN_FAILURES_SCRIPT,
   ADMIN_BULKTOOLS_SCRIPT,
+  ADMIN_DOCUMENTATION_SCRIPT,
   ADMIN_WIRE_SCRIPT
 ].join("\n\n");
 

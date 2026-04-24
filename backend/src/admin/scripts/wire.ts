@@ -6,7 +6,7 @@ function wire(){
   const loadBulkToolsScarabReference=async()=>{if(typeof loadScarabs!=='function')return false;const ok=await loadScarabs();if(ok&&typeof renderBulkToolsScarabList==='function')renderBulkToolsScarabList();return !!ok;};
   $('themeBtn').onclick=toggleTheme; $('signoutBtn').onclick=logout; $('loginBtn').onclick=login;
   $('navToggleBtn').onclick=toggleMobileNav; $('navBackdrop').onclick=closeMobileNav; window.addEventListener('resize',()=>{if(window.matchMedia&&window.matchMedia('(min-width:1001px)').matches)setMobileNavOpen(false);});
-  $('navScarab').onclick=async()=>{switchPanel('scarab');if(!state.scarabsAutoLoaded)await loadScarabs();await loadTokens();}; $('navSessions').onclick=async()=>{switchPanel('sessions');if(!state.sessionsAutoLoaded)await loadSessionsAll({quiet:true});if(!state.backupsAutoLoaded)await opsListBackups({quiet:true});}; $('navHealth').onclick=async()=>{switchPanel('health');if(!state.healthAutoLoaded)await loadHealthOverview({quiet:true});}; $('navFailures').onclick=async()=>{switchPanel('failures');if(!state.failureLogsAutoLoaded&&typeof loadFailureLogs==='function')await loadFailureLogs({quiet:true});}; $('navBulkTools').onclick=async()=>{switchPanel('bulktools');if(!state.bulkToolsAutoLoaded&&typeof loadBulkToolsMap==='function'){const scarabOk=await loadBulkToolsScarabReference();const mapOk=await loadBulkToolsMap({quiet:true});const mismatchOk=typeof loadBulkToolsMismatchLog==='function'?await loadBulkToolsMismatchLog({quiet:true}):true;state.bulkToolsAutoLoaded=!!(scarabOk&&mapOk&&mismatchOk);}}; $('navRegex').onclick=()=>switchPanel('regex'); $('navRecomb').onclick=()=>switchPanel('recomb');
+  $('navScarab').onclick=async()=>{switchPanel('scarab');if(!state.scarabsAutoLoaded)await loadScarabs();await loadTokens();}; $('navSessions').onclick=async()=>{switchPanel('sessions');if(!state.sessionsAutoLoaded)await loadSessionsAll({quiet:true});if(!state.backupsAutoLoaded)await opsListBackups({quiet:true});}; $('navHealth').onclick=async()=>{switchPanel('health');if(!state.healthAutoLoaded)await loadHealthOverview({quiet:true});}; $('navFailures').onclick=async()=>{switchPanel('failures');if(!state.failureLogsAutoLoaded&&typeof loadFailureLogs==='function')await loadFailureLogs({quiet:true});}; $('navBulkTools').onclick=async()=>{switchPanel('bulktools');if(!state.bulkToolsAutoLoaded&&typeof loadBulkToolsMap==='function'){const scarabOk=await loadBulkToolsScarabReference();const mapOk=await loadBulkToolsMap({quiet:true});const mismatchOk=typeof loadBulkToolsMismatchLog==='function'?await loadBulkToolsMismatchLog({quiet:true}):true;state.bulkToolsAutoLoaded=!!(scarabOk&&mapOk&&mismatchOk);}}; $('navDocumentation').onclick=()=>{switchPanel('docs');if(typeof openDocumentationPanel==='function')openDocumentationPanel();}; $('navRegex').onclick=()=>switchPanel('regex'); $('navRecomb').onclick=()=>switchPanel('recomb');
   $('scarabTabList').onclick=()=>switchScarabSubtab('list'); $('scarabTabRestore').onclick=async()=>{switchScarabSubtab('restore');await loadTokens();}; $('scarabTabRegex').onclick=async()=>{switchScarabSubtab('regex');if(!state.tokensAutoLoaded)await loadTokens();};
   $('scarabTabMobile').onchange=async()=>{const tab=$('scarabTabMobile').value;switchScarabSubtab(tab);if(tab==='restore')await loadTokens();if(tab==='regex'&&!state.tokensAutoLoaded)await loadTokens();};
   $('sessOpenCfgBtn').onclick=openSessionCfgModal; $('sessCfgCloseBtn').onclick=closeSessionCfgModal; $('sessSaveCfgBtn').onclick=saveSessionCfg; $('sessLoadBtn').onclick=()=>loadSessionsAll(); $('sessRecomputeBtn').onclick=recomputeAggregate; if($('sessRerunSelectedBtn'))$('sessRerunSelectedBtn').onclick=rerunSelectedSessionsIntake; if($('sessHealthScopeBtn'))$('sessHealthScopeBtn').onclick=toggleSessionHealthScope; if($('sessSelectAllVisible'))$('sessSelectAllVisible').onchange=()=>setVisibleSessionSelection(!!$('sessSelectAllVisible').checked); $('sessTabSessions').onclick=()=>switchSessionSubtab('sessions'); $('sessTabBackups').onclick=async()=>{switchSessionSubtab('backups');if(!state.backupsAutoLoaded)await opsListBackups({quiet:true});}; $('sessTabReview').onclick=async()=>{switchSessionSubtab('review');await loadReviewQueue({quiet:true});}; $('sessTabResearch').onclick=async()=>{switchSessionSubtab('research');await loadResearchPile({quiet:true});}; $('sessTabAnalytics').onclick=async()=>{switchSessionSubtab('analytics');await loadIntakeAnalytics({quiet:true});}; $('sessReviewRefreshBtn').onclick=()=>loadReviewQueue(); $('sessResearchRefreshBtn').onclick=()=>loadResearchPile(); $('sessAnalyticsRefreshBtn').onclick=()=>loadIntakeAnalytics(); $('sessPageSize').onchange=()=>{state.sessionPageSize=Number($('sessPageSize').value)||25;state.sessionPage=1;renderSessionRows();}; $('sessPagePrev').onclick=()=>{state.sessionPage=Math.max(1,(Number(state.sessionPage)||1)-1);renderSessionRows();}; $('sessPageNext').onclick=()=>{state.sessionPage=(Number(state.sessionPage)||1)+1;renderSessionRows();};
@@ -22,6 +22,7 @@ function wire(){
   $('recombRunBtn').onclick=runRecombBench;
   $('recombMcRunBtn').onclick=runRecombMonteCarlo;
   $('opsListBtn').onclick=()=>opsListBackups(); $('opsRunBtn').onclick=opsRunBackup;
+  if($('stagingRefreshBtn'))$('stagingRefreshBtn').onclick=runStagingRefreshFromProduction;
   $('healthRefreshBtn').onclick=()=>loadHealthOverview();
   if($('failureRefreshBtn'))$('failureRefreshBtn').onclick=()=>loadFailureLogs();
   if($('failureClearBtn'))$('failureClearBtn').onclick=(ev)=>clearFailureLogs(ev.currentTarget);
@@ -39,11 +40,28 @@ ok?'ok':'err');};
 (async function init(){
   initTheme();loadSessionCfg();wire();hydrateSessionCfgInputs();switchScarabSubtab('list');switchSessionSubtab('sessions');initCaptureQueue();switchPanel('health');if($('recombRunBtn'))runRecombBench();if($('recombMcRunBtn'))runRecombMonteCarlo();state.user=null;setAuthUi(false);$('authStatus').classList.add('hidden');$('retireSelectedBtn').disabled=true;$('deleteSelectedBtn').disabled=true;
   try{
+    const hz=await api('/healthz');
+    const envName=hz&&hz.json&&hz.json.environment?String(hz.json.environment):'unknown';
+    applyEnvironmentBadge(envName);
+    if(typeof syncStagingRefreshVisibility==='function')syncStagingRefreshVisibility();
+    if(envName==='production')state.sessionApiDefault='https://scarabev-api.paperpandastacks.workers.dev/admin/sessions';
+    else if(envName==='staging')state.sessionApiDefault='https://scarabev-api-staging.paperpandastacks.workers.dev/admin/sessions';
+  }catch(e){}
+  try{
     const sess=await api('/admin/auth/session');
     if(sess.res.status===200&&sess.json&&sess.json.user){
       state.user=sess.json.user;
       setAuthUi(true);
       await loadAll();
+      if(typeof getEnvironmentDiagnostics==='function'){
+        try{
+          const envInfo=await getEnvironmentDiagnostics(false);
+          if(envInfo&&envInfo.sessionApiBaseUrl)state.sessionApiDefault=String(envInfo.sessionApiBaseUrl);
+          if(envInfo&&envInfo.environment)applyEnvironmentBadge(String(envInfo.environment));
+          if(typeof syncStagingRefreshVisibility==='function')syncStagingRefreshVisibility();
+        }catch(e){}
+      }
+      hydrateSessionCfgInputs();
       await loadHealthOverview({quiet:true});
       return;
     }

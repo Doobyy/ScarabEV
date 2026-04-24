@@ -734,6 +734,12 @@ interface BackupSnapshotSummary {
   createdAt: string;
 }
 
+interface BackupSnapshotAttempt {
+  createdAt: string;
+  status: "ok" | "failed";
+  errorMessage: string | null;
+}
+
 interface BackupStorageUsageSummary {
   prefix: string;
   objectCount: number;
@@ -907,8 +913,65 @@ const BACKUP_CATCHUP_GRACE_MS = 2 * 60 * 60 * 1000;
 const BACKUP_CATCHUP_PROBE_INTERVAL_MS = 5 * 60 * 1000;
 const MARKET_WORKER_REQUEST_TIMEOUT_MS = 65_000;
 const MARKET_WORKER_MANUAL_RETRY_TIMEOUT_MS = 12_000;
+const STAGING_REFRESH_D1_TABLES = [
+  "leagues",
+  "seasons",
+  "scarabs",
+  "scarab_text_versions",
+  "draft_token_sets",
+  "draft_token_entries",
+  "draft_token_reports",
+  "token_sets",
+  "token_set_entries"
+] as const;
 let backupCatchupProbeAt = 0;
 let backupCatchupInFlight: Promise<void> | null = null;
+
+interface CloudflareApiEnvelope<T> {
+  success?: boolean;
+  result?: T;
+  errors?: Array<{ code?: number; message?: string }>;
+}
+
+interface CloudflareD1QueryResult {
+  results?: Array<Record<string, unknown>>;
+  success?: boolean;
+  error?: string;
+}
+
+interface StagingRefreshResult {
+  startedAt: string;
+  finishedAt: string;
+  preBackup: {
+    attempted: boolean;
+    snapshotId: string | null;
+    status: "ok" | "failed" | "skipped";
+    reason: string | null;
+  };
+  d1: {
+    copiedTables: number;
+    copiedRows: number;
+    tableCounts: Record<string, number>;
+  };
+  kv: {
+    copiedKeys: number;
+    deletedKeys: number;
+    sourceKeys: number;
+    targetKeysBefore: number;
+  };
+  postRefresh: {
+    cacheAll: { ok: boolean; elapsedMs: number | null; error: string | null };
+    snapshotRun: { ok: boolean; elapsedMs: number | null; error: string | null };
+  };
+  source: {
+    d1DatabaseLabel: string | null;
+    kvNamespaceLabel: string | null;
+  };
+  destination: {
+    d1DatabaseLabel: string | null;
+    kvNamespaceLabel: string | null;
+  };
+}
 
 function getMarketWorkerAdminHeaders(config: RuntimeConfig): Record<string, string> {
   const token = String(config.marketWorkerAdminToken || "").trim();
@@ -944,6 +1007,433 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   } finally {
     clearTimeout(timer);
   }
+}
+
+function buildMarketWorkerUrl(config: RuntimeConfig, params: Record<string, string>): string {
+  const base = String(config.marketWorkerUrl || "").trim().replace(/\/+$/, "");
+  if (!base) throw new Error("market_worker_url_missing");
+  return `${base}?${new URLSearchParams(params).toString()}`;
+}
+
+function assertStagingRefreshConfig(config: RuntimeConfig): {
+  accountId: string;
+  sourceD1Id: string;
+  sourceKvNamespaceId: string;
+  targetKvNamespaceId: string;
+} {
+  if (config.appEnv !== "staging") {
+    throw new Error(`staging_refresh_forbidden_env:${config.appEnv}`);
+  }
+  if (!config.cloudflareApiToken || !config.cloudflareAccountId) {
+    throw new Error("staging_refresh_missing_cloudflare_api_env");
+  }
+  const sourceD1Id = String(config.stagingRefreshSourceD1Id || "").trim();
+  const sourceKvNamespaceId = String(config.stagingRefreshSourceKvNamespaceId || "").trim();
+  const targetKvNamespaceId = String(config.stagingRefreshTargetKvNamespaceId || "").trim();
+  if (!sourceD1Id || !sourceKvNamespaceId || !targetKvNamespaceId) {
+    throw new Error("staging_refresh_missing_source_or_target_ids");
+  }
+  if (sourceKvNamespaceId === targetKvNamespaceId) {
+    throw new Error("staging_refresh_invalid_kv_pair_same_namespace");
+  }
+
+  const sourceD1Label = String(config.stagingRefreshSourceD1Label || "").toLowerCase();
+  const sourceKvLabel = String(config.stagingRefreshSourceKvNamespaceLabel || "").toLowerCase();
+  const targetKvLabel = String(config.stagingRefreshTargetKvNamespaceLabel || "").toLowerCase();
+  if (sourceD1Label && !/(prod|production)/.test(sourceD1Label)) {
+    throw new Error("staging_refresh_source_d1_label_must_indicate_production");
+  }
+  if (sourceKvLabel && !/(prod|production)/.test(sourceKvLabel)) {
+    throw new Error("staging_refresh_source_kv_label_must_indicate_production");
+  }
+  if (targetKvLabel && !/staging/.test(targetKvLabel)) {
+    throw new Error("staging_refresh_target_kv_label_must_indicate_staging");
+  }
+
+  return {
+    accountId: String(config.cloudflareAccountId || "").trim(),
+    sourceD1Id,
+    sourceKvNamespaceId,
+    targetKvNamespaceId
+  };
+}
+
+async function cloudflareApiRequest<T>(
+  config: RuntimeConfig,
+  path: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const envelope = await cloudflareApiRequestEnvelope<T>(config, path, init);
+  return envelope.result as T;
+}
+
+async function cloudflareApiRequestEnvelope<T>(
+  config: RuntimeConfig,
+  path: string,
+  init: RequestInit = {}
+): Promise<CloudflareApiEnvelope<T>> {
+  const accountId = String(config.cloudflareAccountId || "").trim();
+  const apiToken = String(config.cloudflareApiToken || "").trim();
+  if (!accountId || !apiToken) {
+    throw new Error("cloudflare_api_missing_credentials");
+  }
+  const base = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}`;
+  const headers = new Headers(init.headers || {});
+  headers.set("authorization", `Bearer ${apiToken}`);
+  if (!headers.has("content-type") && init.body) {
+    headers.set("content-type", "application/json");
+  }
+
+  const response = await fetch(`${base}${path}`, {
+    ...init,
+    headers
+  });
+  const payloadText = await response.text().catch(() => "");
+  let payload: CloudflareApiEnvelope<T> | null = null;
+  try {
+    payload = payloadText ? JSON.parse(payloadText) as CloudflareApiEnvelope<T> : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const msg = payload?.errors?.[0]?.message || payloadText.slice(0, 220) || `http_${response.status}`;
+    throw new Error(`cloudflare_api_request_failed:${response.status}:${msg}`);
+  }
+  if (!payload || payload.success !== true) {
+    const msg = payload?.errors?.[0]?.message || payloadText.slice(0, 220) || "invalid_response";
+    throw new Error(`cloudflare_api_invalid_response:${msg}`);
+  }
+  return payload as CloudflareApiEnvelope<T>;
+}
+
+function quoteSqlIdentifier(name: string): string {
+  const trimmed = String(name || "").trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
+    throw new Error(`invalid_sql_identifier:${trimmed}`);
+  }
+  return `"${trimmed.replace(/"/g, "\"\"")}"`;
+}
+
+async function cloudflareD1Query(
+  config: RuntimeConfig,
+  databaseId: string,
+  sql: string,
+  params: unknown[] = []
+): Promise<Array<Record<string, unknown>>> {
+  const result = await cloudflareApiRequest<CloudflareD1QueryResult[]>(
+    config,
+    `/d1/database/${encodeURIComponent(databaseId)}/query`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        sql,
+        params
+      })
+    }
+  );
+  const first = Array.isArray(result) ? result[0] : null;
+  if (!first) return [];
+  if (first.success === false || first.error) {
+    throw new Error(`cloudflare_d1_query_failed:${String(first.error || "unknown")}`);
+  }
+  return Array.isArray(first.results) ? first.results : [];
+}
+
+async function cloudflareKvListKeys(config: RuntimeConfig, namespaceId: string): Promise<string[]> {
+  const keys: string[] = [];
+  let cursor: string | undefined;
+  for (let guard = 0; guard < 1000; guard += 1) {
+    const query = new URLSearchParams({ limit: "1000" });
+    if (cursor) query.set("cursor", cursor);
+    const envelope = await cloudflareApiRequestEnvelope<Array<{ name?: string }>>(
+      config,
+      `/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/keys?${query.toString()}`,
+      { method: "GET" }
+    );
+    const rows = Array.isArray(envelope?.result) ? envelope.result : [];
+    for (const row of rows) {
+      const name = String(row?.name || "");
+      if (name) keys.push(name);
+    }
+    const nextCursor = String((envelope as { result_info?: { cursor?: string } })?.result_info?.cursor || "").trim();
+    if (!nextCursor) break;
+    cursor = nextCursor;
+  }
+  return keys;
+}
+
+async function cloudflareKvGetValue(config: RuntimeConfig, namespaceId: string, key: string): Promise<string> {
+  const accountId = String(config.cloudflareAccountId || "").trim();
+  const apiToken = String(config.cloudflareApiToken || "").trim();
+  const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/values/${encodeURIComponent(key)}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${apiToken}`
+    }
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`cloudflare_kv_get_failed:${response.status}:${detail.slice(0, 160)}`);
+  }
+  return await response.text();
+}
+
+async function cloudflareKvBulkGetValues(
+  config: RuntimeConfig,
+  namespaceId: string,
+  keys: string[]
+): Promise<Record<string, string>> {
+  if (!keys.length) return {};
+  const payload = await cloudflareApiRequest<{ values?: Record<string, unknown> }>(
+    config,
+    `/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/bulk/get`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        keys
+      })
+    }
+  );
+  const valuesRaw = payload && typeof payload === "object" && payload.values && typeof payload.values === "object"
+    ? payload.values
+    : {};
+  const values: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(valuesRaw)) {
+    if (raw === null || raw === undefined) continue;
+    if (typeof raw === "string") values[key] = raw;
+    else values[key] = JSON.stringify(raw);
+  }
+  return values;
+}
+
+async function cloudflareKvBulkPutValues(
+  config: RuntimeConfig,
+  namespaceId: string,
+  entries: Array<{ key: string; value: string }>
+): Promise<void> {
+  if (!entries.length) return;
+  await cloudflareApiRequest<unknown>(
+    config,
+    `/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/bulk`,
+    {
+      method: "PUT",
+      body: JSON.stringify(entries)
+    }
+  );
+}
+
+async function cloudflareKvBulkDeleteValues(
+  config: RuntimeConfig,
+  namespaceId: string,
+  keys: string[]
+): Promise<void> {
+  if (!keys.length) return;
+  await cloudflareApiRequest<unknown>(
+    config,
+    `/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/bulk/delete`,
+    {
+      method: "POST",
+      body: JSON.stringify(keys)
+    }
+  );
+}
+
+async function cloudflareKvPutValue(
+  config: RuntimeConfig,
+  namespaceId: string,
+  key: string,
+  value: string
+): Promise<void> {
+  const accountId = String(config.cloudflareAccountId || "").trim();
+  const apiToken = String(config.cloudflareApiToken || "").trim();
+  const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/values/${encodeURIComponent(key)}`;
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      authorization: `Bearer ${apiToken}`,
+      "content-type": "text/plain; charset=utf-8"
+    },
+    body: value
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`cloudflare_kv_put_failed:${response.status}:${detail.slice(0, 160)}`);
+  }
+}
+
+async function cloudflareKvDeleteValue(config: RuntimeConfig, namespaceId: string, key: string): Promise<void> {
+  await cloudflareApiRequest<unknown>(
+    config,
+    `/storage/kv/namespaces/${encodeURIComponent(namespaceId)}/values/${encodeURIComponent(key)}`,
+    { method: "DELETE" }
+  );
+}
+
+async function cloneStagingD1FromProduction(config: RuntimeConfig, db: D1Database): Promise<{
+  copiedTables: number;
+  copiedRows: number;
+  tableCounts: Record<string, number>;
+}> {
+  const { sourceD1Id } = assertStagingRefreshConfig(config);
+  const tableCounts: Record<string, number> = {};
+  let copiedRows = 0;
+
+  await db.exec("PRAGMA foreign_keys = OFF;");
+  try {
+    for (const tableName of [...STAGING_REFRESH_D1_TABLES].reverse()) {
+      const tableSql = quoteSqlIdentifier(tableName);
+      await db.exec(`DELETE FROM ${tableSql};`);
+    }
+
+    for (const tableName of STAGING_REFRESH_D1_TABLES) {
+      const tableSql = quoteSqlIdentifier(tableName);
+      const columnRows = await cloudflareD1Query(
+        config,
+        sourceD1Id,
+        `PRAGMA table_info(${tableSql});`
+      );
+      const columns = columnRows
+        .map((row) => String(row.name || "").trim())
+        .filter((name) => !!name);
+      if (columns.length === 0) {
+        throw new Error(`staging_refresh_missing_table_schema:${tableName}`);
+      }
+      const rows = await cloudflareD1Query(config, sourceD1Id, `SELECT * FROM ${tableSql};`);
+      tableCounts[tableName] = rows.length;
+      copiedRows += rows.length;
+      if (!rows.length) continue;
+
+      const quotedColumns = columns.map((col) => quoteSqlIdentifier(col)).join(", ");
+      const placeholders = columns.map(() => "?").join(", ");
+      const insertSql = `INSERT INTO ${tableSql} (${quotedColumns}) VALUES (${placeholders})`;
+      const statements = rows.map((row) => {
+        const values = columns.map((col) => (row as Record<string, unknown>)[col] ?? null);
+        return db.prepare(insertSql).bind(...values);
+      });
+      for (let i = 0; i < statements.length; i += 50) {
+        await db.batch(statements.slice(i, i + 50));
+      }
+    }
+  } finally {
+    await db.exec("PRAGMA foreign_keys = ON;");
+  }
+
+  return {
+    copiedTables: STAGING_REFRESH_D1_TABLES.length,
+    copiedRows,
+    tableCounts
+  };
+}
+
+async function cloneStagingKvFromProduction(config: RuntimeConfig): Promise<{
+  copiedKeys: number;
+  deletedKeys: number;
+  sourceKeys: number;
+  targetKeysBefore: number;
+}> {
+  const { sourceKvNamespaceId, targetKvNamespaceId } = assertStagingRefreshConfig(config);
+  const sourceKeys = await cloudflareKvListKeys(config, sourceKvNamespaceId);
+  const targetKeysBefore = await cloudflareKvListKeys(config, targetKvNamespaceId);
+  const sourceSet = new Set(sourceKeys);
+  let copiedKeys = 0;
+  let deletedKeys = 0;
+
+  for (let i = 0; i < sourceKeys.length; i += 100) {
+    const chunk = sourceKeys.slice(i, i + 100);
+    const bulkValues = await cloudflareKvBulkGetValues(config, sourceKvNamespaceId, chunk);
+    const entries = Object.entries(bulkValues).map(([key, value]) => ({ key, value }));
+    if (entries.length > 0) {
+      await cloudflareKvBulkPutValues(config, targetKvNamespaceId, entries);
+      copiedKeys += entries.length;
+    }
+  }
+  const staleKeys = targetKeysBefore.filter((key) => !sourceSet.has(key));
+  for (let i = 0; i < staleKeys.length; i += 10_000) {
+    const chunk = staleKeys.slice(i, i + 10_000);
+    await cloudflareKvBulkDeleteValues(config, targetKvNamespaceId, chunk);
+    deletedKeys += chunk.length;
+  }
+
+  return {
+    copiedKeys,
+    deletedKeys,
+    sourceKeys: sourceKeys.length,
+    targetKeysBefore: targetKeysBefore.length
+  };
+}
+
+async function runStagingRefreshFromProduction(
+  deps: RouteDeps,
+  initiatedByUserId: string
+): Promise<StagingRefreshResult> {
+  if (!deps.db) {
+    throw new Error("staging_refresh_missing_db_binding");
+  }
+  assertStagingRefreshConfig(deps.config);
+  const startedAt = deps.now().toISOString();
+  const preBackup = {
+    attempted: false,
+    snapshotId: null as string | null,
+    status: "skipped" as "ok" | "failed" | "skipped",
+    reason: null as string | null
+  };
+
+  if (deps.config.backupEnabled) {
+    preBackup.attempted = true;
+    const snapshot = await runBackupSnapshot(deps, "manual", initiatedByUserId);
+    if (!snapshot) {
+      preBackup.status = "failed";
+      preBackup.reason = "backup_unavailable";
+    } else {
+      preBackup.snapshotId = snapshot.id;
+      preBackup.status = snapshot.status === "ok" ? "ok" : "failed";
+      preBackup.reason = snapshot.errorMessage || null;
+    }
+  } else {
+    preBackup.reason = "backup_disabled";
+  }
+
+  const d1 = await cloneStagingD1FromProduction(deps.config, deps.db);
+  const kv = await cloneStagingKvFromProduction(deps.config);
+
+  const cacheAll = { ok: false, elapsedMs: null as number | null, error: null as string | null };
+  const snapshotRun = { ok: false, elapsedMs: null as number | null, error: null as string | null };
+  try {
+    const result = await runMarketManualRetry("cache-all", deps.config);
+    cacheAll.ok = true;
+    cacheAll.elapsedMs = result.elapsedMs;
+  } catch (error) {
+    cacheAll.error = error instanceof Error ? error.message : String(error);
+  }
+  try {
+    const result = await runMarketManualRetry("snapshot-run", deps.config);
+    snapshotRun.ok = true;
+    snapshotRun.elapsedMs = result.elapsedMs;
+  } catch (error) {
+    snapshotRun.error = error instanceof Error ? error.message : String(error);
+  }
+
+  return {
+    startedAt,
+    finishedAt: deps.now().toISOString(),
+    preBackup,
+    d1,
+    kv,
+    postRefresh: {
+      cacheAll,
+      snapshotRun
+    },
+    source: {
+      d1DatabaseLabel: deps.config.stagingRefreshSourceD1Label || null,
+      kvNamespaceLabel: deps.config.stagingRefreshSourceKvNamespaceLabel || null
+    },
+    destination: {
+      d1DatabaseLabel: deps.config.d1ResourceLabel || null,
+      kvNamespaceLabel: deps.config.stagingRefreshTargetKvNamespaceLabel || null
+    }
+  };
 }
 
 async function listBackupSnapshots(
@@ -1186,7 +1676,10 @@ async function getMarketFailureLogs(daysRaw: number, config: RuntimeConfig): Pro
   }>;
 }> {
   const days = Math.max(1, Math.min(30, Number.isFinite(daysRaw) ? Math.floor(daysRaw) : 30));
-  const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=FailureLogs&days=${days}`;
+  const url = buildMarketWorkerUrl(config, {
+    type: "FailureLogs",
+    days: String(days)
+  });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
@@ -1400,7 +1893,10 @@ async function runMarketManualRetry(actionRaw: string, config: RuntimeConfig): P
     "price-history-backfill-disable"
   ]);
   if (!allowed.has(action)) throw new Error(`manual_retry_invalid_action:${action}`);
-  const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=ManualRetry&action=${encodeURIComponent(action)}`;
+  const url = buildMarketWorkerUrl(config, {
+    type: "ManualRetry",
+    action
+  });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_MANUAL_RETRY_TIMEOUT_MS);
   if (!res.ok) {
@@ -1421,7 +1917,7 @@ async function getMarketBulkNameMap(config: RuntimeConfig): Promise<{
   map: Record<string, string>;
   updatedAt: string | null;
 }> {
-  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkNameMap";
+  const url = buildMarketWorkerUrl(config, { type: "BulkNameMap" });
   const res = await fetchWithTimeout(url, { method: "GET" }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -1459,7 +1955,7 @@ async function setMarketBulkNameMap(
     if (!key || !value) continue;
     map[key] = value;
   }
-  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkNameMap";
+  const url = buildMarketWorkerUrl(config, { type: "BulkNameMap" });
   const headers = {
     ...getMarketWorkerAdminHeaders(config),
     "content-type": "application/json"
@@ -1497,7 +1993,7 @@ async function getMarketBulkMismatchLog(config: RuntimeConfig): Promise<{
   rows: Array<{ rawName: string; qty: number | null; source: string; timestamp: string }>;
   count: number;
 }> {
-  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkMismatchLog";
+  const url = buildMarketWorkerUrl(config, { type: "BulkMismatchLog" });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
@@ -1521,7 +2017,7 @@ async function getMarketBulkMismatchLog(config: RuntimeConfig): Promise<{
 }
 
 async function clearMarketBulkMismatchLog(config: RuntimeConfig): Promise<void> {
-  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BulkMismatchLog";
+  const url = buildMarketWorkerUrl(config, { type: "BulkMismatchLog" });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "DELETE", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
@@ -1606,7 +2102,7 @@ async function getMarketBackupSmokeStatus(config: RuntimeConfig): Promise<{
   elapsedMs: number;
   error: string | null;
 }> {
-  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupSmokeStatus";
+  const url = buildMarketWorkerUrl(config, { type: "BackupSmokeStatus" });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
@@ -1633,7 +2129,7 @@ async function runMarketBackupSmokeTest(config: RuntimeConfig): Promise<{
   elapsedMs: number;
   error: string | null;
 }> {
-  const url = "https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupSmokeTest";
+  const url = buildMarketWorkerUrl(config, { type: "BackupSmokeTest" });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   const text = await res.text().catch(() => "");
@@ -1673,7 +2169,11 @@ async function getMarketBackupExport(
   dataByKey: Record<string, string>;
 }> {
   const requestedScopes = [...new Set(scopes.map((scope) => String(scope || "").trim().toLowerCase()).filter(Boolean))];
-  const url = `https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupExport&mode=${mode}&scopes=${encodeURIComponent(requestedScopes.join(","))}`;
+  const url = buildMarketWorkerUrl(config, {
+    type: "BackupExport",
+    mode,
+    scopes: requestedScopes.join(",")
+  });
   const headers = getMarketWorkerAdminHeaders(config);
   const res = await fetchWithTimeout(url, { method: "GET", headers }, MARKET_WORKER_REQUEST_TIMEOUT_MS);
   if (!res.ok) {
@@ -1713,7 +2213,7 @@ async function runMarketBackupImport(
     ...getMarketWorkerAdminHeaders(config),
     "content-type": "application/json"
   };
-  const res = await fetchWithTimeout("https://scarabev-market-worker.paperpandastacks.workers.dev?type=BackupImport", {
+  const res = await fetchWithTimeout(buildMarketWorkerUrl(config, { type: "BackupImport" }), {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -1919,6 +2419,18 @@ async function collectBackupRows(db: D1Database): Promise<Record<string, unknown
   return payload;
 }
 
+async function pruneOldBackupSnapshots(db: D1Database, cutoffIso: string): Promise<void> {
+  await db
+    .prepare(
+      `
+      DELETE FROM backup_snapshots
+      WHERE created_at < ?1
+    `
+    )
+    .bind(cutoffIso)
+    .run();
+}
+
 async function runBackupSnapshot(
   deps: RouteDeps,
   triggerType: "scheduled" | "manual",
@@ -2024,15 +2536,7 @@ async function runBackupSnapshot(
       .run();
 
     const cutoffIso = new Date(deps.now().getTime() - deps.config.backupRetentionDays * 24 * 60 * 60 * 1000).toISOString();
-    await deps.db
-      .prepare(
-        `
-        DELETE FROM backup_snapshots
-        WHERE created_at < ?1
-      `
-      )
-      .bind(cutoffIso)
-      .run();
+    await pruneOldBackupSnapshots(deps.db, cutoffIso);
 
     return {
       id: snapshotId,
@@ -2065,6 +2569,12 @@ async function runBackupSnapshot(
       )
       .bind(snapshotId, triggerType, initiatedByUserId, err.message.slice(0, 800), nowIso)
       .run();
+    const cutoffIso = new Date(deps.now().getTime() - deps.config.backupRetentionDays * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      await pruneOldBackupSnapshots(deps.db, cutoffIso);
+    } catch {
+      // Best-effort cleanup; preserve original failure result.
+    }
 
     return {
       id: snapshotId,
@@ -2096,11 +2606,52 @@ async function getLatestSuccessfulBackupCreatedAt(db: D1Database): Promise<strin
   return row.created_at;
 }
 
-function isBackupCatchupDue(latestOkCreatedAt: string | null, now: Date): boolean {
+async function getLatestBackupAttempt(db: D1Database): Promise<BackupSnapshotAttempt | null> {
+  const row = await db
+    .prepare(
+      `
+      SELECT created_at, status, error_message
+      FROM backup_snapshots
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `
+    )
+    .first<{ created_at: string | null; status: string | null; error_message: string | null }>();
+  if (!row || typeof row.created_at !== "string" || !row.created_at) return null;
+  return {
+    createdAt: row.created_at,
+    status: String(row.status || "").toLowerCase() === "failed" ? "failed" : "ok",
+    errorMessage: row.error_message ? String(row.error_message) : null
+  };
+}
+
+function isNonRetryableBackupFailure(errorMessage: string | null): boolean {
+  const message = String(errorMessage || "").trim().toLowerCase();
+  if (!message) return false;
+  return message.includes("market_worker_admin_token_missing")
+    || message.includes("backup_external_required_but_not_configured");
+}
+
+function isBackupCatchupDue(
+  latestOkCreatedAt: string | null,
+  latestAttempt: BackupSnapshotAttempt | null,
+  now: Date
+): boolean {
+  const cadenceWindowMs = BACKUP_CADENCE_MS + BACKUP_CATCHUP_GRACE_MS;
+  if (
+    latestAttempt
+    && latestAttempt.status === "failed"
+    && isNonRetryableBackupFailure(latestAttempt.errorMessage)
+  ) {
+    const latestAttemptMs = Date.parse(latestAttempt.createdAt);
+    if (Number.isFinite(latestAttemptMs) && (now.getTime() - latestAttemptMs) < cadenceWindowMs) {
+      return false;
+    }
+  }
   if (!latestOkCreatedAt) return true;
   const latestMs = Date.parse(latestOkCreatedAt);
   if (!Number.isFinite(latestMs)) return true;
-  return now.getTime() - latestMs >= (BACKUP_CADENCE_MS + BACKUP_CATCHUP_GRACE_MS);
+  return now.getTime() - latestMs >= cadenceWindowMs;
 }
 
 async function runScheduledBackupFlow(runtimeDeps: RuntimeDeps, source: "cron" | "catchup"): Promise<void> {
@@ -2165,7 +2716,7 @@ async function runScheduledBackupFlow(runtimeDeps: RuntimeDeps, source: "cron" |
 }
 
 async function maybeStartBackupCatchup(runtimeDeps: RuntimeDeps, ctx?: ExecutionContext): Promise<void> {
-  if (!runtimeDeps.config.backupEnabled || !runtimeDeps.db) {
+  if (!runtimeDeps.config.backupEnabled || !runtimeDeps.config.backupCronEnabled || !runtimeDeps.db) {
     return;
   }
   const now = runtimeDeps.now();
@@ -2180,11 +2731,15 @@ async function maybeStartBackupCatchup(runtimeDeps: RuntimeDeps, ctx?: Execution
   backupCatchupInFlight = (async () => {
     try {
       const latestOkCreatedAt = await getLatestSuccessfulBackupCreatedAt(runtimeDeps.db as D1Database);
-      if (!isBackupCatchupDue(latestOkCreatedAt, runtimeDeps.now())) {
+      const latestAttempt = await getLatestBackupAttempt(runtimeDeps.db as D1Database);
+      if (!isBackupCatchupDue(latestOkCreatedAt, latestAttempt, runtimeDeps.now())) {
         return;
       }
       logWarn(runtimeDeps.config, "backup.catchup_due", {
         latestOkCreatedAt,
+        latestAttemptAt: latestAttempt?.createdAt || null,
+        latestAttemptStatus: latestAttempt?.status || null,
+        latestAttemptError: latestAttempt?.errorMessage || null,
         targetCadenceMs: BACKUP_CADENCE_MS,
         graceMs: BACKUP_CATCHUP_GRACE_MS
       });
@@ -2312,6 +2867,7 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     authenticateRequest,
     writeAudit,
     requireRoleOrResponse,
+    runStagingRefreshFromProduction,
     listBackupSnapshots: (db: D1Database, backupR2: R2Bucket | undefined, limit: number) => listBackupSnapshots(db, backupR2, limit),
     getLatestBackupCoverage,
     getMarketBackupSmokeStatus: (config: RuntimeConfig) => getMarketBackupSmokeStatus(config),
@@ -2436,7 +2992,7 @@ export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRunt
     },
     async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
       const runtimeDeps = depsFactory(env);
-      if (!runtimeDeps.config.backupEnabled) {
+      if (!runtimeDeps.config.backupEnabled || !runtimeDeps.config.backupCronEnabled) {
         return;
       }
       await runScheduledBackupFlow(runtimeDeps, "cron");

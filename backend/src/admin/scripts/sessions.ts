@@ -115,7 +115,8 @@ function saveSessionCfg(){
   closeSessionCfgModal();
 }
 function hydrateSessionCfgInputs(){
-  if($('sessApiUrl'))$('sessApiUrl').value=state.sessionApiUrl||'https://scarabev-api.paperpandastacks.workers.dev/admin/sessions';
+  const fallback=state.sessionApiDefault||'https://scarabev-api-staging.paperpandastacks.workers.dev/admin/sessions';
+  if($('sessApiUrl'))$('sessApiUrl').value=state.sessionApiUrl||fallback;
   if($('sessAdminKey'))$('sessAdminKey').value=state.sessionAdminKey||'';
   if($('sessRememberKey')){
     let remember=false;

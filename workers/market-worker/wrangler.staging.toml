@@ -4,15 +4,16 @@ compatibility_date = "2026-03-13"
 compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = true
 
+[vars]
+APP_ENV = "staging"
+STAGING_CRON_ENABLED = "false"
+AGGREGATE_API_URL = "https://scarabev-api-staging.paperpandastacks.workers.dev/api/aggregate"
+
 [[kv_namespaces]]
 binding = "EV_HISTORY"
-# Replace with staging KV namespace ID before first deploy.
-id = "REPLACE_WITH_STAGING_EV_HISTORY_NAMESPACE_ID"
+id = "3acaaaca375f47a4beb918a88d5ff8fd"
 
 [[services]]
 binding = "SCARABEV_API"
 # Replace with staging API service before first deploy.
 service = "scarabev-api-staging"
-
-[triggers]
-crons = ["*/5 * * * *", "0 18 * * *"]

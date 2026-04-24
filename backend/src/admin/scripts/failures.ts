@@ -32,9 +32,84 @@ function failureFmtTime(value){
   try{return formatAdminTime(value);}catch(e){return String(value);} 
 }
 
+function failureAttemptsSummary(context){
+  const ctx=(context&&typeof context==='object')?context:{};
+  const hasCounted=Number.isFinite(Number(ctx.attempts));
+  const hasEstimated=Number.isFinite(Number(ctx.estimatedAttempts));
+  if(!hasCounted&&!hasEstimated)return '';
+  const counted=hasCounted?Math.max(0,Number(ctx.attempts)):null;
+  const estimated=hasEstimated?Math.max(0,Number(ctx.estimatedAttempts)):null;
+  const source=ctx.attemptsSource?String(ctx.attemptsSource):'unknown';
+  const cadence=ctx.retryCadenceLabel?String(ctx.retryCadenceLabel):(Number.isFinite(Number(ctx.retryIntervalMs))?('every '+Math.max(1,Math.round(Number(ctx.retryIntervalMs)/1000))+'s'):'duration');
+  const delta=Number.isFinite(Number(ctx.attemptsDelta))?Number(ctx.attemptsDelta):null;
+  const parts=[];
+  if(counted!=null)parts.push('Counted '+counted+' ('+source+')');
+  if(estimated!=null)parts.push('Estimated '+estimated+' ('+cadence+')');
+  if(delta!=null)parts.push('Delta '+(delta>=0?'+':'')+delta);
+  return parts.join(' | ');
+}
+
+function failureOutcome(code,context,severity){
+  const c=String(code||'').toLowerCase();
+  const recoveredFlag=(context&&typeof context==='object'&&typeof context.recovered==='boolean')?context.recovered:null;
+  if(recoveredFlag===true||c.endsWith('_recovered')){
+    return {key:'recovered',label:'Recovered',badge:'ok'};
+  }
+  if(c.endsWith('_exhausted_unresolved')){
+    return {key:'unresolved',label:'Unresolved (Exhausted)',badge:'danger'};
+  }
+  if(c.endsWith('_expired_unresolved')){
+    return {key:'unresolved',label:'Unresolved (Expired)',badge:'warn'};
+  }
+  if(c.endsWith('_corrupt_state_unresolved')){
+    return {key:'unresolved',label:'Unresolved (Corrupt State)',badge:'danger'};
+  }
+  if(c.endsWith('_closed_unresolved')||c.includes('_unresolved')){
+    return {key:'unresolved',label:'Unresolved (Closed)',badge:'warn'};
+  }
+  if(c.endsWith('_failed')){
+    const sev=String(severity||'').toLowerCase();
+    return {key:'failed',label:'Failed',badge:sev==='warn'?'warn':'danger'};
+  }
+  const sev=String(severity||'').toLowerCase();
+  if(sev==='info')return {key:'info',label:'Info',badge:'ok'};
+  if(sev==='warn')return {key:'warn',label:'Warn',badge:'warn'};
+  return {key:'error',label:'Error',badge:'danger'};
+}
+
 function failureGuidance(code,context){
   const c=String(code||'').toLowerCase();
   const stage=String((context&&context.stage)||'').toLowerCase();
+  if(c.endsWith('_recovered')){
+    return {
+      what:'Incident recovered and service returned to healthy operation.',
+      next:'Confirm duration/attempt metrics and watch for repeat incidents on the same subsystem.'
+    };
+  }
+  if(c.endsWith('_exhausted_unresolved')){
+    return {
+      what:'Incident did not recover and retries were exhausted.',
+      next:'Inspect reason/finalError context, then run targeted manual remediation before retriggering.'
+    };
+  }
+  if(c.endsWith('_expired_unresolved')){
+    return {
+      what:'Incident did not recover before its retry window/date expired.',
+      next:'Use reason/cleanup context to determine what was dropped and start a fresh run if still needed.'
+    };
+  }
+  if(c.endsWith('_corrupt_state_unresolved')){
+    return {
+      what:'Incident closed unresolved due to corrupt state tracking.',
+      next:'Inspect cleanup context and reinitialize the flow with a fresh manual run.'
+    };
+  }
+  if(c.endsWith('_closed_unresolved')||c.includes('_unresolved')){
+    return {
+      what:'Incident closed unresolved without a successful recovery.',
+      next:'Review reason/lastError/finalError fields, then run corrective action before retrying.'
+    };
+  }
   if(c==='snapshot_weights_unavailable'){
     return {
       what:'Could not fetch weighted market inputs needed to compute EV.',
@@ -160,7 +235,7 @@ function renderFailureLogs(events){
   if(!rowsEl)return;
   const list=Array.isArray(events)?events:[];
   if(!list.length){
-    rowsEl.innerHTML='<tr><td colspan="5" class="sub">No failure events in selected window.</td></tr>';
+    rowsEl.innerHTML='<tr><td colspan="6" class="sub">No operational incident events in selected window.</td></tr>';
     return;
   }
   rowsEl.innerHTML=list.map((evt)=>{
@@ -168,7 +243,12 @@ function renderFailureLogs(events){
     const code=failureEsc((evt&&evt.code)||'unknown_error');
     const src=failureEsc((evt&&evt.source)||'market-worker');
     const msg=failureEsc((evt&&evt.message)||'');
+    const sev=String((evt&&evt.severity)||'').toLowerCase();
     const rawCtx=(evt&&evt.context&&typeof evt.context==='object')?evt.context:{};
+    const outcome=failureOutcome((evt&&evt.code)||'',rawCtx,sev);
+    const outcomeBadge='<span class="badge '+failureEsc(outcome.badge)+'">'+failureEsc(outcome.label)+'</span>';
+    const attemptsSummary=failureAttemptsSummary(rawCtx);
+    const attemptsLine=attemptsSummary?('<div class="sub">Attempts: '+failureEsc(attemptsSummary)+'</div>'):'';
     const guide=failureGuidance((evt&&evt.code)||'',rawCtx);
     const guideWhat=failureEsc(guide.what);
     const guideNext=failureEsc(guide.next);
@@ -178,7 +258,8 @@ function renderFailureLogs(events){
       +'<td class="mono">'+failureEsc(at)+'</td>'
       +'<td class="mono">'+code+'</td>'
       +'<td class="mono">'+src+'</td>'
-      +'<td><div>'+msg+'</div><div class="sub">What happened: '+guideWhat+'</div><div class="sub">Next step: '+guideNext+'</div></td>'
+      +'<td>'+outcomeBadge+'</td>'
+      +'<td><div>'+msg+'</div>'+attemptsLine+'<div class="sub">What happened: '+guideWhat+'</div><div class="sub">Next step: '+guideNext+'</div></td>'
       +'<td class="mono">'+failureEsc(ctx)+'</td>'
       +'</tr>';
   }).join('');
@@ -199,10 +280,19 @@ async function loadFailureLogs(opts){
     state.failureLogs=events;
     renderFailureLogs(events);
     state.failureLogsAutoLoaded=true;
-    const meta='Window '+days+'d | Events '+events.length.toLocaleString();
+    let recoveredCount=0,unresolvedCount=0,failedCount=0;
+    for(const evt of events){
+      const ctx=(evt&&evt.context&&typeof evt.context==='object')?evt.context:{};
+      const outcome=failureOutcome((evt&&evt.code)||'',ctx,(evt&&evt.severity)||'');
+      if(outcome.key==='recovered')recoveredCount++;
+      else if(outcome.key==='unresolved')unresolvedCount++;
+      else if(outcome.key==='failed')failedCount++;
+    }
+    const meta='Window '+days+'d | Events '+events.length.toLocaleString()+' | Failed '+failedCount.toLocaleString()+' | Recovered '+recoveredCount.toLocaleString()+' | Unresolved '+unresolvedCount.toLocaleString();
     const metaEl=$('failureMeta');
     if(metaEl)metaEl.textContent=meta;
-    status('failureStatus','Failure logs refreshed at '+formatAdminTime(new Date().toISOString())+'.',events.length?'warn':'ok');
+    const tone=unresolvedCount>0?'err':(failedCount>0?'warn':'ok');
+    status('failureStatus','Operational logs refreshed at '+formatAdminTime(new Date().toISOString())+'.',tone);
     return true;
   }catch(e){
     status('failureStatus','Failed to load logs: '+formatThrownError(e),'err');

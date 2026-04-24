@@ -161,7 +161,37 @@ export const INGAME_ORDER = [
   "Expedition","Harvest","Kalguuran","Legion","Ritual","Ultimatum",
   "Misc","Horned"
 ];
-export const POOL_API_URL = 'https://scarabev-api.paperpandastacks.workers.dev';
+const FRONTEND_HOST = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.hostname)
+  ? String(globalThis.location.hostname).toLowerCase()
+  : '';
+const FRONTEND_ENVIRONMENT = /(^localhost$)|(^127\.0\.0\.1$)|staging|dev/.test(FRONTEND_HOST)
+  ? 'staging'
+  : 'production';
+const FRONTEND_ENDPOINTS = {
+  staging: {
+    poolApiUrl: 'https://scarabev-api-staging.paperpandastacks.workers.dev',
+    backendTokenSetUrl: 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/token-set/latest',
+    backendScarabMetadataUrl: 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/scarabs/metadata',
+    backendAdminUiUrl: 'https://scarabev-backend-staging.paperpandastacks.workers.dev/admin/ui',
+    marketWorkerUrl: 'https://scarabev-market-worker-staging.paperpandastacks.workers.dev'
+  },
+  production: {
+    poolApiUrl: 'https://scarabev-api.paperpandastacks.workers.dev',
+    backendTokenSetUrl: 'https://scarabev-backend-production.paperpandastacks.workers.dev/public/token-set/latest',
+    backendScarabMetadataUrl: 'https://scarabev-backend-production.paperpandastacks.workers.dev/public/scarabs/metadata',
+    backendAdminUiUrl: 'https://scarabev-backend-production.paperpandastacks.workers.dev/admin/ui',
+    marketWorkerUrl: 'https://scarabev-market-worker.paperpandastacks.workers.dev'
+  }
+};
+const RESOLVED_FRONTEND_ENDPOINTS = FRONTEND_ENDPOINTS[FRONTEND_ENVIRONMENT];
+if (FRONTEND_ENVIRONMENT === 'production') {
+  const bad = Object.entries(RESOLVED_FRONTEND_ENDPOINTS).find(([, value]) => String(value || '').toLowerCase().includes('staging'));
+  if (bad) {
+    throw new Error('production_environment_guard_violation: '+bad[0]+' points to staging ('+String(bad[1])+')');
+  }
+}
+export { FRONTEND_ENVIRONMENT };
+export const POOL_API_URL = RESOLVED_FRONTEND_ENDPOINTS.poolApiUrl;
 
 export const FAQ_SECTIONS = [
   {
@@ -478,21 +508,10 @@ export const POE_RE_TOKENS = {
   "Ultimatum Scarab of Inscription":        "nsc",
 };
 
-const FRONTEND_HOST = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.hostname)
-  ? String(globalThis.location.hostname).toLowerCase()
-  : '';
-const IS_STAGING_FRONTEND = /(^localhost$)|(^127\.0\.0\.1$)|staging|dev/.test(FRONTEND_HOST);
-export const BACKEND_TOKEN_SET_URL = IS_STAGING_FRONTEND
-  ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/token-set/latest'
-  : 'https://scarabev-backend-production.paperpandastacks.workers.dev/public/token-set/latest';
-export const BACKEND_SCARAB_METADATA_URL = IS_STAGING_FRONTEND
-  ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/public/scarabs/metadata'
-  : 'https://scarabev-backend-production.paperpandastacks.workers.dev/public/scarabs/metadata';
-export const BACKEND_ADMIN_UI_URL = IS_STAGING_FRONTEND
-  ? 'https://scarabev-backend-staging.paperpandastacks.workers.dev/admin/ui'
-  : 'https://scarabev-backend-production.paperpandastacks.workers.dev/admin/ui';
-
-export const WORKER_URL = 'https://scarabev-market-worker.paperpandastacks.workers.dev';
+export const BACKEND_TOKEN_SET_URL = RESOLVED_FRONTEND_ENDPOINTS.backendTokenSetUrl;
+export const BACKEND_SCARAB_METADATA_URL = RESOLVED_FRONTEND_ENDPOINTS.backendScarabMetadataUrl;
+export const BACKEND_ADMIN_UI_URL = RESOLVED_FRONTEND_ENDPOINTS.backendAdminUiUrl;
+export const WORKER_URL = RESOLVED_FRONTEND_ENDPOINTS.marketWorkerUrl;
 
 export const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum'];
 export const ATLAS_BOOSTABLE = ['Essence','Beyond','Torment','Titanic','Cartography','Divination','Ambush','Anarchy','Domination'];

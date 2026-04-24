@@ -15,6 +15,11 @@ BACKUP_ENABLED = "true"
 BACKUP_RETENTION_DAYS = "120"
 BACKUP_REQUIRE_EXTERNAL = "true"
 BACKUP_OBJECT_PREFIX = "snapshots"
+BACKUP_CRON_ENABLED = "true"
+MARKET_WORKER_URL = "https://scarabev-market-worker.paperpandastacks.workers.dev"
+SESSION_API_BASE_URL = "https://scarabev-api.paperpandastacks.workers.dev/admin/sessions"
+D1_RESOURCE_LABEL = "scarabev-backend-production"
+BACKUP_R2_BUCKET_LABEL = "scarabev-backups-production"
 
 [triggers]
 crons = ["0 9 * * *"]

@@ -6,8 +6,8 @@ workers_dev = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "poepool-db"
-database_id = "aacf5113-ad56-4613-a4fe-51358bb80db8"
+database_name = "poepool-db-staging"
+database_id = "cac500c6-d4be-4352-928b-d23662936edf"
 
 # Required secret for admin endpoints:
 #   wrangler secret put ADMIN_KEY --config workers/scarabev-api/wrangler.staging.toml

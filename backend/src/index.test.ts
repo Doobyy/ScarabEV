@@ -497,7 +497,10 @@ function buildConfig(): RuntimeConfig {
     backupEnabled: false,
     backupRetentionDays: 14,
     backupRequireExternal: false,
-    backupObjectPrefix: "snapshots"
+    backupObjectPrefix: "snapshots",
+    backupCronEnabled: false,
+    marketWorkerUrl: "https://scarabev-market-worker-staging.paperpandastacks.workers.dev",
+    sessionApiBaseUrl: "https://scarabev-api-staging.paperpandastacks.workers.dev/admin/sessions"
   };
 }
 
@@ -1471,6 +1474,31 @@ async function testBackupRunBlockedWhenDisabled(): Promise<void> {
   assert.equal(repo.auditLogs.some((entry) => entry.action === "admin.backup_run" && entry.statusCode === 409), true);
 }
 
+async function testStagingRefreshBlockedOutsideStaging(): Promise<void> {
+  const { repo, worker } = makeFixture();
+  addOwnerSession(repo);
+
+  const refreshAttempt = await worker.fetch!(
+    new Request("https://example.com/admin/ops/staging-refresh-from-production", {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ confirmText: "REFRESH STAGING FROM PRODUCTION" })
+    }) as Request<unknown, IncomingRequestCfProperties<unknown>>,
+    env,
+    executionContext
+  );
+  assert.equal(refreshAttempt.status, 409);
+  const payload = (await refreshAttempt.json()) as { error?: string };
+  assert.equal(payload.error, "staging_only_operation");
+  assert.equal(
+    repo.auditLogs.some((entry) => entry.action === "admin.staging_refresh_from_production" && entry.statusCode === 409),
+    true
+  );
+}
+
 async function testOwnerCanDeleteScarab(): Promise<void> {
   const { repo, worker } = makeFixture();
   addOwnerSession(repo);
@@ -1522,8 +1550,9 @@ async function run(): Promise<void> {
   await testHostedAdminUiAndAuditEndpoint();
   await testEditorCannotPublishOrRollback();
   await testBackupRunBlockedWhenDisabled();
+  await testStagingRefreshBlockedOutsideStaging();
   await testOwnerCanDeleteScarab();
-  console.log("Block 8 checks passed (14 assertion groups).");
+  console.log("Block 8 checks passed (15 assertion groups).");
 }
 
 run().catch((error) => {

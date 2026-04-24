@@ -135,6 +135,58 @@ async function opsRunBackup(){
     busy('opsRunBtn',false);
   }
 }
+function syncStagingRefreshVisibility(){
+  const wrap=$('stagingRefreshWrap');
+  if(!wrap)return;
+  wrap.classList.toggle('hidden',String(state.appEnv||'').toLowerCase()!=='staging');
+}
+async function runStagingRefreshFromProduction(){
+  const envName=String(state.appEnv||'').toLowerCase();
+  if(envName!=='staging'){
+    status('stagingRefreshStatus','This action is available only in staging.','err');
+    return;
+  }
+  const confirmPhrase='REFRESH STAGING FROM PRODUCTION';
+  const promptMsg='Type "'+confirmPhrase+'" to confirm.\n\nThis replaces staging data with a copy of production data. Production is not modified.';
+  const typed=window.prompt(promptMsg,'');
+  if(String(typed||'').trim()!==confirmPhrase){
+    status('stagingRefreshStatus','Cancelled. Confirmation phrase did not match.','warn');
+    return;
+  }
+  busy('stagingRefreshBtn',true);
+  status('stagingRefreshStatus','started','warn');
+  try{
+    status('stagingRefreshStatus','copying D1','warn');
+    status('opsStatus','copying D1','warn');
+    status('stagingRefreshStatus','copying KV','warn');
+    status('opsStatus','copying KV','warn');
+    const r=await api('/admin/ops/staging-refresh-from-production',{
+      method:'POST',
+      body:JSON.stringify({confirmText:confirmPhrase}),
+      timeoutMs:240000
+    });
+    if(r.res.status!==200||!r.json||r.json.ok!==true||!r.json.refresh){
+      const detail=formatApiFailure(r.res,r.json,r.text);
+      status('stagingRefreshStatus','failure: '+detail,'err');
+      status('opsStatus','Staging refresh failed: '+detail,'err');
+      return;
+    }
+    const refresh=r.json.refresh||{};
+    const d1=refresh.d1||{};
+    const kv=refresh.kv||{};
+    const summary='success | D1 rows '+String(Number(d1.copiedRows)||0)+' | KV copied '+String(Number(kv.copiedKeys)||0)+' | KV deleted '+String(Number(kv.deletedKeys)||0);
+    status('stagingRefreshStatus',summary,'ok');
+    status('opsStatus','Staging refresh completed. '+summary,'ok');
+    await opsListBackups({quiet:true});
+    if(typeof loadHealthOverview==='function')await loadHealthOverview({quiet:true});
+  }catch(err){
+    const detail=formatThrownError(err);
+    status('stagingRefreshStatus','failure: '+detail,'err');
+    status('opsStatus','Staging refresh failed: '+detail,'err');
+  }finally{
+    busy('stagingRefreshBtn',false);
+  }
+}
 async function login(){busy('loginBtn',true);try{const r=await api('/admin/auth/login',{method:'POST',body:JSON.stringify({username:$('username').value.trim(),password:$('password').value})});if(r.res.status!==200||!r.json){status('authStatus','Login failed ('+r.res.status+').','err');return;}state.user=r.json.user;setAuthUi(true);status('authStatus','Login successful.','ok');toast('Signed in');await loadAll();await loadHealthOverview({quiet:true});}finally{busy('loginBtn',false);}}
 async function logout(){await api('/admin/auth/logout',{method:'POST',body:'{}'});state.user=null;setAuthUi(false);status('authStatus','Signed out.','ok');toast('Signed out');}
 

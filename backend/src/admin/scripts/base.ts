@@ -16,7 +16,8 @@ const state={
   sortBy:'name_asc',activePanel:'scarab',workspaceProfiles:[],activeWorkspaceId:null,selectedWorkspaceId:null,
   captureQueue:[],sessionApiUrl:'',sessionAdminKey:'',sessions:[],sessionExpandedIds:new Set(),sessionReviewExpandedIds:new Set(),sessionSelectedIds:new Set(),sessionRecentRerunIds:new Set(),sessionRecentChangedIds:new Set(),sessionLastRerunSummary:'',sessionHealthScope:'aggregate',sessionPageSize:25,sessionPage:1,sessionsAutoLoaded:false,backupsAutoLoaded:false,scarabsAutoLoaded:false,tokensAutoLoaded:false,healthAutoLoaded:false,bulkToolsAutoLoaded:false,
   sessionDupes:[],sessionSignals:[],sessionReviewQueue:[],sessionResearchPile:[],sessionIntakeAnalytics:null,healthCardLayout:null,healthLastResults:null,healthDragId:null,healthDragPlaceholder:null,healthOpenCards:{},healthOpenLoaded:false,
-  failureLogsAutoLoaded:false,failureLogs:[],manualRetryBusy:false
+  failureLogsAutoLoaded:false,failureLogs:[],manualRetryBusy:false,
+  appEnv:'unknown',sessionApiDefault:''
 };
 
 const $=(id)=>document.getElementById(id);
@@ -65,11 +66,27 @@ function toggleTheme(){const dark=document.documentElement.getAttribute('data-th
 
 function switchPanel(name){
   state.activePanel=name;
-  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',failures:'Failure Logs',bulktools:'Bulk Tools',regex:'Regex Lab',recomb:'Recombinator Lab'};
-  ['scarab','sessions','health','failures','bulktools','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
+  const labels={scarab:'Scarab Manager',sessions:'Session Manager',health:'Health',failures:'Failure Logs',bulktools:'Bulk Tools',docs:'Documentation',regex:'Regex Lab',recomb:'Recombinator Lab'};
+  ['scarab','sessions','health','failures','bulktools','docs','regex','recomb'].forEach((n)=>{const p=$('panel-'+n);if(p)p.classList.toggle('active',n===name);});
   document.querySelectorAll('.navbtn').forEach((b)=>b.classList.toggle('active',b.dataset.panel===name));
-  $('panelTitle').textContent=(labels[name]||'Dashboard')+' | Staging-first control plane';
+  const envSuffix=(String(state.appEnv||'').toLowerCase()==='staging')?' | STAGING':'';
+  $('panelTitle').textContent=(labels[name]||'Dashboard')+' | Control plane'+envSuffix;
   closeMobileNav();
+}
+
+function applyEnvironmentBadge(envName){
+  const env=String(envName||'').trim().toLowerCase();
+  state.appEnv=env||'unknown';
+  const badge=$('envBadge');
+  if(badge){
+    const isStaging=env==='staging';
+    badge.classList.toggle('hidden',!isStaging);
+    badge.textContent=isStaging?'STAGING':'';
+  }
+  if(typeof syncStagingRefreshVisibility==='function'){
+    try{syncStagingRefreshVisibility();}catch(e){}
+  }
+  switchPanel(state.activePanel||'health');
 }
 
 function isMobileNav(){return !!window.matchMedia&&window.matchMedia('(max-width:1000px)').matches;}

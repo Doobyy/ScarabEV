@@ -125,6 +125,42 @@ export interface TokenRouteHelpers extends BaseRouteHelpers {
 }
 
 export interface OpsRouteHelpers extends BaseRouteHelpers {
+  runStagingRefreshFromProduction: (
+    deps: RouteDeps,
+    initiatedByUserId: string
+  ) => Promise<{
+    startedAt: string;
+    finishedAt: string;
+    preBackup: {
+      attempted: boolean;
+      snapshotId: string | null;
+      status: "ok" | "failed" | "skipped";
+      reason: string | null;
+    };
+    d1: {
+      copiedTables: number;
+      copiedRows: number;
+      tableCounts: Record<string, number>;
+    };
+    kv: {
+      copiedKeys: number;
+      deletedKeys: number;
+      sourceKeys: number;
+      targetKeysBefore: number;
+    };
+    postRefresh: {
+      cacheAll: { ok: boolean; elapsedMs: number | null; error: string | null };
+      snapshotRun: { ok: boolean; elapsedMs: number | null; error: string | null };
+    };
+    source: {
+      d1DatabaseLabel: string | null;
+      kvNamespaceLabel: string | null;
+    };
+    destination: {
+      d1DatabaseLabel: string | null;
+      kvNamespaceLabel: string | null;
+    };
+  }>;
   listBackupSnapshots: (db: D1Database, backupR2: R2Bucket | undefined, limit: number) => Promise<unknown[]>;
   getLatestBackupCoverage: (
     db: D1Database,

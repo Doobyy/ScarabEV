@@ -4,6 +4,10 @@ compatibility_date = "2026-03-13"
 compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = true
 
+[vars]
+APP_ENV = "production"
+AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api/aggregate"
+
 [[kv_namespaces]]
 binding = "EV_HISTORY"
 id = "45058621c81d439d9ce0d12b61dc0c66"

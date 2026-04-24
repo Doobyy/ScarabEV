@@ -4,7 +4,8 @@ const CACHE_PREFIX = "market-cache-v2";
 const KEY_CURRENT_LEAGUE = `${CACHE_PREFIX}:current-league`;
 const BACKOFF_STEPS_MS = [2 * 60 * 1000, 5 * 60 * 1000, 10 * 60 * 1000];
 const UPSTREAM_TIMEOUT_MS = 8000;
-const AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api/aggregate";
+const DEFAULT_PRODUCTION_AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api/aggregate";
+const DEFAULT_STAGING_AGGREGATE_API_URL = "https://scarabev-api-staging.paperpandastacks.workers.dev/api/aggregate";
 const ATLAS_MAX_OPTIMIZE_STEPS = 24;
 const SNAPSHOT_RETRY_KEY = `${CACHE_PREFIX}:snapshot-retry`;
 const SNAPSHOT_STATUS_KEY = `${CACHE_PREFIX}:snapshot-status`;
@@ -39,6 +40,8 @@ const BULK_MISMATCH_LOG_MAX = 500;
 const SNAPSHOT_KICKOFF_HOUR_UTC = 18;
 const SNAPSHOT_KICKOFF_MINUTE_UTC = 0;
 const SNAPSHOT_BACKSTOP_GRACE_MS = 15 * 60 * 1000;
+const INCIDENT_STATE_PREFIX = `${CACHE_PREFIX}:incident-state`;
+const runtimeIncidentRepeatCounts = new Map();
 
 const POLICY = {
   currentLeague: {
@@ -61,15 +64,34 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    let runtime;
+    try {
+      runtime = resolveRuntimeConfig(env);
+    } catch (error) {
+      console.error("market-worker runtime config error", String(error?.message || error || "unknown_error"));
+      return;
+    }
+    if (!runtime.cron.enabled) {
+      console.log("market-worker cron disabled by runtime config");
+      return;
+    }
     const cron = String(event.cron || "");
     const now = new Date(event?.scheduledTime || Date.now());
     const utcMinute = now.getUTCMinutes();
     if (cron === "0 18 * * *") {
+      if (!runtime.cron.dailySnapshotEnabled) {
+        console.log("market-worker daily snapshot cron disabled by runtime config");
+        return;
+      }
       ctx.waitUntil(pruneFailureLogs(env, now));
       ctx.waitUntil(runDailyEVSnapshot(env));
       return;
     }
     if (cron === "*/5 * * * *") {
+      if (!runtime.cron.marketRefreshEnabled) {
+        console.log("market-worker market refresh cron disabled by runtime config");
+        return;
+      }
       ctx.waitUntil(refreshCurrentLeagueMarketBundle(env));
       if (utcMinute === 5) ctx.waitUntil(refreshStandardMarketBundle(env));
       if (utcMinute === 10) ctx.waitUntil(refreshCurrentLeagueCache(env));
@@ -88,6 +110,18 @@ async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const league = (url.searchParams.get("league") || "Mirage").trim();
   const type = (url.searchParams.get("type") || "Scarab").trim();
+  let runtime;
+  try {
+    runtime = resolveRuntimeConfig(env);
+  } catch (error) {
+    return withCors(jsonResponse({
+      ok: false,
+      error: "environment_guard_violation",
+      errorDetail: String(error?.message || error || "runtime_config_invalid")
+    }, 500));
+  }
+
+  if (type === "RuntimeConfig") return handleRuntimeConfig(runtime, env);
 
   if (type === "EVHistory") return handleEVHistory(league, env);
   if (type === "PriceHistory") return handlePriceHistory(league, env);
@@ -107,6 +141,61 @@ async function handleRequest(request, env, ctx) {
     return handleCachedMarketProxy(league, type, env);
   }
   return handleNinjaProxy(league, type);
+}
+
+function parseEnvBool(value, fallback) {
+  if (value === undefined || value === null || String(value).trim() === "") return !!fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "yes") return true;
+  if (normalized === "0" || normalized === "false" || normalized === "no") return false;
+  return !!fallback;
+}
+
+function resolveRuntimeConfig(env) {
+  const appEnvRaw = String(env?.APP_ENV || "production").trim().toLowerCase();
+  const appEnv = (appEnvRaw === "staging" || appEnvRaw === "dev") ? "staging" : "production";
+  const aggregateApiUrl = String(env?.AGGREGATE_API_URL || (appEnv === "production" ? DEFAULT_PRODUCTION_AGGREGATE_API_URL : DEFAULT_STAGING_AGGREGATE_API_URL)).trim();
+  const stagingCronEnabled = parseEnvBool(env?.STAGING_CRON_ENABLED, false);
+  const cronEnabled = appEnv === "staging" ? stagingCronEnabled : true;
+  const marketRefreshEnabled = parseEnvBool(env?.MARKET_REFRESH_CRON_ENABLED, cronEnabled);
+  const dailySnapshotEnabled = parseEnvBool(env?.DAILY_SNAPSHOT_CRON_ENABLED, cronEnabled);
+  const lowerAggregateUrl = aggregateApiUrl.toLowerCase();
+  if (appEnv === "production" && lowerAggregateUrl.includes("staging")) {
+    throw new Error(`AGGREGATE_API_URL points to staging in production (${aggregateApiUrl})`);
+  }
+  if (
+    appEnv === "staging"
+    && (
+      lowerAggregateUrl.includes("production")
+      || lowerAggregateUrl.includes("scarabev-api.paperpandastacks.workers.dev")
+    )
+  ) {
+    throw new Error(`AGGREGATE_API_URL points to production in staging (${aggregateApiUrl})`);
+  }
+  return {
+    appEnv,
+    aggregateApiUrl,
+    cron: {
+      enabled: cronEnabled,
+      marketRefreshEnabled,
+      dailySnapshotEnabled
+    }
+  };
+}
+
+function handleRuntimeConfig(runtime, env) {
+  return withCors(jsonResponse({
+    ok: true,
+    appEnv: runtime.appEnv,
+    aggregateApiUrl: runtime.aggregateApiUrl,
+    serviceBindingPresent: !!(env?.SCARABEV_API && typeof env.SCARABEV_API.fetch === "function"),
+    kvBindingPresent: !!env?.EV_HISTORY,
+    cron: {
+      enabled: !!runtime.cron.enabled,
+      marketRefreshEnabled: !!runtime.cron.marketRefreshEnabled,
+      dailySnapshotEnabled: !!runtime.cron.dailySnapshotEnabled
+    }
+  }));
 }
 
 async function handleCurrentLeague(env) {
@@ -356,6 +445,8 @@ async function handleCachedResource(env, key, policy, fetcher, cacheKind) {
 async function tryRefreshState(kv, key, existing, fetcher, now) {
   const failCount = Number(existing?.failCount || 0);
   const lastSuccessAt = Number(existing?.lastSuccessAt || 0) || null;
+  const existingFailureStartedAt = Number(existing?.failureStartedAt || 0);
+  const incidentEnv = { EV_HISTORY: kv };
   try {
     const fresh = await fetcher(existing?.data || null);
     const next = {
@@ -363,31 +454,50 @@ async function tryRefreshState(kv, key, existing, fetcher, now) {
       lastSuccessAt: now,
       lastAttemptAt: now,
       failCount: 0,
-      nextRetryAt: now
+      nextRetryAt: now,
+      failureStartedAt: null
     };
     await kv.put(key, JSON.stringify(next));
+    await markIncidentRecovered(incidentEnv, "cache_refresh", {
+      message: "Market cache refresh recovered.",
+      subsystem: "cache-refresh",
+      identifiers: { cacheKey: key },
+      nowMs: now,
+      attempts: failCount,
+      attemptsSource: "authoritative",
+      retryIntervalMs: (() => {
+        const nextRetryAt = Number(existing?.nextRetryAt || 0);
+        const lastAttemptAt = Number(existing?.lastAttemptAt || 0);
+        const interval = nextRetryAt - lastAttemptAt;
+        return Number.isFinite(interval) && interval > 0 ? interval : null;
+      })(),
+      retryCadenceLabel: "dynamic-backoff",
+      finalStep: "refresh_fetch_success"
+    });
     return { ok: true, state: next };
-  } catch (_e) {
+  } catch (e) {
     const nextFail = failCount + 1;
     const backoffMs = BACKOFF_STEPS_MS[Math.min(nextFail - 1, BACKOFF_STEPS_MS.length - 1)];
+    const failureStartedAt = failCount > 0 && Number.isFinite(existingFailureStartedAt) && existingFailureStartedAt > 0
+      ? existingFailureStartedAt
+      : now;
     const failed = {
       data: existing?.data || null,
       lastSuccessAt,
       lastAttemptAt: now,
       failCount: nextFail,
-      nextRetryAt: now + backoffMs
+      nextRetryAt: now + backoffMs,
+      failureStartedAt
     };
     await kv.put(key, JSON.stringify(failed));
-    await logFailureEvent(
-      { EV_HISTORY: kv },
-      "cache_refresh_failed",
-      "Market cache refresh failed.",
-      {
-        cacheKey: key,
-        failCount: nextFail,
-        nextRetryAt: new Date(now + backoffMs).toISOString()
-      }
-    );
+    await markIncidentFailed(incidentEnv, "cache_refresh", {
+      message: "Market cache refresh failed.",
+      subsystem: "cache-refresh",
+      identifiers: { cacheKey: key },
+      rootError: String(e?.message || e || "cache_refresh_failed"),
+      nowMs: now,
+      status: "retrying"
+    });
     return { ok: false, state: failed };
   }
 }
@@ -698,6 +808,12 @@ async function handleManualRetry(request, url, env, ctx) {
         disabledAt: new Date().toISOString()
       }, {
         severity: "warn"
+      });
+      await markIncidentRecovered(env, "price_history_backfill_degraded", {
+        message: "Price-history fallback mode recovered.",
+        subsystem: "price-history",
+        identifiers: { scope: "global" },
+        finalStep: "fallback_disabled"
       });
     } else {
       return errorResponse("invalid_action", `Unsupported action: ${action}`, 400, "manual-retry");
@@ -1109,10 +1225,13 @@ async function handleBackupSmokeTest(request, env) {
     };
     await env.EV_HISTORY.put(BACKUP_SMOKE_STATUS_KEY, JSON.stringify(status));
     if (!readbackOk) {
-      await logFailureEvent(env, "backup_smoke_failed", "Backup smoke restore readback mismatch.", {
-        sourceKey: source.key,
-        testedAt
-      }, {
+      await markIncidentFailed(env, "backup_smoke", {
+        message: "Backup smoke restore readback mismatch.",
+        subsystem: "backup-smoke",
+        identifiers: { scope: "global" },
+        rootError: "smoke_readback_mismatch",
+        status: "degraded",
+        nowMs: startedAt,
         severity: "warn"
       });
       return withCors(jsonResponse({
@@ -1120,6 +1239,13 @@ async function handleBackupSmokeTest(request, env) {
         status
       }, 500));
     }
+    await markIncidentRecovered(env, "backup_smoke", {
+      message: "Backup smoke restore test recovered.",
+      subsystem: "backup-smoke",
+      identifiers: { scope: "global" },
+      nowMs: startedAt,
+      finalStep: "smoke_readback_success"
+    });
     return withCors(jsonResponse({
       ok: true,
       status
@@ -1137,10 +1263,13 @@ async function handleBackupSmokeTest(request, env) {
       error: String(error?.message || error || "backup_smoke_failed")
     };
     await env.EV_HISTORY.put(BACKUP_SMOKE_STATUS_KEY, JSON.stringify(status));
-    await logFailureEvent(env, "backup_smoke_failed", "Backup smoke restore test failed.", {
-      testedAt,
-      error: status.error
-    }, {
+    await markIncidentFailed(env, "backup_smoke", {
+      message: "Backup smoke restore test failed.",
+      subsystem: "backup-smoke",
+      identifiers: { scope: "global" },
+      rootError: status.error,
+      status: "degraded",
+      nowMs: startedAt,
       severity: "warn"
     });
     return withCors(jsonResponse({
@@ -1209,45 +1338,68 @@ async function resolveSnapshotLeagues() {
 }
 
 async function snapshotLeagueForDate(env, league, today) {
+  const snapshotIdentifiers = { league, date: today };
   try {
     const data = await fetchNinjaExchange(league, "Scarab");
     if (!Array.isArray(data?.lines) || !data.lines.length) {
-      await logFailureEvent(env, "snapshot_no_scarab_lines", "Snapshot failed: no scarab lines.", { league, date: today, stage: "fetch_scarab" });
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed: no scarab lines.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: "no_scarab_lines",
+        stage: "fetch_scarab",
+        status: "retrying"
+      });
       return { ok: false, error: "no_scarab_lines" };
     }
 
     const harmonicEv = calcHarmonicEV(data.lines);
     if (!Number.isFinite(harmonicEv)) {
-      await logFailureEvent(env, "snapshot_harmonic_unavailable", "Snapshot failed: harmonic EV unavailable.", { league, date: today, stage: "compute_harmonic" });
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed: harmonic EV unavailable.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: "harmonic_unavailable",
+        stage: "compute_harmonic",
+        status: "retrying"
+      });
       return { ok: false, error: "harmonic_unavailable" };
     }
 
     const weightResult = await fetchObservedWeightsForLeague(env, league);
     const weights = weightResult && weightResult.weights;
     if (!weights || typeof weights !== "object" || !Object.keys(weights).length) {
-      await logFailureEvent(env, "snapshot_weights_unavailable", "Snapshot failed: observed weights unavailable.", {
-        league,
-        date: today,
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed: observed weights unavailable.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: String(weightResult?.error || "weights_unavailable"),
         stage: "fetch_weights",
-        fetchError: String(weightResult?.error || "unknown")
+        status: "retrying"
       });
       return { ok: false, error: "weights_unavailable" };
     }
     const weightedEv = calcWeightedThresholdEV(data.lines, weights);
     if (!Number.isFinite(weightedEv) || weightedEv <= 0) {
-      await logFailureEvent(env, "snapshot_weighted_unavailable", "Snapshot failed: weighted EV unavailable.", {
-        league,
-        date: today,
-        stage: "compute_weighted_ev"
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed: weighted EV unavailable.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: "weighted_unavailable",
+        stage: "compute_weighted_ev",
+        status: "retrying"
       });
       return { ok: false, error: "weighted_unavailable" };
     }
     const atlasSnapshot = calcAtlasBaselineOptimizedEV(data.lines, weights);
     if (!atlasSnapshot || !Number.isFinite(atlasSnapshot.baselineEv) || !Number.isFinite(atlasSnapshot.optimizedEv)) {
-      await logFailureEvent(env, "snapshot_atlas_unavailable", "Snapshot failed: atlas EV unavailable.", {
-        league,
-        date: today,
-        stage: "compute_atlas_ev"
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed: atlas EV unavailable.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: "atlas_unavailable",
+        stage: "compute_atlas_ev",
+        status: "retrying"
       });
       return { ok: false, error: "atlas_unavailable" };
     }
@@ -1339,12 +1491,13 @@ async function snapshotLeagueForDate(env, league, today) {
     const suspiciousShrink = previousDistinctDays >= PRICE_HISTORY_GUARD_MIN_DAYS
       && nextDistinctDays < shrinkGuardFloor;
     if (suspiciousShrink) {
-      await logFailureEvent(env, "price_history_shrink_guard", "Price history write blocked due to suspicious history-depth drop.", {
-        league,
-        date: today,
-        previousDistinctDays,
-        nextDistinctDays,
-        shrinkGuardFloor
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed: price history shrink guard triggered.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: "price_history_shrink_guard",
+        stage: "write_price_history",
+        status: "retrying"
       });
       return { ok: false, error: "price_history_shrink_guard" };
     }
@@ -1381,22 +1534,32 @@ async function snapshotLeagueForDate(env, league, today) {
           // best effort rollback only
         }
       }
-      await logFailureEvent(env, "snapshot_commit_failed", "Snapshot failed during commit; attempted rollback.", {
-        league,
-        date: today,
-        error: String(commitError?.message || commitError || "commit_failed"),
-        revertedKeys: committed.map((entry) => entry.key)
+      await markIncidentFailed(env, "snapshot_league", {
+        message: "Snapshot failed during commit; attempted rollback.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: String(commitError?.message || commitError || "snapshot_commit_failed"),
+        stage: "commit",
+        status: "retrying"
       });
       return { ok: false, error: "snapshot_commit_failed" };
     }
 
     if (backfillFallbackActive) {
-      await logFailureEvent(env, "price_history_backfill_fallback_used", "Emergency price-history sparkline backfill fallback applied.", {
-        league,
-        date: today,
-        expiresAt: backfillFallback?.expiresAt ? new Date(backfillFallback.expiresAt).toISOString() : null
-      }, {
+      await markIncidentFailed(env, "price_history_backfill_degraded", {
+        message: "Emergency price-history sparkline backfill fallback is active.",
+        subsystem: "price-history",
+        identifiers: { scope: "global" },
+        rootError: "backfill_fallback_active",
+        status: "degraded",
         severity: "warn"
+      });
+    } else {
+      await markIncidentRecovered(env, "price_history_backfill_degraded", {
+        message: "Price-history fallback mode recovered.",
+        subsystem: "price-history",
+        identifiers: { scope: "global" },
+        finalStep: "fallback_inactive_during_snapshot"
       });
     }
     return {
@@ -1412,7 +1575,14 @@ async function snapshotLeagueForDate(env, league, today) {
       }
     };
   } catch (e) {
-    await logFailureEvent(env, "snapshot_exception", "Snapshot failed with exception.", { league, date: today, error: String(e?.message || e || "snapshot_failed") });
+    await markIncidentFailed(env, "snapshot_league", {
+      message: "Snapshot failed with exception.",
+      subsystem: "daily-snapshot",
+      identifiers: snapshotIdentifiers,
+      rootError: String(e?.message || e || "snapshot_failed"),
+      stage: "exception",
+      status: "retrying"
+    });
     return { ok: false, error: String(e?.message || e || "snapshot_failed") };
   }
 }
@@ -1436,6 +1606,12 @@ async function getPriceHistoryBackfillFallbackState(env) {
         expiredAt: Number.isFinite(expiresAt) && expiresAt > 0 ? new Date(expiresAt).toISOString() : null
       }, {
         severity: "warn"
+      });
+      await markIncidentRecovered(env, "price_history_backfill_degraded", {
+        message: "Price-history fallback mode recovered.",
+        subsystem: "price-history",
+        identifiers: { scope: "global" },
+        finalStep: "fallback_expired_cleanup"
       });
       return { enabled: false, expiresAt: null };
     }
@@ -1508,8 +1684,23 @@ function countPriceHistoryDistinctDays(history) {
 
 async function saveSnapshotRetryState(env, date, failures, retryCount) {
   if (!env.EV_HISTORY) return;
+  const nowMs = Date.now();
+  const rawExisting = await env.EV_HISTORY.get(SNAPSHOT_RETRY_KEY);
+  const existing = parseJsonObject(rawExisting);
+  const existingFirstFailureAt = Number(existing?.firstFailureAt || 0);
+  const firstFailureAt = String(existing?.date || "") === String(date) && Number.isFinite(existingFirstFailureAt) && existingFirstFailureAt > 0
+    ? existingFirstFailureAt
+    : nowMs;
   const errors = {};
   for (const f of failures) errors[f.league] = String(f.error || "snapshot_failed");
+  await markIncidentFailed(env, "snapshot_retry_queue", {
+    message: "Snapshot retry queue entered degraded state.",
+    subsystem: "snapshot-retry",
+    identifiers: { date },
+    rootError: failures.map((f) => String(f.error || "snapshot_failed")).join(","),
+    status: "retrying",
+    nowMs
+  });
   if ((Number(retryCount) || 0) >= SNAPSHOT_RETRY_MAX_ATTEMPTS) {
     await logFailureEvent(env, "snapshot_retry_exhausted", "Snapshot retries exhausted for one or more leagues.", {
       date,
@@ -1519,6 +1710,7 @@ async function saveSnapshotRetryState(env, date, failures, retryCount) {
     });
     await env.EV_HISTORY.put(SNAPSHOT_RETRY_KEY, JSON.stringify({
       date,
+      firstFailureAt,
       status: "failed",
       failedLeagues: failures.map((f) => f.league),
       errors,
@@ -1526,10 +1718,43 @@ async function saveSnapshotRetryState(env, date, failures, retryCount) {
       lastAttemptAt: new Date().toISOString(),
       nextRetryAt: null
     }));
+    await markIncidentClosedUnresolved(env, "snapshot_retry_queue", {
+      message: "Snapshot retry queue closed unresolved after max attempts.",
+      subsystem: "snapshot-retry",
+      identifiers: { date },
+      terminalCodeSuffix: "exhausted_unresolved",
+      attempts: Math.max(1, Number(retryCount || 0) + 1),
+      attemptsSource: "authoritative",
+      retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+      retryCadenceLabel: "15m-scheduled-retry",
+      reason: "retry_max_attempts_reached",
+      finalError: failures.map((f) => String(f.error || "snapshot_failed")).join(","),
+      cleanup: {
+        retryStatePersistedAsFailed: true
+      }
+    });
+    for (const failure of failures) {
+      await markIncidentClosedUnresolved(env, "snapshot_league", {
+        message: "League snapshot closed unresolved after retries exhausted.",
+        subsystem: "daily-snapshot",
+        identifiers: { league: failure.league, date },
+        terminalCodeSuffix: "exhausted_unresolved",
+        attempts: Math.max(1, Number(failure?.attempts || retryCount || 0)),
+        attemptsSource: "authoritative",
+        retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+        retryCadenceLabel: "inline-then-15m-retry",
+        reason: "retry_max_attempts_reached",
+        finalError: String(failure.error || "snapshot_failed"),
+        cleanup: {
+          retryStatePersistedAsFailed: true
+        }
+      });
+    }
     return;
   }
   await env.EV_HISTORY.put(SNAPSHOT_RETRY_KEY, JSON.stringify({
     date,
+    firstFailureAt,
     status: "pending",
     pendingLeagues: failures.map((f) => f.league),
     errors,
@@ -1593,16 +1818,6 @@ async function runDailyEVSnapshot(env, opts = {}) {
       }
       lastError = result.error || "snapshot_failed";
     }
-    if (!success) failures.push({ league, error: lastError });
-    if (!success) {
-      await logFailureEvent(env, "snapshot_league_incomplete", "League snapshot incomplete; retry queued.", {
-        league,
-        date: today,
-        error: String(lastError || "snapshot_failed"),
-        writes,
-        attemptsUsed
-      });
-    }
     const previous = statusState.leagues[league] || {};
     statusState.leagues[league] = {
       state: success ? "success" : "retrying",
@@ -1612,6 +1827,24 @@ async function runDailyEVSnapshot(env, opts = {}) {
       writes,
       values
     };
+    if (!success) {
+      failures.push({
+        league,
+        error: lastError,
+        attempts: Number(statusState.leagues[league].attempts || attemptsUsed)
+      });
+    } else {
+      await markIncidentRecovered(env, "snapshot_league", {
+        message: "League snapshot recovered.",
+        subsystem: "daily-snapshot",
+        identifiers: { league, date: today },
+        attempts: Number(statusState.leagues[league].attempts || attemptsUsed),
+        attemptsSource: "authoritative",
+        retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+        retryCadenceLabel: "inline-then-15m-retry",
+        finalStep: "snapshot_commit_success"
+      });
+    }
   }
 
   statusState.lastAttemptAt = new Date().toISOString();
@@ -1635,6 +1868,16 @@ async function runDailyEVSnapshot(env, opts = {}) {
     await clearSnapshotRetryState(env, today);
     statusState.status = "success";
     lastSuccessSummary = buildSnapshotHealthSummary(statusState, null, today);
+    await markIncidentRecovered(env, "snapshot_retry_queue", {
+      message: "Snapshot retry queue recovered.",
+      subsystem: "snapshot-retry",
+      identifiers: { date: today },
+      attempts: Math.max(1, Number(opts.retryCount || 0) + 1),
+      attemptsSource: "authoritative",
+      retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+      retryCadenceLabel: "15m-scheduled-retry",
+      finalStep: "retry_queue_cleared"
+    });
   }
   await env.EV_HISTORY.put(SNAPSHOT_STATUS_KEY, JSON.stringify(statusState));
   if (lastSuccessSummary) {
@@ -1652,6 +1895,41 @@ async function runPendingSnapshotRetry(env) {
   } catch (_e) {
     await logFailureEvent(env, "snapshot_retry_state_corrupt", "Retry state was corrupt and was reset.", { stage: "parse_retry_state" });
     await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    const rawStatus = await env.EV_HISTORY.get(SNAPSHOT_STATUS_KEY);
+    const status = parseJsonObject(rawStatus);
+    const statusDate = String(status?.date || new Date().toISOString().slice(0, 10));
+    const leaguesMap = status?.leagues && typeof status.leagues === "object" ? status.leagues : {};
+    for (const [league, info] of Object.entries(leaguesMap)) {
+      if (String(info?.state || "") !== "retrying") continue;
+      await markIncidentClosedUnresolved(env, "snapshot_league", {
+        message: "League snapshot closed unresolved due to corrupt retry state.",
+        subsystem: "daily-snapshot",
+        identifiers: { league, date: statusDate },
+        terminalCodeSuffix: "corrupt_state_unresolved",
+        attempts: Math.max(1, Number(info?.attempts || 0)),
+        attemptsSource: "persisted",
+        retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+        retryCadenceLabel: "inline-then-15m-retry",
+        reason: "retry_state_corrupt",
+        finalError: String(info?.lastError || "snapshot_failed"),
+        cleanup: {
+          retryStateDeleted: true
+        }
+      });
+    }
+    await closeAllActiveIncidentsUnresolved(env, "snapshot_retry_queue", {
+      message: "Snapshot retry queue closed unresolved due to corrupt retry state.",
+      subsystem: "snapshot-retry",
+      terminalCodeSuffix: "corrupt_state_unresolved",
+      attemptsSource: "persisted",
+      retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+      retryCadenceLabel: "15m-scheduled-retry",
+      reason: "retry_state_corrupt",
+      finalError: "snapshot_retry_state_corrupt",
+      cleanup: {
+        retryStateDeleted: true
+      }
+    });
     return;
   }
   const today = new Date().toISOString().slice(0, 10);
@@ -1664,6 +1942,41 @@ async function runPendingSnapshotRetry(env) {
       await env.EV_HISTORY.put(SNAPSHOT_STATUS_KEY, JSON.stringify(status));
     }
     await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    await markIncidentClosedUnresolved(env, "snapshot_retry_queue", {
+      message: "Snapshot retry queue closed unresolved after date rollover.",
+      subsystem: "snapshot-retry",
+      identifiers: { date: String(state?.date || "") },
+      terminalCodeSuffix: "expired_unresolved",
+      attempts: Math.max(1, Number(state?.retryCount || 0)),
+      attemptsSource: "persisted",
+      retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+      retryCadenceLabel: "15m-scheduled-retry",
+      reason: "retry_date_rolled_over",
+      finalError: "snapshot_retry_expired",
+      cleanup: {
+        retryStateDeleted: true
+      }
+    });
+    const expiredPendingLeagues = Array.isArray(state?.pendingLeagues)
+      ? [...new Set(state.pendingLeagues.map((s) => String(s || "").trim()).filter(Boolean))]
+      : [];
+    for (const league of expiredPendingLeagues) {
+      await markIncidentClosedUnresolved(env, "snapshot_league", {
+        message: "League snapshot closed unresolved after retry state expired.",
+        subsystem: "daily-snapshot",
+        identifiers: { league, date: String(state?.date || "") },
+        terminalCodeSuffix: "expired_unresolved",
+        attempts: Math.max(1, Number(state?.retryCount || 0)),
+        attemptsSource: "persisted",
+        retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+        retryCadenceLabel: "inline-then-15m-retry",
+        reason: "retry_date_rolled_over",
+        finalError: (state?.errors && state.errors[league]) ? String(state.errors[league]) : "snapshot_failed",
+        cleanup: {
+          retryStateDeleted: true
+        }
+      });
+    }
     await logFailureEvent(env, "snapshot_retry_expired", "Retry state expired because date rolled over.", {
       retryDate: String(state?.date || ""),
       today
@@ -1676,6 +1989,21 @@ async function runPendingSnapshotRetry(env) {
     : [];
   if (!pendingLeagues.length) {
     await env.EV_HISTORY.delete(SNAPSHOT_RETRY_KEY);
+    await markIncidentClosedUnresolved(env, "snapshot_retry_queue", {
+      message: "Snapshot retry queue closed unresolved due to empty pending set.",
+      subsystem: "snapshot-retry",
+      identifiers: { date: today },
+      terminalCodeSuffix: "closed_unresolved",
+      attempts: Math.max(1, Number(state?.retryCount || 0)),
+      attemptsSource: "persisted",
+      retryIntervalMs: SNAPSHOT_RETRY_DELAY_MS,
+      retryCadenceLabel: "15m-scheduled-retry",
+      reason: "pending_leagues_empty_cleanup",
+      finalError: "snapshot_retry_empty_pending",
+      cleanup: {
+        retryStateDeleted: true
+      }
+    });
     return;
   }
   const retryCount = Number(state?.retryCount || 0);
@@ -1769,6 +2097,277 @@ function parseJsonObject(raw) {
   } catch (_e) {
     return null;
   }
+}
+
+function buildIncidentStateKey(incidentKey, identifiers = {}) {
+  const safeIncident = String(incidentKey || "unknown_incident").trim().toLowerCase().replace(/[^a-z0-9:_-]+/g, "_");
+  const idObj = identifiers && typeof identifiers === "object" ? identifiers : {};
+  const pairs = Object.keys(idObj)
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => {
+      const value = idObj[key];
+      return `${encodeURIComponent(String(key))}=${encodeURIComponent(String(value == null ? "" : value))}`;
+    });
+  const suffix = pairs.length ? `:${pairs.join("&")}` : "";
+  return `${INCIDENT_STATE_PREFIX}:${safeIncident}${suffix}`;
+}
+
+function buildIncidentSignature(payload = {}) {
+  const stage = payload?.stage == null ? "" : String(payload.stage);
+  const rootError = payload?.rootError == null ? "" : String(payload.rootError);
+  const status = payload?.status == null ? "" : String(payload.status);
+  return `${stage}|${rootError}|${status}`;
+}
+
+function getRuntimeRepeatCount(incidentStateKey) {
+  return Math.max(0, Number(runtimeIncidentRepeatCounts.get(incidentStateKey) || 0));
+}
+
+function addRuntimeRepeatCount(incidentStateKey, increment = 1) {
+  const next = Math.max(0, getRuntimeRepeatCount(incidentStateKey) + Math.max(0, Number(increment) || 0));
+  if (next > 0) runtimeIncidentRepeatCounts.set(incidentStateKey, next);
+  return next;
+}
+
+function clearRuntimeRepeatCount(incidentStateKey) {
+  runtimeIncidentRepeatCounts.delete(incidentStateKey);
+}
+
+function buildClosureAttemptTelemetry(options, attempts, durationMs) {
+  const attemptsSourceRaw = String(options?.attemptsSource || "").trim().toLowerCase();
+  const attemptsSource = ["runtime", "persisted", "authoritative", "unknown"].includes(attemptsSourceRaw)
+    ? attemptsSourceRaw
+    : "runtime";
+  const retryIntervalMsRaw = Number(options?.retryIntervalMs || 0);
+  const retryIntervalMs = Number.isFinite(retryIntervalMsRaw) && retryIntervalMsRaw > 0
+    ? Math.floor(retryIntervalMsRaw)
+    : null;
+  const estimatedAttempts = retryIntervalMs
+    ? Math.max(1, Math.round(Math.max(0, Number(durationMs) || 0) / retryIntervalMs))
+    : null;
+  const estimatedAttemptsSource = estimatedAttempts == null ? null : "duration";
+  const retryCadenceLabel = options?.retryCadenceLabel == null ? null : String(options.retryCadenceLabel);
+  const attemptsDelta = estimatedAttempts == null ? null : (Number(attempts) - estimatedAttempts);
+  return {
+    attemptsSource,
+    estimatedAttempts,
+    estimatedAttemptsSource,
+    retryIntervalMs,
+    retryCadenceLabel,
+    attemptsDelta
+  };
+}
+
+async function markIncidentFailed(env, incidentKey, options = {}) {
+  if (!env?.EV_HISTORY) return null;
+  const nowMs = Number(options?.nowMs) || Date.now();
+  const identifiers = options?.identifiers && typeof options.identifiers === "object" ? options.identifiers : {};
+  const subsystem = String(options?.subsystem || "market-worker");
+  const source = String(options?.source || "market-worker");
+  const severity = String(options?.severity || "error");
+  const rootError = String(options?.rootError || "");
+  const stage = options?.stage == null ? null : String(options.stage);
+  const status = options?.status == null ? null : String(options.status);
+  const logOnMaterialChange = options?.logOnMaterialChange !== false;
+  const suppressRepeatStateWrite = options?.suppressRepeatStateWrite !== false;
+  const key = buildIncidentStateKey(incidentKey, identifiers);
+  const prior = parseJsonObject(await env.EV_HISTORY.get(key));
+  const wasActive = !!prior?.active;
+  const startedAtMs = wasActive && Number.isFinite(Number(prior?.startedAtMs || 0)) && Number(prior.startedAtMs) > 0
+    ? Number(prior.startedAtMs)
+    : nowMs;
+  const signature = buildIncidentSignature({ stage, rootError, status });
+  const signatureChanged = String(prior?.signature || "") !== signature;
+  const repeatCount = getRuntimeRepeatCount(key);
+  if (wasActive && !signatureChanged && suppressRepeatStateWrite) {
+    const nextRepeat = addRuntimeRepeatCount(key, 1);
+    const baseFailCount = Math.max(1, Number(prior?.failCount || 0));
+    return {
+      ...prior,
+      failCount: baseFailCount + nextRepeat
+    };
+  }
+  const baseFailCount = wasActive ? Math.max(0, Number(prior?.failCount || 0)) : 0;
+  const explicitFailCount = Number(options?.failCount || 0);
+  const computedFailCount = baseFailCount + 1 + repeatCount;
+  const failCount = Number.isFinite(explicitFailCount) && explicitFailCount > 0
+    ? Math.max(explicitFailCount, computedFailCount)
+    : computedFailCount;
+  const shouldEmit = !wasActive || (logOnMaterialChange && signatureChanged);
+  const nextState = {
+    active: true,
+    incidentKey: String(incidentKey || ""),
+    startedAtMs,
+    failCount,
+    lastFailedAtMs: nowMs,
+    subsystem,
+    source,
+    severity,
+    identifiers,
+    rootError,
+    stage,
+    status,
+    signature
+  };
+  await env.EV_HISTORY.put(key, JSON.stringify(nextState));
+  clearRuntimeRepeatCount(key);
+  if (!shouldEmit) return nextState;
+  await logFailureEvent(
+    env,
+    `${incidentKey}_failed`,
+    String(options?.message || "Incident entered failed state."),
+    {
+      incidentKey,
+      subsystem,
+      identifiers,
+      startedAt: new Date(startedAtMs).toISOString(),
+      currentFailCount: failCount,
+      rootError: rootError || null,
+      stage,
+      status,
+      materialChange: wasActive && signatureChanged
+    },
+    { severity, source }
+  );
+  return nextState;
+}
+
+async function markIncidentRecovered(env, incidentKey, options = {}) {
+  if (!env?.EV_HISTORY) return null;
+  const nowMs = Number(options?.nowMs) || Date.now();
+  const identifiers = options?.identifiers && typeof options.identifiers === "object" ? options.identifiers : {};
+  const subsystem = String(options?.subsystem || "market-worker");
+  const source = String(options?.source || "market-worker");
+  const key = buildIncidentStateKey(incidentKey, identifiers);
+  const prior = parseJsonObject(await env.EV_HISTORY.get(key));
+  if (!prior?.active) return null;
+  const startedAtMs = Number(prior?.startedAtMs || nowMs) || nowMs;
+  const repeatCount = getRuntimeRepeatCount(key);
+  const explicitAttempts = Number(options?.attempts || options?.failCount || 0);
+  const failCountFromState = Math.max(1, Number(prior?.failCount || 0) + repeatCount);
+  const failCount = Number.isFinite(explicitAttempts) && explicitAttempts > 0
+    ? Math.max(explicitAttempts, failCountFromState)
+    : failCountFromState;
+  const durationMs = Math.max(0, nowMs - startedAtMs);
+  const attemptTelemetry = buildClosureAttemptTelemetry(options, failCount, durationMs);
+  await env.EV_HISTORY.delete(key);
+  clearRuntimeRepeatCount(key);
+  await logFailureEvent(
+    env,
+    `${incidentKey}_recovered`,
+    String(options?.message || "Incident recovered."),
+    {
+      incidentKey,
+      recovered: true,
+      subsystem,
+      identifiers,
+      startedAt: new Date(startedAtMs).toISOString(),
+      recoveredAt: new Date(nowMs).toISOString(),
+      durationMs,
+      durationSeconds: Math.floor(durationMs / 1000),
+      failCount,
+      attempts: failCount,
+      attemptsSource: attemptTelemetry.attemptsSource,
+      estimatedAttempts: attemptTelemetry.estimatedAttempts,
+      estimatedAttemptsSource: attemptTelemetry.estimatedAttemptsSource,
+      retryIntervalMs: attemptTelemetry.retryIntervalMs,
+      retryCadenceLabel: attemptTelemetry.retryCadenceLabel,
+      attemptsDelta: attemptTelemetry.attemptsDelta,
+      finalStep: options?.finalStep == null ? null : String(options.finalStep)
+    },
+    { severity: String(options?.severity || "info"), source }
+  );
+  return {
+    startedAtMs,
+    recoveredAtMs: nowMs,
+    durationMs,
+    failCount
+  };
+}
+
+async function markIncidentClosedUnresolved(env, incidentKey, options = {}) {
+  if (!env?.EV_HISTORY) return null;
+  const nowMs = Number(options?.nowMs) || Date.now();
+  const identifiers = options?.identifiers && typeof options.identifiers === "object" ? options.identifiers : {};
+  const key = buildIncidentStateKey(incidentKey, identifiers);
+  const prior = parseJsonObject(await env.EV_HISTORY.get(key));
+  if (!prior?.active) return null;
+  const startedAtMs = Number(prior?.startedAtMs || nowMs) || nowMs;
+  const repeatCount = getRuntimeRepeatCount(key);
+  const explicitAttempts = Number(options?.attempts || options?.failCount || 0);
+  const failCountFromState = Math.max(1, Number(prior?.failCount || 0) + repeatCount);
+  const failCount = Number.isFinite(explicitAttempts) && explicitAttempts > 0
+    ? Math.max(explicitAttempts, failCountFromState)
+    : failCountFromState;
+  const durationMs = Math.max(0, nowMs - startedAtMs);
+  const attemptTelemetry = buildClosureAttemptTelemetry(options, failCount, durationMs);
+  const subsystem = String(options?.subsystem || prior?.subsystem || "market-worker");
+  const source = String(options?.source || prior?.source || "market-worker");
+  const reason = String(options?.reason || "unresolved");
+  const finalError = options?.finalError == null ? null : String(options.finalError);
+  const cleanup = options?.cleanup && typeof options.cleanup === "object" ? options.cleanup : null;
+  const codeSuffix = String(options?.terminalCodeSuffix || "closed_unresolved");
+  await env.EV_HISTORY.delete(key);
+  clearRuntimeRepeatCount(key);
+  await logFailureEvent(
+    env,
+    `${incidentKey}_${codeSuffix}`,
+    String(options?.message || "Incident closed unresolved."),
+    {
+      incidentKey,
+      recovered: false,
+      subsystem,
+      identifiers: prior?.identifiers && typeof prior.identifiers === "object" ? prior.identifiers : identifiers,
+      startedAt: new Date(startedAtMs).toISOString(),
+      closedAt: new Date(nowMs).toISOString(),
+      durationMs,
+      durationSeconds: Math.floor(durationMs / 1000),
+      failCount,
+      attempts: failCount,
+      attemptsSource: attemptTelemetry.attemptsSource,
+      estimatedAttempts: attemptTelemetry.estimatedAttempts,
+      estimatedAttemptsSource: attemptTelemetry.estimatedAttemptsSource,
+      retryIntervalMs: attemptTelemetry.retryIntervalMs,
+      retryCadenceLabel: attemptTelemetry.retryCadenceLabel,
+      attemptsDelta: attemptTelemetry.attemptsDelta,
+      reason,
+      finalError,
+      lastError: prior?.rootError == null ? null : String(prior.rootError),
+      cleanup
+    },
+    { severity: String(options?.severity || "warn"), source }
+  );
+  return {
+    startedAtMs,
+    closedAtMs: nowMs,
+    durationMs,
+    failCount
+  };
+}
+
+async function closeAllActiveIncidentsUnresolved(env, incidentKey, options = {}) {
+  if (!env?.EV_HISTORY) return;
+  const safeIncident = String(incidentKey || "unknown_incident").trim().toLowerCase().replace(/[^a-z0-9:_-]+/g, "_");
+  const prefix = `${INCIDENT_STATE_PREFIX}:${safeIncident}`;
+  let cursor = undefined;
+  const nowMs = Number(options?.nowMs) || Date.now();
+  do {
+    const listed = await env.EV_HISTORY.list({ prefix, cursor, limit: 100 });
+    const keys = Array.isArray(listed?.keys) ? listed.keys : [];
+    for (const entry of keys) {
+      const keyName = String(entry?.name || "");
+      if (!keyName) continue;
+      const raw = await env.EV_HISTORY.get(keyName);
+      const state = parseJsonObject(raw);
+      if (!state?.active) continue;
+      await markIncidentClosedUnresolved(env, incidentKey, {
+        ...options,
+        identifiers: state?.identifiers && typeof state.identifiers === "object" ? state.identifiers : {},
+        nowMs
+      });
+    }
+    cursor = listed?.list_complete ? undefined : listed?.cursor;
+  } while (cursor);
 }
 
 function buildSnapshotHealthSummary(statusObj, retryObj, fallbackDate) {
@@ -1872,6 +2471,7 @@ async function fetchObservedWeightsForLeague(env, league) {
 }
 
 async function fetchAggregateForLeague(env, league, userAgent = "ScarabEV/1.1 (market-worker weighted snapshot)") {
+  const runtime = resolveRuntimeConfig(env);
   const init = {
     headers: {
       "User-Agent": userAgent,
@@ -1882,7 +2482,7 @@ async function fetchAggregateForLeague(env, league, userAgent = "ScarabEV/1.1 (m
   if (env?.SCARABEV_API && typeof env.SCARABEV_API.fetch === "function") {
     return fetchServiceWithTimeout(env.SCARABEV_API, `https://scarabev-api.internal${path}`, init, UPSTREAM_TIMEOUT_MS);
   }
-  return fetchWithTimeout(`${AGGREGATE_API_URL}?league=${encodeURIComponent(league)}`, init, UPSTREAM_TIMEOUT_MS);
+  return fetchWithTimeout(`${runtime.aggregateApiUrl}?league=${encodeURIComponent(league)}`, init, UPSTREAM_TIMEOUT_MS);
 }
 
 async function fetchServiceWithTimeout(serviceBinding, url, init = {}, timeoutMs = UPSTREAM_TIMEOUT_MS) {

@@ -17,6 +17,8 @@
     "block7:migrate:dry-run": "node ./scripts/data-migration/migrate-scarabs.mjs",
     "block7:migrate:apply": "node ./scripts/data-migration/migrate-scarabs.mjs --apply",
     "block7:parity": "node ./scripts/data-migration/parity-check.mjs",
+    "verify:staging": "node ./scripts/verify-environment.mjs --target=staging",
+    "verify:production": "node ./scripts/verify-environment.mjs --target=production",
     "deploy:staging": "wrangler deploy --config wrangler.staging.toml",
     "deploy:production": "wrangler deploy --config wrangler.production.toml"
   },

@@ -22,9 +22,20 @@ export interface Env {
   BACKUP_RETENTION_DAYS?: string;
   BACKUP_REQUIRE_EXTERNAL?: string;
   BACKUP_OBJECT_PREFIX?: string;
+  BACKUP_CRON_ENABLED?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   MARKET_WORKER_ADMIN_TOKEN?: string;
+  MARKET_WORKER_URL?: string;
+  SESSION_API_BASE_URL?: string;
+  D1_RESOURCE_LABEL?: string;
+  BACKUP_R2_BUCKET_LABEL?: string;
+  STAGING_REFRESH_SOURCE_D1_ID?: string;
+  STAGING_REFRESH_SOURCE_D1_LABEL?: string;
+  STAGING_REFRESH_SOURCE_KV_NAMESPACE_ID?: string;
+  STAGING_REFRESH_SOURCE_KV_NAMESPACE_LABEL?: string;
+  STAGING_REFRESH_TARGET_KV_NAMESPACE_ID?: string;
+  STAGING_REFRESH_TARGET_KV_NAMESPACE_LABEL?: string;
   DB?: D1Database;
   BACKUP_R2?: R2Bucket;
 }
@@ -50,9 +61,20 @@ export interface RuntimeConfig {
   backupRetentionDays: number;
   backupRequireExternal: boolean;
   backupObjectPrefix: string;
+  backupCronEnabled: boolean;
   cloudflareApiToken?: string;
   cloudflareAccountId?: string;
   marketWorkerAdminToken?: string;
+  marketWorkerUrl: string;
+  sessionApiBaseUrl: string;
+  d1ResourceLabel?: string;
+  backupR2BucketLabel?: string;
+  stagingRefreshSourceD1Id?: string;
+  stagingRefreshSourceD1Label?: string;
+  stagingRefreshSourceKvNamespaceId?: string;
+  stagingRefreshSourceKvNamespaceLabel?: string;
+  stagingRefreshTargetKvNamespaceId?: string;
+  stagingRefreshTargetKvNamespaceLabel?: string;
 }
 
 const VALID_ENV: ReadonlySet<string> = new Set(["dev", "staging", "production"]);
@@ -90,6 +112,36 @@ function parseOptionalBool(name: keyof Env, value: string | undefined, fallback:
     return false;
   }
   throw new Error(`${name} must be a boolean-like value (true|false|1|0|yes|no). Received: ${value}`);
+}
+
+function normalizeUrlOrThrow(name: string, value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid absolute URL. Received: ${value}`);
+  }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    throw new Error(`${name} must use http or https. Received: ${value}`);
+  }
+  return parsed.toString().replace(/\/+$/, "");
+}
+
+function assertEnvironmentIsolation(
+  appEnv: AppEnv,
+  checks: Array<{ name: string; value: string | undefined; writeScope?: boolean }>
+): void {
+  for (const check of checks) {
+    const value = String(check.value || "").trim();
+    if (!value) continue;
+    const lower = value.toLowerCase();
+    if (appEnv === "production" && lower.includes("staging")) {
+      throw new Error(`environment_guard_violation: ${check.name} contains "staging" in production (${value})`);
+    }
+    if (appEnv === "staging" && check.writeScope && lower.includes("production")) {
+      throw new Error(`environment_guard_violation: ${check.name} contains "production" in staging (${value})`);
+    }
+  }
 }
 
 export function loadConfig(env: Env): RuntimeConfig {
@@ -138,10 +190,47 @@ export function loadConfig(env: Env): RuntimeConfig {
   const backupRetentionDays = parseOptionalInt("BACKUP_RETENTION_DAYS", env.BACKUP_RETENTION_DAYS, 14, 1);
   const backupRequireExternal = parseOptionalBool("BACKUP_REQUIRE_EXTERNAL", env.BACKUP_REQUIRE_EXTERNAL, false);
   const backupObjectPrefix = env.BACKUP_OBJECT_PREFIX?.trim() || "snapshots";
+  const backupCronEnabled = parseOptionalBool(
+    "BACKUP_CRON_ENABLED",
+    env.BACKUP_CRON_ENABLED,
+    appEnv === "production"
+  );
+  const marketWorkerUrlDefault = appEnv === "production"
+    ? "https://scarabev-market-worker.paperpandastacks.workers.dev"
+    : "https://scarabev-market-worker-staging.paperpandastacks.workers.dev";
+  const sessionApiBaseUrlDefault = appEnv === "production"
+    ? "https://scarabev-api.paperpandastacks.workers.dev/admin/sessions"
+    : "https://scarabev-api-staging.paperpandastacks.workers.dev/admin/sessions";
+  const marketWorkerUrl = normalizeUrlOrThrow(
+    "MARKET_WORKER_URL",
+    env.MARKET_WORKER_URL?.trim() || marketWorkerUrlDefault
+  );
+  const sessionApiBaseUrl = normalizeUrlOrThrow(
+    "SESSION_API_BASE_URL",
+    env.SESSION_API_BASE_URL?.trim() || sessionApiBaseUrlDefault
+  );
+  const d1ResourceLabel = env.D1_RESOURCE_LABEL?.trim() || undefined;
+  const backupR2BucketLabel = env.BACKUP_R2_BUCKET_LABEL?.trim() || undefined;
+  const stagingRefreshSourceD1Id = env.STAGING_REFRESH_SOURCE_D1_ID?.trim() || undefined;
+  const stagingRefreshSourceD1Label = env.STAGING_REFRESH_SOURCE_D1_LABEL?.trim() || undefined;
+  const stagingRefreshSourceKvNamespaceId = env.STAGING_REFRESH_SOURCE_KV_NAMESPACE_ID?.trim() || undefined;
+  const stagingRefreshSourceKvNamespaceLabel = env.STAGING_REFRESH_SOURCE_KV_NAMESPACE_LABEL?.trim() || undefined;
+  const stagingRefreshTargetKvNamespaceId = env.STAGING_REFRESH_TARGET_KV_NAMESPACE_ID?.trim() || undefined;
+  const stagingRefreshTargetKvNamespaceLabel = env.STAGING_REFRESH_TARGET_KV_NAMESPACE_LABEL?.trim() || undefined;
 
   if (sessionRotationSeconds >= sessionTtlSeconds) {
     throw new Error("SESSION_ROTATION_SECONDS must be lower than SESSION_TTL_SECONDS");
   }
+
+  assertEnvironmentIsolation(appEnv as AppEnv, [
+    { name: "MARKET_WORKER_URL", value: marketWorkerUrl, writeScope: true },
+    { name: "SESSION_API_BASE_URL", value: sessionApiBaseUrl, writeScope: false },
+    { name: "D1_RESOURCE_LABEL", value: d1ResourceLabel, writeScope: true },
+    { name: "BACKUP_R2_BUCKET_LABEL", value: backupR2BucketLabel, writeScope: true },
+    { name: "STAGING_REFRESH_SOURCE_D1_LABEL", value: stagingRefreshSourceD1Label, writeScope: false },
+    { name: "STAGING_REFRESH_SOURCE_KV_NAMESPACE_LABEL", value: stagingRefreshSourceKvNamespaceLabel, writeScope: false },
+    { name: "STAGING_REFRESH_TARGET_KV_NAMESPACE_LABEL", value: stagingRefreshTargetKvNamespaceLabel, writeScope: true }
+  ]);
 
   return {
     appName,
@@ -164,8 +253,19 @@ export function loadConfig(env: Env): RuntimeConfig {
     backupRetentionDays,
     backupRequireExternal,
     backupObjectPrefix,
+    backupCronEnabled,
     cloudflareApiToken: env.CLOUDFLARE_API_TOKEN?.trim() || undefined,
     cloudflareAccountId: env.CLOUDFLARE_ACCOUNT_ID?.trim() || undefined,
-    marketWorkerAdminToken: env.MARKET_WORKER_ADMIN_TOKEN?.trim() || undefined
+    marketWorkerAdminToken: env.MARKET_WORKER_ADMIN_TOKEN?.trim() || undefined,
+    marketWorkerUrl,
+    sessionApiBaseUrl,
+    d1ResourceLabel,
+    backupR2BucketLabel,
+    stagingRefreshSourceD1Id,
+    stagingRefreshSourceD1Label,
+    stagingRefreshSourceKvNamespaceId,
+    stagingRefreshSourceKvNamespaceLabel,
+    stagingRefreshTargetKvNamespaceId,
+    stagingRefreshTargetKvNamespaceLabel
   };
 }

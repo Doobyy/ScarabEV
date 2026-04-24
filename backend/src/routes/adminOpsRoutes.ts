@@ -30,7 +30,8 @@ export async function handleOpsRoutes(
     jsonResponse,
     withBaseHeaders,
     parseNullableString,
-    parseJsonBody
+    parseJsonBody,
+    runStagingRefreshFromProduction
   } = helpers;
 
   if (request.method === "GET" && url.pathname === "/admin/audit-logs") {
@@ -116,6 +117,7 @@ export async function handleOpsRoutes(
         ok: true,
         requestId: context.requestId,
         backupEnabled: deps.config.backupEnabled,
+        backupCronEnabled: deps.config.backupCronEnabled,
         backupRetentionDays: deps.config.backupRetentionDays,
         storageUsage,
         latestCoverage,
@@ -126,6 +128,113 @@ export async function handleOpsRoutes(
       { status: 200 }
     );
     return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+  }
+
+  if (request.method === "GET" && url.pathname === "/admin/ops/environment") {
+    const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
+    if (auth instanceof Response) {
+      return auth;
+    }
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
+    if (ownerOnly) {
+      await writeAudit(deps.securityRepo, context, request, "admin.environment", 403, auth.session.user.id);
+      return ownerOnly;
+    }
+
+    const appEnv = String(deps.config.appEnv || "");
+    const envLower = appEnv.toLowerCase();
+    const warnings: string[] = [];
+    const check = (name: string, value: string | undefined, writeScope = false): void => {
+      const v = String(value || "").trim();
+      if (!v) return;
+      const lower = v.toLowerCase();
+      if (envLower === "production" && lower.includes("staging")) {
+        warnings.push(`${name} points to staging while APP_ENV=production (${v})`);
+      }
+      if (envLower === "staging" && writeScope && lower.includes("production")) {
+        warnings.push(`${name} points to production while APP_ENV=staging (${v})`);
+      }
+    };
+    check("MARKET_WORKER_URL", deps.config.marketWorkerUrl, true);
+    check("SESSION_API_BASE_URL", deps.config.sessionApiBaseUrl, false);
+    check("D1_RESOURCE_LABEL", deps.config.d1ResourceLabel, true);
+    check("BACKUP_R2_BUCKET_LABEL", deps.config.backupR2BucketLabel, true);
+
+    let marketWorkerRuntime: Record<string, unknown> | null = null;
+    let marketWorkerRuntimeError: string | null = null;
+    let marketWorkerLastRefreshAt: string | null = null;
+    let marketWorkerLastRefreshError: string | null = null;
+    try {
+      const runtimeRes = await fetch(`${deps.config.marketWorkerUrl}?type=RuntimeConfig`, {
+        method: "GET",
+        headers: { accept: "application/json" }
+      });
+      if (runtimeRes.ok) {
+        const payload = await runtimeRes.json().catch(() => null);
+        if (payload && typeof payload === "object") {
+          marketWorkerRuntime = payload as Record<string, unknown>;
+          const workerEnv = String((marketWorkerRuntime as { appEnv?: unknown }).appEnv || "").toLowerCase();
+          if (workerEnv) {
+            if (envLower === "production" && workerEnv !== "production") {
+              warnings.push(`market worker runtime appEnv mismatch: expected production, got ${workerEnv}`);
+            }
+            if (envLower === "staging" && workerEnv !== "staging") {
+              warnings.push(`market worker runtime appEnv mismatch: expected staging, got ${workerEnv}`);
+            }
+          }
+        }
+      } else {
+        marketWorkerRuntimeError = `market_worker_runtime_http_${runtimeRes.status}`;
+      }
+    } catch (error) {
+      marketWorkerRuntimeError = error instanceof Error ? error.message : String(error);
+    }
+    try {
+      const refreshRes = await fetch(`${deps.config.marketWorkerUrl}?type=CurrentLeague`, {
+        method: "GET",
+        headers: { accept: "application/json" }
+      });
+      if (refreshRes.ok) {
+        const payload = await refreshRes.json().catch(() => null) as { _meta?: { lastSuccessAt?: string } } | null;
+        const refreshIso = payload?._meta?.lastSuccessAt ? String(payload._meta.lastSuccessAt) : "";
+        marketWorkerLastRefreshAt = refreshIso || null;
+      } else {
+        marketWorkerLastRefreshError = `market_worker_current_league_http_${refreshRes.status}`;
+      }
+    } catch (error) {
+      marketWorkerLastRefreshError = error instanceof Error ? error.message : String(error);
+    }
+
+    await writeAudit(deps.securityRepo, context, request, "admin.environment", 200, auth.session.user.id, {
+      environment: appEnv,
+      warningCount: warnings.length
+    });
+    return withBaseHeaders(
+      jsonResponse(
+        {
+          ok: true,
+          requestId: context.requestId,
+          environment: appEnv,
+          backendApiBaseUrl: new URL(request.url).origin,
+          marketWorkerUrl: deps.config.marketWorkerUrl,
+          sessionApiBaseUrl: deps.config.sessionApiBaseUrl,
+          d1ResourceLabel: deps.config.d1ResourceLabel || null,
+          backupR2BucketLabel: deps.config.backupR2BucketLabel || null,
+          backupEnabled: deps.config.backupEnabled,
+          backupCronEnabled: deps.config.backupCronEnabled,
+          dbBound: !!deps.db,
+          backupR2Bound: !!deps.backupR2,
+          marketWorkerRuntime,
+          marketWorkerRuntimeError,
+          marketWorkerLastRefreshAt,
+          marketWorkerLastRefreshError,
+          warnings
+        },
+        { status: 200 }
+      ),
+      context.requestId,
+      responseCookieHeaders
+    );
   }
 
   if (request.method === "POST" && url.pathname === "/admin/ops/backups/run") {
@@ -205,6 +314,138 @@ export async function handleOpsRoutes(
       { status: statusCode }
     );
     return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+  }
+
+  if (request.method === "POST" && url.pathname === "/admin/ops/staging-refresh-from-production") {
+    const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
+    if (auth instanceof Response) {
+      await writeAudit(deps.securityRepo, context, request, "admin.staging_refresh_from_production", auth.status, null);
+      return auth;
+    }
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
+    if (ownerOnly) {
+      await writeAudit(
+        deps.securityRepo,
+        context,
+        request,
+        "admin.staging_refresh_from_production",
+        403,
+        auth.session.user.id
+      );
+      return ownerOnly;
+    }
+    if (deps.config.appEnv !== "staging") {
+      await writeAudit(
+        deps.securityRepo,
+        context,
+        request,
+        "admin.staging_refresh_from_production",
+        409,
+        auth.session.user.id,
+        { reason: "staging_only", appEnv: deps.config.appEnv }
+      );
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "staging_only_operation",
+            requestId: context.requestId
+          },
+          { status: 409 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    }
+
+    let confirmText = "";
+    try {
+      const body = await parseJsonBody(request);
+      confirmText = String(body.confirmText || "").trim();
+    } catch (_error) {
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "invalid_body",
+            requestId: context.requestId
+          },
+          { status: 400 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    }
+    if (confirmText !== "REFRESH STAGING FROM PRODUCTION") {
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "confirmation_required",
+            requestId: context.requestId
+          },
+          { status: 400 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    }
+
+    try {
+      const refresh = await runStagingRefreshFromProduction(deps, auth.session.user.id);
+      await writeAudit(
+        deps.securityRepo,
+        context,
+        request,
+        "admin.staging_refresh_from_production",
+        200,
+        auth.session.user.id,
+        {
+          startedAt: refresh.startedAt,
+          finishedAt: refresh.finishedAt,
+          copiedTables: refresh.d1.copiedTables,
+          copiedRows: refresh.d1.copiedRows,
+          kvCopiedKeys: refresh.kv.copiedKeys,
+          kvDeletedKeys: refresh.kv.deletedKeys
+        }
+      );
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: true,
+            requestId: context.requestId,
+            refresh
+          },
+          { status: 200 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await writeAudit(
+        deps.securityRepo,
+        context,
+        request,
+        "admin.staging_refresh_from_production",
+        503,
+        auth.session.user.id,
+        { errorDetail: detail }
+      );
+      return withBaseHeaders(
+        jsonResponse(
+          {
+            ok: false,
+            error: "staging_refresh_failed",
+            errorDetail: detail,
+            requestId: context.requestId
+          },
+          { status: 503 }
+        ),
+        context.requestId,
+        responseCookieHeaders
+      );
+    }
   }
 
   if (request.method === "POST" && url.pathname === "/admin/ops/backups/restore") {

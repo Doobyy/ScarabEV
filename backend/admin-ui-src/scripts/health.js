@@ -1,5 +1,6 @@
 
-const MARKET_WORKER_URL='https://scarabev-market-worker.paperpandastacks.workers.dev';
+const DEFAULT_MARKET_WORKER_URL='https://scarabev-market-worker-staging.paperpandastacks.workers.dev';
+let MARKET_WORKER_URL=DEFAULT_MARKET_WORKER_URL;
 const MARKET_HEALTH_CACHE_MS=15000;
 const MARKET_WORKER_HEALTHY_AGE_MS=75*60*1000;
 const MARKET_WORKER_WARN_AGE_MS=6*60*60*1000;
@@ -18,6 +19,9 @@ const BACKUP_RETRY_INTERVAL_MS=5*60*1000;
 let marketHealthCacheAt=0;
 let marketHealthCache=null;
 let marketHealthInFlight=null;
+let envDiagnosticsCacheAt=0;
+let envDiagnosticsCache=null;
+let envDiagnosticsInFlight=null;
 let marketWorkerLastSuccessAt=null;
 let poePullLastSuccessAt=null;
 let healthLiveTickerId=null;
@@ -59,11 +63,35 @@ function deriveHealthHints(id,card){
     hints.push('Checks performed: market worker daily snapshot status (`type=SnapshotStatus`).');
     hints.push('Validation: per-league write completion (EV/Atlas/price), retry state, and last error.');
     hints.push('Retries are same-day with increasing attempts; stale-day retries are marked expired.');
+  }else if(id==='healthEnvironment'){
+    hints.push('Checks performed: backend environment diagnostics and market-worker runtime config probe.');
+    hints.push('Validation: environment pointers, resource labels, cron toggles, and mismatch guards.');
   }else{
     hints.push('Check completed via admin health probe.');
     hints.push('Use refresh to rerun and compare latency/status changes.');
   }
   return hints;
+}
+
+function buildEnvironmentChecks(card){
+  const detail=String((card&&card.detail)||'-');
+  const telemetry=card&&card.telemetry?card.telemetry:{};
+  const warnings=Array.isArray(telemetry.warnings)?telemetry.warnings:[];
+  const rows=[
+    {level:normalizeCheckLevel(card&&card.level),label:'Overall result',detail},
+    {level:'ok',label:'Current environment',detail:String(telemetry.environment||'-')},
+    {level:'ok',label:'Backend API base',detail:String(telemetry.backendApiBaseUrl||'-')},
+    {level:'ok',label:'Market worker URL',detail:String(telemetry.marketWorkerUrl||'-')},
+    {level:'ok',label:'Session API base',detail:String(telemetry.sessionApiBaseUrl||'-')},
+    {level:telemetry.dbBound?'ok':'err',label:'D1 binding',detail:(telemetry.dbBound?'bound':'missing')+' | '+String(telemetry.d1ResourceLabel||'(label missing)')},
+    {level:telemetry.backupR2Bound?'ok':'warn',label:'R2 binding',detail:(telemetry.backupR2Bound?'bound':'missing')+' | '+String(telemetry.backupR2BucketLabel||'(label missing)')},
+    {level:telemetry.backupEnabled?'ok':'warn',label:'Backup enabled',detail:telemetry.backupEnabled?'true':'false'},
+    {level:telemetry.backupCronEnabled?'ok':'warn',label:'Backup cron enabled',detail:telemetry.backupCronEnabled?'true':'false'},
+    {level:telemetry.marketCronEnabled===false?'warn':'ok',label:'Market cron enabled',detail:telemetry.marketCronEnabled===false?'false (dormant by config)':'true'},
+    {level:telemetry.marketWorkerLastRefreshAt?'ok':'warn',label:'Last market refresh',detail:telemetry.marketWorkerLastRefreshAt?formatAdminTime(telemetry.marketWorkerLastRefreshAt):String(telemetry.marketWorkerLastRefreshError||'not reported')}
+  ];
+  warnings.forEach((w)=>rows.push({level:'err',label:'Mismatch warning',detail:String(w||'').trim()}));
+  return rows;
 }
 
 function extractLastSuccessText(meta){
@@ -252,6 +280,7 @@ function buildBackupsChecks(card){
   const retryAttempts=Math.max(0,Number(t.retryCount)||0);
   const lastAttempt=t.lastAttemptAt?formatAdminTime(t.lastAttemptAt)+' ('+humanAge(msSince(t.lastAttemptAt))+')':'not reported';
   const retryMode=String(t.retryMode||'request-driven');
+  const retryDisabled=retryMode==='disabled_by_config';
   const nextRetry=t.nextRetryAt?formatAdminTime(t.nextRetryAt):'none scheduled';
   const missingScopes=Array.isArray(t.coverageMissingScopes)?t.coverageMissingScopes:[];
   const coverageHasMarketBackup=t.coverageHasMarketBackup!==false;
@@ -265,9 +294,9 @@ function buildBackupsChecks(card){
     {level:retentionDays>0?'ok':'warn',label:'Retention TTL',detail:retentionDays>0?(retentionDays+' days'):'not configured'},
     {level:coverageHasMarketBackup&&!missingScopes.length?'ok':'err',label:'Coverage',detail:coverageHasMarketBackup?(missingScopes.length?('missing scopes: '+missingScopes.join(', ')):'market-worker dataset present'):'market-worker dataset missing'},
     {level:t.smokeOk===false?'err':'ok',label:'Smoke restore',detail:smokeOk+' | '+smokeAt+(t.smokeError?(' | '+String(t.smokeError)):'')},
-    {level:retryAttempts>0?'warn':'ok',label:'Retry attempts',detail:String(retryAttempts)},
+    {level:retryDisabled?'ok':(retryAttempts>0?'warn':'ok'),label:'Retry attempts',detail:retryDisabled?'disabled by config':String(retryAttempts)},
     {level:t.lastAttemptAt?'ok':'warn',label:'Last attempt',detail:lastAttempt},
-    {level:t.nextRetryAt?'warn':'ok',label:'Next retry',detail:nextRetry+' | '+retryMode}
+    {level:retryDisabled?'ok':(t.nextRetryAt?'warn':'ok'),label:'Next retry',detail:nextRetry+' | '+retryMode}
   ];
   if(meta&&meta!=='-')rows.push({level:'ok',label:'Telemetry',detail:meta});
   return rows;
@@ -501,7 +530,8 @@ function enrichHealthCard(id,title,card){
   const level=normalizeCheckLevel(card&&card.level);
   let checks=Array.isArray(card&&card.checks)&&card.checks.length?card.checks:null;
   if(!checks){
-    if(id==='healthWorker')checks=buildWorkerChecks(card);
+    if(id==='healthEnvironment')checks=buildEnvironmentChecks(card);
+    else if(id==='healthWorker')checks=buildWorkerChecks(card);
     else if(id==='healthPoeNinja')checks=buildPoePullChecks(card);
     else if(id==='healthCloudflare')checks=buildCloudflareUsageChecks(card);
     else if(id==='healthSnapshot')checks=buildSnapshotChecks(card);
@@ -948,6 +978,76 @@ function parseMetaState(meta){
   return null;
 }
 
+async function getEnvironmentDiagnostics(force){
+  const now=Date.now();
+  const maxAge=15000;
+  if(!force&&envDiagnosticsCache&&((now-envDiagnosticsCacheAt)<maxAge))return envDiagnosticsCache;
+  if(envDiagnosticsInFlight)return envDiagnosticsInFlight;
+  envDiagnosticsInFlight=(async()=>{
+    const r=await api('/admin/ops/environment');
+    if(r.res.status===200&&r.json&&r.json.ok){
+      envDiagnosticsCache=r.json;
+      envDiagnosticsCacheAt=Date.now();
+      if(r.json.marketWorkerUrl){
+        MARKET_WORKER_URL=String(r.json.marketWorkerUrl);
+      }
+      return r.json;
+    }
+    const fallback={
+      ok:false,
+      environment:'unknown',
+      marketWorkerUrl:MARKET_WORKER_URL,
+      warnings:[],
+      error:'environment_diagnostics_unavailable',
+      errorDetail:(r.json&&r.json.errorDetail)?String(r.json.errorDetail):('status_'+String(r.res.status||0))
+    };
+    envDiagnosticsCache=fallback;
+    envDiagnosticsCacheAt=Date.now();
+    return fallback;
+  })().finally(()=>{envDiagnosticsInFlight=null;});
+  return envDiagnosticsInFlight;
+}
+
+async function checkHealthEnvironment(){
+  const started=performance.now();
+  const envInfo=await getEnvironmentDiagnostics(false);
+  const took=Math.round(performance.now()-started);
+  const warnings=Array.isArray(envInfo&&envInfo.warnings)?envInfo.warnings:[];
+  const envName=String(envInfo&&envInfo.environment||'unknown');
+  const marketRuntime=envInfo&&envInfo.marketWorkerRuntime&&typeof envInfo.marketWorkerRuntime==='object'
+    ?envInfo.marketWorkerRuntime
+    :null;
+  const marketCronEnabled=marketRuntime&&marketRuntime.cron&&marketRuntime.cron.marketRefreshEnabled===false
+    ?false
+    :(marketRuntime&&marketRuntime.cron&&marketRuntime.cron.marketRefreshEnabled===true?true:null);
+  const level=warnings.length?'err':((envInfo&&envInfo.ok===false)?'warn':'ok');
+  const detail=warnings.length
+    ?('Environment mismatch detected ('+warnings.length+').')
+    :((envInfo&&envInfo.ok===false)?'Environment diagnostics unavailable.':'Environment wiring looks consistent.');
+  const telemetry={
+    environment:envName,
+    backendApiBaseUrl:String(envInfo&&envInfo.backendApiBaseUrl||window.location.origin),
+    marketWorkerUrl:String(envInfo&&envInfo.marketWorkerUrl||MARKET_WORKER_URL),
+    sessionApiBaseUrl:String(envInfo&&envInfo.sessionApiBaseUrl||''),
+    d1ResourceLabel:String(envInfo&&envInfo.d1ResourceLabel||''),
+    backupR2BucketLabel:String(envInfo&&envInfo.backupR2BucketLabel||''),
+    backupEnabled:!!(envInfo&&envInfo.backupEnabled),
+    backupCronEnabled:!!(envInfo&&envInfo.backupCronEnabled),
+    dbBound:!!(envInfo&&envInfo.dbBound),
+    backupR2Bound:!!(envInfo&&envInfo.backupR2Bound),
+    marketWorkerLastRefreshAt:envInfo&&envInfo.marketWorkerLastRefreshAt?String(envInfo.marketWorkerLastRefreshAt):null,
+    marketWorkerLastRefreshError:envInfo&&envInfo.marketWorkerLastRefreshError?String(envInfo.marketWorkerLastRefreshError):null,
+    marketCronEnabled,
+    warnings
+  };
+  return {
+    level,
+    detail,
+    meta:'Env '+envName+' | '+took+'ms',
+    telemetry
+  };
+}
+
 async function checkHealthBackend(){
   const started=performance.now();
   const r=await api('/admin/healthz');
@@ -1001,6 +1101,7 @@ async function checkHealthBackups(){
     return {level:'warn',detail:'Backup health unavailable (owner-only or API blocked).',meta:'Status '+r.res.status+' | '+took+'ms'};
   }
   const usage=r.json.storageUsage||null;
+  const backupCronEnabled=r.json.backupCronEnabled!==false;
   const usageTxt=usage?(' | R2 '+((Number(usage.totalBytes)||0)/(1024*1024*1024)).toFixed(3)+' GB'):'';
   const items=Array.isArray(r.json.items)?r.json.items:[];
   const latestAttempt=items[0]||null;
@@ -1008,7 +1109,7 @@ async function checkHealthBackups(){
   const nowMs=Date.now();
   const latestOk=items.find((x)=>String((x&&x.status)||'').toLowerCase()==='ok')||null;
   const latestOkMs=parseIsoMs(latestOk&&latestOk.createdAt?String(latestOk.createdAt):'');
-  const catchupDue=(latestOkMs===null)||((nowMs-latestOkMs)>(BACKUP_CADENCE_MS+BACKUP_CATCHUP_GRACE_MS));
+  const catchupDue=backupCronEnabled&&((latestOkMs===null)||((nowMs-latestOkMs)>(BACKUP_CADENCE_MS+BACKUP_CATCHUP_GRACE_MS)));
   let retryCount=0;
   for(let i=0;i<items.length;i++){
     const st=String((items[i]&&items[i].status)||'').toLowerCase();
@@ -1025,7 +1126,7 @@ async function checkHealthBackups(){
   if(!item){
     return {
       level:'warn',
-      detail:'No backup snapshots found.',
+      detail:backupCronEnabled?'No backup snapshots found.':'No backup snapshots found yet (backup cron disabled by config).',
       meta:'Consider running a backup'+usageTxt,
       telemetry:{
         latestCreatedAt:null,
@@ -1045,7 +1146,7 @@ async function checkHealthBackups(){
         retryCount:0,
         lastAttemptAt:null,
         nextRetryAt:null,
-        retryMode:'request-driven catch-up'
+        retryMode:backupCronEnabled?'request-driven catch-up':'disabled_by_config'
       }
     };
   }
@@ -1090,9 +1191,10 @@ async function checkHealthBackups(){
             :(stale
               ?'Latest backup snapshot is stale.'
               :'Latest backup snapshot is healthy.')))));
+  const finalDetail=backupCronEnabled?detail:(detail+' Backup cron is currently disabled by config (manual runs only).');
   return {
     level,
-    detail,
+    detail:finalDetail,
     meta:'Last '+formatAdminTime(item.createdAt)+' ('+age+') | Status '+String(item.status||'-')+coverageMeta+smokeMeta+usageTxt+' | '+took+'ms',
     telemetry:{
       latestCreatedAt:item.createdAt||null,
@@ -1112,7 +1214,7 @@ async function checkHealthBackups(){
       retryCount,
       lastAttemptAt:latestAttemptAt,
       nextRetryAt,
-      retryMode:'request-driven catch-up'
+      retryMode:backupCronEnabled?'request-driven catch-up':'disabled_by_config'
     }
   };
 }
@@ -1546,6 +1648,7 @@ function renderHealthCards(results){
     const id=String(el.getAttribute('data-health-id')||el.id||'');
     if(id)state.healthOpenCards[id]=true;
   });
+  const environment=enrichHealthCard('healthEnvironment','Environment',results.environment||{});
   const backend=enrichHealthCard('healthBackend','Admin API',results.backend||{});
   const publicTokens=enrichHealthCard('healthPublic','Public Token Endpoint',results.publicTokens||{});
   const marketWorker=enrichHealthCard('healthWorker','League Cache',results.marketWorker||{});
@@ -1556,6 +1659,7 @@ function renderHealthCards(results){
   const tokenHistory=enrichHealthCard('healthTokenSets','Token History',results.tokenHistory||{});
   const cloudflareUsage=enrichHealthCard('healthCloudflare','Cloudflare Usage',results.cloudflareUsage||{});
   const cardById={
+    healthEnvironment:healthCard('healthEnvironment','Environment',environment.level,environment.detail,environment.meta,environment.checks,environment.debug),
     healthBackend:healthCard('healthBackend','Admin API',backend.level,backend.detail,backend.meta,backend.checks,backend.debug),
     healthPublic:healthCard('healthPublic','Public Token Endpoint',publicTokens.level,publicTokens.detail,publicTokens.meta,publicTokens.checks,publicTokens.debug),
     healthWorker:healthCard('healthWorker','League Cache',marketWorker.level,marketWorker.detail,marketWorker.meta,marketWorker.checks,marketWorker.debug),
@@ -1585,6 +1689,7 @@ async function loadHealthOverview(opts){
   const background=!!(opts&&opts.background);
   if(!background)busy('healthRefreshBtn',true);
   try{
+    const environment=await checkHealthEnvironment();
     const [backend,publicTokens,marketWorker,poePull,snapshot,sessionApi,backups,tokenHistory,cloudflareUsage]=await Promise.all([
       checkHealthBackend(),
       checkHealthPublicTokens(),
@@ -1596,7 +1701,7 @@ async function loadHealthOverview(opts){
       checkHealthTokenHistory(),
       checkHealthCloudflareUsage()
     ]);
-    state.healthLastResults={backend,publicTokens,marketWorker,poePull,snapshot,sessionApi,backups,tokenHistory,cloudflareUsage};
+    state.healthLastResults={environment,backend,publicTokens,marketWorker,poePull,snapshot,sessionApi,backups,tokenHistory,cloudflareUsage};
     renderHealthCards(state.healthLastResults);
     state.healthAutoLoaded=true;
     const now=formatAdminTime(new Date().toISOString());

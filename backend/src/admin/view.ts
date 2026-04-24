@@ -1,9 +1,9 @@
 export function buildAdminMarkup(): string {
   return String.raw`
-<header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><div><div class="title">ScarabEV Admin Plane</div><div id="panelTitle" class="sub">Scarab Manager | Staging-first control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
+<header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><div><div class="title">ScarabEV Admin Plane <span id="envBadge" class="badge warn hidden" style="margin-left:8px">STAGING</span></div><div id="panelTitle" class="sub">Scarab Manager | Control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
 <section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" autocomplete="username" placeholder="Username"/><input id="password" type="password" autocomplete="current-password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
 <section id="app" class="shell hidden">
-  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navFailures" class="navbtn" type="button" data-panel="failures">Failure Logs</button><button id="navBulkTools" class="navbtn" type="button" data-panel="bulktools">Bulk Tools</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button></aside>
+  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navFailures" class="navbtn" type="button" data-panel="failures">Failure Logs</button><button id="navBulkTools" class="navbtn" type="button" data-panel="bulktools">Bulk Tools</button><button id="navDocumentation" class="navbtn" type="button" data-panel="docs">Documentation</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button></aside>
   <div id="navBackdrop" class="nav-backdrop"></div>
   <main class="content">
     <section id="panel-scarab" class="panel">
@@ -64,10 +64,16 @@ export function buildAdminMarkup(): string {
         <section id="sessPaneBackups" class="sess-pane">
           <div class="sub">Backup snapshots are shown in local time.</div>
           <div class="toolbar"><button id="opsListBtn" class="btn ghost" type="button">Refresh Backups</button><button id="opsRunBtn" class="btn" type="button">Run Backup</button></div>
+          <div id="stagingRefreshWrap" class="card hidden" style="margin:10px 0;padding:10px">
+            <div class="sub"><b>Staging Refresh Tool</b></div>
+            <div class="status warn">This replaces staging data with a copy of production data. Production is not modified.</div>
+            <div class="toolbar"><button id="stagingRefreshBtn" class="btn warn" type="button">Refresh Staging From Production</button></div>
+            <div id="stagingRefreshStatus" class="status">Use this only when staging needs a fresh production-aligned dataset.</div>
+          </div>
           <div class="list ops-list"><table><thead><tr><th style="width:280px">Snapshot ID</th><th style="width:140px">Created</th><th style="width:220px">Run Status</th><th style="width:110px">Size</th><th>Object Path</th><th style="width:120px">Actions</th></tr></thead><tbody id="opsRows"></tbody></table></div>
           <div id="opsSummary" class="sub">Use this tab when you need backup tools.</div>
           <div id="opsStorageSummary" class="sub mono">R2 usage: -</div>
-          <div id="opsStatus" class="status">Use this section to run or inspect backup snapshots in staging.</div>
+          <div id="opsStatus" class="status">Use this section to run or inspect backup snapshots.</div>
         </section>
         <section id="sessPaneReview" class="sess-pane">
           <div class="sub">Filtered moderation view for held submissions only. Same expandable context as Session Manager, with Accept/Reject actions inline.</div>
@@ -227,11 +233,11 @@ export function buildAdminMarkup(): string {
     <section id="panel-failures" class="panel">
       <div class="card">
         <div class="h">Failure Logs</div>
-        <div class="sub">30-day failure history from market worker snapshot/cache pipelines. Includes exact failure codes and context payloads.</div>
+        <div class="sub">Operational incident lifecycle feed (failed, recovered, unresolved closures) from market-worker and backup systems.</div>
         <div class="toolbar"><select id="failureDays"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option></select><button id="failureRefreshBtn" class="btn ghost" type="button">Refresh Logs</button><button id="failureClearBtn" class="btn ghost" type="button">Clear Logs</button><button id="failureBackfillEnableBtn" class="btn warn" type="button">Enable Price History Backfill (6h)</button><button id="failureBackfillDisableBtn" class="btn ghost" type="button">Disable Price History Backfill</button></div>
-        <div class="list ops-list"><table><thead><tr><th style="width:150px">Time (PDT)</th><th style="width:120px">Code</th><th style="width:130px">Source</th><th>Message</th><th style="width:290px">Context</th></tr></thead><tbody id="failureRows"></tbody></table></div>
+        <div class="list ops-list"><table><thead><tr><th style="width:150px">Time (PDT)</th><th style="width:190px">Code</th><th style="width:130px">Source</th><th style="width:170px">Outcome</th><th>Message</th><th style="width:290px">Context</th></tr></thead><tbody id="failureRows"></tbody></table></div>
         <div id="failureMeta" class="sub mono">No logs loaded.</div>
-        <div id="failureStatus" class="status">Open this tab to load failure history.</div>
+        <div id="failureStatus" class="status">Open this tab to load operational incident history.</div>
       </div>
     </section>
     <section id="panel-bulktools" class="panel">
@@ -253,6 +259,24 @@ export function buildAdminMarkup(): string {
         <div class="sub"><b>Recent Bulk Mismatches</b></div>
         <div class="list ops-list" style="max-height:260px;overflow:auto"><div id="bulkToolsMismatchList" class="sub mono">No mismatches loaded.</div></div>
         <div id="bulkToolsStatus" class="status">Open this tab to load bulk tools.</div>
+      </div>
+    </section>
+    <section id="panel-docs" class="panel">
+      <div class="card docs-shell">
+        <div class="h">Documentation</div>
+        <div class="sub">Internal end-to-end technical manual for operating, troubleshooting, and modifying ScarabEV safely.</div>
+        <div class="docs-toolbar">
+          <input id="docsSearchInput" placeholder="Search docs (endpoints, files, runbooks, tokens, backups...)" />
+          <button id="docsSearchClearBtn" class="btn ghost" type="button">Clear</button>
+        </div>
+        <div id="docsSearchMeta" class="sub mono">Loading documentation...</div>
+        <div class="docs-layout">
+          <aside class="docs-toc-wrap">
+            <div class="sub"><b>Table of Contents</b></div>
+            <div id="docsToc" class="docs-toc"></div>
+          </aside>
+          <section id="docsContent" class="docs-content"></section>
+        </div>
       </div>
     </section>
   </main>
