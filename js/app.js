@@ -593,6 +593,28 @@ function mergePriceHistoryByDepth(currentMap, incomingMap) {
   return merged;
 }
 
+function ensureEVHistoryByLeagueCache() {
+  if (!state._evHistoryByLeague || typeof state._evHistoryByLeague !== 'object') {
+    state._evHistoryByLeague = {};
+  }
+  return state._evHistoryByLeague;
+}
+
+function getEVHistoryForLeague(leagueKey) {
+  const cache = ensureEVHistoryByLeagueCache();
+  const key = String(leagueKey || '').trim() || 'Mirage';
+  return Array.isArray(cache[key]) ? cache[key] : null;
+}
+
+function setEVHistoryForLeague(leagueKey, history) {
+  const cache = ensureEVHistoryByLeagueCache();
+  const key = String(leagueKey || '').trim() || 'Mirage';
+  const next = Array.isArray(history) ? history : [];
+  cache[key] = next;
+  if (getSelectedLeagueKey() === key) state._evHistoryRaw = next;
+  return next;
+}
+
 function toLocalDateKey(dateInput = new Date()) {
   const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
@@ -1046,6 +1068,8 @@ async function fetchMarketScarabPrices() {
   state._marketFetchBusy = true;
   const league = document.getElementById('leagueSelect').value;
   state._priceHistory = getPriceHistoryForLeague(league);
+  state._evHistoryRaw = getEVHistoryForLeague(league) || [];
+  fetchAndRenderEVChart();
   fetchAndRenderAtlasTrendPreview();
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
@@ -2478,14 +2502,18 @@ function renderAtlasTrendPreview(history) {
 }
 
 async function fetchAndRenderEVChart() {
-  const league = document.getElementById('leagueSelect')?.value || 'Mirage';
+  const requestId = (Number(state._evChartFetchSeq) || 0) + 1;
+  state._evChartFetchSeq = requestId;
+  const league = getSelectedLeagueKey();
   if (!WORKER_URL) return;
   try {
     const res = await fetch(`${WORKER_URL}?type=EVHistory&league=${encodeURIComponent(league)}`, { cache: 'no-store' });
+    if (requestId !== state._evChartFetchSeq) return;
     if (!res.ok) return;
     const data = await res.json();
-    const history = data.history || [];
-    state._evHistoryRaw = Array.isArray(history) ? history : [];
+    if (requestId !== state._evChartFetchSeq) return;
+    const history = Array.isArray(data?.history) ? data.history : [];
+    setEVHistoryForLeague(league, history);
     if (!history.length) {
       const demo = [];
       const evValues = [0.44,0.43,0.42,0.44,0.45,0.43,0.41,0.40,0.42,0.41,0.39,0.38,0.40,0.41,0.42,0.43,0.41,0.40,0.39,0.41,0.42,0.40,0.39,0.38,0.40,0.41,0.39,0.38,0.37,0.39];
@@ -2629,6 +2657,7 @@ function calcLiveWeightedThresholdFromCurrentPrices() {
 }
 
 function renderEVChart(history) {
+  const leagueKey = getSelectedLeagueKey();
   const windowDays = getEVChartWindowDays();
   const EV_HISTORY_V2_START = '2026-04-02';
   const cutoffMs = Date.parse(`${EV_HISTORY_V2_START}T00:00:00Z`);
@@ -2679,10 +2708,13 @@ function renderEVChart(history) {
     .filter(h => Number.isFinite(h.ev) && h.ev > 0)
     .filter(h => !!h.date)
     .sort((a, b) => a.date.localeCompare(b.date));
+  if (!state._evWeightedSeriesCacheByLeague || typeof state._evWeightedSeriesCacheByLeague !== 'object') {
+    state._evWeightedSeriesCacheByLeague = {};
+  }
   if (weightedSeries.length >= 2) {
-    state._evWeightedSeriesCache = weightedSeries.map((h) => ({ date: String(h.date), ev: Number(h.ev) }));
-  } else if (Array.isArray(state._evWeightedSeriesCache) && state._evWeightedSeriesCache.length >= 2) {
-      weightedSeries = state._evWeightedSeriesCache
+    state._evWeightedSeriesCacheByLeague[leagueKey] = weightedSeries.map((h) => ({ date: String(h.date), ev: Number(h.ev) }));
+  } else if (Array.isArray(state._evWeightedSeriesCacheByLeague[leagueKey]) && state._evWeightedSeriesCacheByLeague[leagueKey].length >= 2) {
+      weightedSeries = state._evWeightedSeriesCacheByLeague[leagueKey]
         .map((h) => ({ date: toDateKey(h.date), ev: Number(h.ev), cached: true }))
         .filter((h) => isOnOrAfterCutoff(h.date))
         .filter((h) => !!h.date);
