@@ -604,7 +604,7 @@ async function handleEVHistory(league, env) {
   if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "ev-history");
   const key = `ev-history-${league.toLowerCase()}`;
   const stored = await env.EV_HISTORY.get(key);
-  const history = stored ? JSON.parse(stored) : [];
+  const history = parseJsonAny(stored, []);
   return withCors(jsonResponse({ history }));
 }
 
@@ -612,7 +612,7 @@ async function handlePriceHistory(league, env) {
   if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "price-history");
   const key = `price-history-${league.toLowerCase()}`;
   const stored = await env.EV_HISTORY.get(key);
-  const prices = stored ? JSON.parse(stored) : {};
+  const prices = parseJsonAny(stored, {});
   return withCors(jsonResponse({ prices }));
 }
 
@@ -620,7 +620,7 @@ async function handleAtlasEVHistory(league, env) {
   if (!env.EV_HISTORY) return errorResponse("kv_not_configured", "KV not configured", 500, "atlas-ev-history");
   const key = `atlas-ev-history-${league.toLowerCase()}`;
   const stored = await env.EV_HISTORY.get(key);
-  const history = stored ? JSON.parse(stored) : [];
+  const history = parseJsonAny(stored, []);
   return withCors(jsonResponse({ history }));
 }
 
@@ -2307,11 +2307,17 @@ function calcHarmonicEV(lines) {
 
 function parseJsonObject(raw) {
   if (!raw) return null;
+  const parsed = parseJsonAny(raw, null);
+  return parsed && typeof parsed === "object" ? parsed : null;
+}
+
+function parseJsonAny(raw, fallback = null) {
+  if (raw == null || typeof raw !== "string") return fallback;
+  const normalized = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
   try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
+    return JSON.parse(normalized);
   } catch (_e) {
-    return null;
+    return fallback;
   }
 }
 
