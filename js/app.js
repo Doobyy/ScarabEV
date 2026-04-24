@@ -2509,9 +2509,20 @@ function renderAtlasTrendPreview(history) {
         tooltip: {
           mode: 'index',
           intersect: false,
+          bodyFont: {
+            family: 'Consolas, Menlo, Monaco, "Courier New", monospace'
+          },
           callbacks: {
             title: items => items[0].label,
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}c`
+            label: ctx => {
+              const datasets = Array.isArray(ctx.chart?.data?.datasets) ? ctx.chart.data.datasets : [];
+              const maxLabelLen = datasets.reduce((max, ds) => {
+                const len = String(ds?.label || '').trim().length;
+                return len > max ? len : max;
+              }, 0);
+              const label = String(ctx.dataset?.label || '').trim().padEnd(maxLabelLen, ' ');
+              return ` ${label}  ${ctx.parsed.y.toFixed(4)}c`;
+            }
           }
         }
       },
@@ -2937,9 +2948,20 @@ function renderEVChart(history) {
         tooltip: {
           mode: 'index',
           intersect: false,
+          bodyFont: {
+            family: 'Consolas, Menlo, Monaco, "Courier New", monospace'
+          },
           callbacks: {
             title: items => items[0].label,
-            label: ctx => ` ${ctx.dataset.label} threshold: ${ctx.parsed.y.toFixed(3)}c`
+            label: ctx => {
+              const datasets = Array.isArray(ctx.chart?.data?.datasets) ? ctx.chart.data.datasets : [];
+              const maxLabelLen = datasets.reduce((max, ds) => {
+                const len = String(ds?.label || '').trim().length;
+                return len > max ? len : max;
+              }, 0);
+              const label = String(ctx.dataset?.label || '').trim().padEnd(maxLabelLen, ' ');
+              return ` ${label} threshold: ${ctx.parsed.y.toFixed(3)}c`;
+            }
           }
         }
       },
