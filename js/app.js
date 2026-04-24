@@ -2500,15 +2500,15 @@ function renderAtlasTrendPreview(history) {
       maintainAspectRatio: false,
       animation: false,
       interaction: {
-        mode: 'nearest',
-        axis: 'xy',
-        intersect: true
+        mode: 'index',
+        axis: 'x',
+        intersect: false
       },
       plugins: {
         legend: { display: false },
         tooltip: {
-          mode: 'nearest',
-          intersect: true,
+          mode: 'index',
+          intersect: false,
           callbacks: {
             title: items => items[0].label,
             label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}c`
@@ -2928,15 +2928,15 @@ function renderEVChart(history) {
       maintainAspectRatio: false,
       animation: false,
       interaction: {
-        mode: 'nearest',
-        axis: 'xy',
-        intersect: true
+        mode: 'index',
+        axis: 'x',
+        intersect: false
       },
       plugins: {
         legend: { display: false },
         tooltip: {
-          mode: 'nearest',
-          intersect: true,
+          mode: 'index',
+          intersect: false,
           callbacks: {
             title: items => items[0].label,
             label: ctx => ` ${ctx.dataset.label} threshold: ${ctx.parsed.y.toFixed(3)}c`
