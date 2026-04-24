@@ -1068,7 +1068,13 @@ async function fetchMarketScarabPrices() {
   state._marketFetchBusy = true;
   const league = document.getElementById('leagueSelect').value;
   state._priceHistory = getPriceHistoryForLeague(league);
-  state._evHistoryRaw = getEVHistoryForLeague(league) || [];
+  const cachedEvHistory = getEVHistoryForLeague(league);
+  if (Array.isArray(cachedEvHistory) && cachedEvHistory.length > 0) {
+    state._evHistoryRaw = cachedEvHistory;
+    renderEVChart(cachedEvHistory);
+  } else {
+    state._evHistoryRaw = null;
+  }
   fetchAndRenderEVChart();
   fetchAndRenderAtlasTrendPreview();
   fetchObservedWeights();
