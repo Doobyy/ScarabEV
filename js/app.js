@@ -525,27 +525,72 @@ function computeLoopVendorRate(threshold) {
 async function fetchPriceHistory() {
   if (!WORKER_URL) return;
   try {
-    const league = document.getElementById('leagueSelect')?.value || 'Mirage';
+    const league = getSelectedLeagueKey();
     const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=PriceHistory`, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     if (data.prices && Object.keys(data.prices).length > 0) {
       const incoming = data.prices;
-      const current = state._priceHistory && typeof state._priceHistory === 'object' ? state._priceHistory : {};
-      const merged = { ...current };
-      for (const [name, nextSeriesRaw] of Object.entries(incoming)) {
-        const nextSeries = Array.isArray(nextSeriesRaw) ? nextSeriesRaw : [];
-        const prevSeries = Array.isArray(current[name]) ? current[name] : [];
-        // Guard against regressions: keep whichever source has deeper history.
-        // This prevents a thin history payload from downgrading richer sparkline data.
-        merged[name] = nextSeries.length >= prevSeries.length ? nextSeries : prevSeries;
-      }
-      state._priceHistory = merged;
+      const current = getPriceHistoryForLeague(league);
+      const merged = mergePriceHistoryByDepth(current, incoming);
+      setPriceHistoryForLeague(league, merged);
       if (state.ninjaLoaded) renderVendorTable();
       if (Array.isArray(state._evHistoryRaw)) renderEVChart(state._evHistoryRaw);
       if (Array.isArray(state._atlasTrendHistoryRaw)) renderAtlasTrendPreview(state._atlasTrendHistoryRaw);
     }
   } catch(e) { /* silent */ }
+}
+
+function getSelectedLeagueKey() {
+  const selected = String(document.getElementById('leagueSelect')?.value || '').trim();
+  return selected || 'Mirage';
+}
+
+function ensurePriceHistoryByLeagueCache() {
+  if (!state._priceHistoryByLeague || typeof state._priceHistoryByLeague !== 'object') {
+    // Keep sparkline history in per-league buckets to prevent stale cross-league bleed-through.
+    state._priceHistoryByLeague = {};
+  }
+  return state._priceHistoryByLeague;
+}
+
+function sanitizePriceHistoryMap(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  for (const [name, seriesRaw] of Object.entries(raw)) {
+    out[name] = Array.isArray(seriesRaw) ? seriesRaw : [];
+  }
+  return out;
+}
+
+function getPriceHistoryForLeague(leagueKey) {
+  const cache = ensurePriceHistoryByLeagueCache();
+  const key = String(leagueKey || '').trim() || 'Mirage';
+  const bucket = sanitizePriceHistoryMap(cache[key]);
+  cache[key] = bucket;
+  return bucket;
+}
+
+function setPriceHistoryForLeague(leagueKey, historyMap) {
+  const cache = ensurePriceHistoryByLeagueCache();
+  const key = String(leagueKey || '').trim() || 'Mirage';
+  const next = sanitizePriceHistoryMap(historyMap);
+  cache[key] = next;
+  if (getSelectedLeagueKey() === key) state._priceHistory = next;
+  return next;
+}
+
+function mergePriceHistoryByDepth(currentMap, incomingMap) {
+  const current = sanitizePriceHistoryMap(currentMap);
+  const incoming = sanitizePriceHistoryMap(incomingMap);
+  const merged = { ...current };
+  for (const [name, nextSeriesRaw] of Object.entries(incoming)) {
+    const nextSeries = Array.isArray(nextSeriesRaw) ? nextSeriesRaw : [];
+    const prevSeries = Array.isArray(current[name]) ? current[name] : [];
+    // Same-league guard: keep whichever source has deeper history.
+    merged[name] = nextSeries.length >= prevSeries.length ? nextSeries : prevSeries;
+  }
+  return merged;
 }
 
 function toLocalDateKey(dateInput = new Date()) {
@@ -558,7 +603,8 @@ function toLocalDateKey(dateInput = new Date()) {
 }
 
 function getFinalSparklineSeries(scarabName) {
-  const hist = state._priceHistory[scarabName];
+  const leagueHistory = getPriceHistoryForLeague(getSelectedLeagueKey());
+  const hist = leagueHistory[scarabName];
   let workingHist = hist ? [...hist] : [];
 
   // Inject current live ninja price as the final point used for rendering/trend.
@@ -999,6 +1045,7 @@ async function fetchMarketScarabPrices() {
   }
   state._marketFetchBusy = true;
   const league = document.getElementById('leagueSelect').value;
+  state._priceHistory = getPriceHistoryForLeague(league);
   fetchAndRenderAtlasTrendPreview();
   fetchObservedWeights();
   const status = document.getElementById('ninjaStatus');
@@ -1183,7 +1230,9 @@ async function fetchMarketScarabPrices() {
             const parsed = parseWorkerResponse(data);
             const { rawPrices, rawImages } = parsed;
             if (parsed.priceHistory && Object.keys(parsed.priceHistory).length > 0) {
-              state._priceHistory = parsed.priceHistory;
+              const currentPriceHistory = getPriceHistoryForLeague(league);
+              const mergedPriceHistory = mergePriceHistoryByDepth(currentPriceHistory, parsed.priceHistory);
+              setPriceHistoryForLeague(league, mergedPriceHistory);
             }
             if (parsed.priceTotalChange && Object.keys(parsed.priceTotalChange).length > 0) {
               state._priceTotalChange = parsed.priceTotalChange;
@@ -1240,7 +1289,9 @@ async function fetchMarketScarabPrices() {
     }
     if (storedSnapshot && workerAttempted && !workerOkParsed) {
       if (storedSnapshot.priceHistory && typeof storedSnapshot.priceHistory === 'object' && Object.keys(storedSnapshot.priceHistory).length > 0) {
-        state._priceHistory = storedSnapshot.priceHistory;
+        const currentPriceHistory = getPriceHistoryForLeague(league);
+        const mergedPriceHistory = mergePriceHistoryByDepth(currentPriceHistory, storedSnapshot.priceHistory);
+        setPriceHistoryForLeague(league, mergedPriceHistory);
       }
       if (storedSnapshot.priceTotalChange && typeof storedSnapshot.priceTotalChange === 'object' && Object.keys(storedSnapshot.priceTotalChange).length > 0) {
         state._priceTotalChange = storedSnapshot.priceTotalChange;
