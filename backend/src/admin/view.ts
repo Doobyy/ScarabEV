@@ -1,7 +1,7 @@
 export function buildAdminMarkup(): string {
   return String.raw`
 <header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><div><div class="title">ScarabEV Admin Plane <span id="envBadge" class="badge warn hidden" style="margin-left:8px">STAGING</span></div><div id="panelTitle" class="sub">Scarab Manager | Control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
-<section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" autocomplete="username" placeholder="Username"/><input id="password" type="password" autocomplete="current-password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
+<section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" autocomplete="username" placeholder="Username"/><input id="password" type="password" autocomplete="current-password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button" onclick="if(typeof login==='function'){login();}else{const n=document.getElementById('authStatus');if(n){n.className='status err';n.textContent='Login handler unavailable. Hard refresh and retry.';}}">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
 <section id="app" class="shell hidden">
   <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navFailures" class="navbtn" type="button" data-panel="failures">Failure Logs</button><button id="navBulkTools" class="navbtn" type="button" data-panel="bulktools">Bulk Tools</button><button id="navDocumentation" class="navbtn" type="button" data-panel="docs">Documentation</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button></aside>
   <div id="navBackdrop" class="nav-backdrop"></div>
@@ -265,6 +265,13 @@ export function buildAdminMarkup(): string {
       <div class="card docs-shell">
         <div class="h">Documentation</div>
         <div class="sub">Internal end-to-end technical manual for operating, troubleshooting, and modifying ScarabEV safely.</div>
+        <div class="docs-doctabs" role="tablist" aria-label="Documentation sections">
+          <button id="docsTabBible" class="docs-doctab active" type="button" data-doc-book="project-bible" role="tab" aria-selected="true">Project Bible</button>
+          <button id="docsTabCurriculum" class="docs-doctab" type="button" data-doc-book="owner-curriculum" role="tab" aria-selected="false">Owner Curriculum</button>
+          <button id="docsTabPracticeLab" class="docs-doctab" type="button" data-doc-book="practice-lab" role="tab" aria-selected="false">Practice Lab</button>
+          <button id="docsTabKnowledgeChecks" class="docs-doctab" type="button" data-doc-book="knowledge-checks" role="tab" aria-selected="false">Knowledge Checks</button>
+          <button id="docsTabMentoredWorkshops" class="docs-doctab" type="button" data-doc-book="mentored-workshops" role="tab" aria-selected="false">Mentored Workshops</button>
+        </div>
         <div class="docs-toolbar">
           <input id="docsSearchInput" placeholder="Search docs (endpoints, files, runbooks, tokens, backups...)" />
           <button id="docsSearchClearBtn" class="btn ghost" type="button">Clear</button>
