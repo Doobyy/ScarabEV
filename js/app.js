@@ -615,6 +615,22 @@ function setEVHistoryForLeague(leagueKey, history) {
   return next;
 }
 
+function setEVChartStatusMessage(message) {
+  const meta = document.getElementById('evChartMeta');
+  if (meta) meta.innerHTML = `<span style="color:var(--text-3)">${String(message || '').trim()}</span>`;
+}
+
+function clearEVChartForSelectedLeague(message) {
+  if (state._evChartInstance) {
+    state._evChartInstance.destroy();
+    state._evChartInstance = null;
+  }
+  const canvas = document.getElementById('evHistoryChart');
+  const ctx = canvas && typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null;
+  if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setEVChartStatusMessage(message);
+}
+
 function toLocalDateKey(dateInput = new Date()) {
   const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
@@ -1074,6 +1090,7 @@ async function fetchMarketScarabPrices() {
     renderEVChart(cachedEvHistory);
   } else {
     state._evHistoryRaw = null;
+    clearEVChartForSelectedLeague(`Loading ${league} threshold history...`);
   }
   fetchAndRenderEVChart();
   fetchAndRenderAtlasTrendPreview();
@@ -2511,29 +2528,30 @@ async function fetchAndRenderEVChart() {
   const requestId = (Number(state._evChartFetchSeq) || 0) + 1;
   state._evChartFetchSeq = requestId;
   const league = getSelectedLeagueKey();
-  if (!WORKER_URL) return;
+  if (!WORKER_URL) {
+    clearEVChartForSelectedLeague(`EV history endpoint is not configured for ${league}.`);
+    return;
+  }
   try {
     const res = await fetch(`${WORKER_URL}?type=EVHistory&league=${encodeURIComponent(league)}`, { cache: 'no-store' });
     if (requestId !== state._evChartFetchSeq) return;
-    if (!res.ok) return;
+    if (!res.ok) {
+      clearEVChartForSelectedLeague(`Could not load ${league} threshold history.`);
+      return;
+    }
     const data = await res.json();
     if (requestId !== state._evChartFetchSeq) return;
     const history = Array.isArray(data?.history) ? data.history : [];
     setEVHistoryForLeague(league, history);
     if (!history.length) {
-      const demo = [];
-      const evValues = [0.44,0.43,0.42,0.44,0.45,0.43,0.41,0.40,0.42,0.41,0.39,0.38,0.40,0.41,0.42,0.43,0.41,0.40,0.39,0.41,0.42,0.40,0.39,0.38,0.40,0.41,0.39,0.38,0.37,0.39];
-      const now = new Date();
-      for (let i = evValues.length - 1; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        demo.push({ date: toLocalDateKey(d), ev: evValues[evValues.length - 1 - i], demo: true });
-      }
-      renderEVChart(demo);
+      clearEVChartForSelectedLeague(`No threshold history snapshots yet for ${league}.`);
       return;
     }
     renderEVChart(history);
-  } catch(e) { /* silent */ }
+  } catch(e) {
+    if (requestId !== state._evChartFetchSeq) return;
+    clearEVChartForSelectedLeague(`Could not load ${league} threshold history.`);
+  }
 }
 
 function calcAtlasEVFromPriceMap(weights, priceByName, blockedGroups, boostedGroups) {
