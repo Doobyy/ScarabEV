@@ -18,6 +18,7 @@ const REQUIRED_SNAPSHOT_WRITES = ["ev", "atlas", "price"];
 const FAILURE_LOG_PREFIX = `${CACHE_PREFIX}:failure-log`;
 const FAILURE_LOG_RETENTION_DAYS = 30;
 const FAILURE_LOG_MAX_EVENTS_PER_DAY = 500;
+const SNAPSHOT_HISTORY_RETENTION_DAYS = 90;
 const PRICE_HISTORY_GUARD_MIN_DAYS = 5;
 const PRICE_HISTORY_GUARD_FLOOR_DAYS = 3;
 const BACKUP_SCOPE_PREFIXES = {
@@ -1430,7 +1431,7 @@ async function snapshotLeagueForDate(env, league, today) {
     else evHistory.push(evEntry);
 
     const evCutoff = new Date();
-    evCutoff.setDate(evCutoff.getDate() - 90);
+    evCutoff.setDate(evCutoff.getDate() - SNAPSHOT_HISTORY_RETENTION_DAYS);
     const evCutoffStr = evCutoff.toISOString().slice(0, 10);
     let nextEvHistory = evHistory.filter((e) => e.date >= evCutoffStr);
 
@@ -1445,7 +1446,7 @@ async function snapshotLeagueForDate(env, league, today) {
     if (atlasIdx >= 0) atlasHistory[atlasIdx] = { ...atlasHistory[atlasIdx], ...atlasEntry };
     else atlasHistory.push(atlasEntry);
     const atlasCutoff = new Date();
-    atlasCutoff.setDate(atlasCutoff.getDate() - 90);
+    atlasCutoff.setDate(atlasCutoff.getDate() - SNAPSHOT_HISTORY_RETENTION_DAYS);
     const atlasCutoffStr = atlasCutoff.toISOString().slice(0, 10);
     const nextAtlasHistory = atlasHistory.filter((e) => e.date >= atlasCutoffStr);
 
@@ -1460,7 +1461,7 @@ async function snapshotLeagueForDate(env, league, today) {
     const backfillFallback = await getPriceHistoryBackfillFallbackState(env);
     const backfillFallbackActive = !!backfillFallback?.enabled;
     const priceCutoff = new Date();
-    priceCutoff.setDate(priceCutoff.getDate() - 7);
+    priceCutoff.setDate(priceCutoff.getDate() - SNAPSHOT_HISTORY_RETENTION_DAYS);
     const priceCutoffStr = priceCutoff.toISOString().slice(0, 10);
 
     for (const line of data.lines) {

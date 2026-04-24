@@ -46,6 +46,7 @@ const _SCARAB_STOP = new Set(['scarab','of','the','a','an']);
 const DAILY_SNAPSHOT_UTC_HOUR = 18;
 const EV_CHART_RANGE_STORAGE_KEY = 'poepool28v2-ev-chart-range';
 const ATLAS_TREND_RANGE_STORAGE_KEY = 'poepool28v2-atlas-trend-range';
+const SPARKLINE_TREND_WINDOW_DAYS = 7;
 const EV_CHART_RANGE_TO_DAYS = Object.freeze({
   '7d': 7,
   '30d': 30,
@@ -656,7 +657,9 @@ function getFinalSparklineSeries(scarabName) {
     }
   }
 
-  return [...workingHist].sort((a, b) => a.date.localeCompare(b.date));
+  return [...workingHist]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-SPARKLINE_TREND_WINDOW_DAYS);
 }
 
 function getSeriesTrendPercent(series) {
