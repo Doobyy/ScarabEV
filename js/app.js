@@ -343,8 +343,11 @@ function readCurrentLeagueSharePct(src) {
 
   // Deterministic derivation from aggregate weight metadata.
   const mode = String(src.mode || '').toLowerCase();
+  const targetKind = String(src.targetKind || '').toLowerCase();
+  const supportsWeighted = !!src.supportsWeighted;
+  if (targetKind === 'standard' && supportsWeighted) return 100;
   if (mode === 'challenge-current-only') return 100;
-  if (mode === 'challenge-prior-fallback' || mode === 'standard-prior-challenge') return 0;
+  if (mode === 'challenge-prior-fallback') return 0;
 
   const alpha = toFiniteNumber(src.alphaGlobal);
   if (alpha != null) {
