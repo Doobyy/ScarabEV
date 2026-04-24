@@ -1084,6 +1084,9 @@ async function fetchMarketScarabPrices() {
           state._calibratedRate = null;
         }
       }
+      // Re-apply recommended EV mode after prices arrive so initial-load races
+      // do not leave the UI stuck on harmonic when weighted is now ready.
+      applyRecommendedEVMode();
 
       // Check atlas revisit warning now that prices are live
       atlasCheckRevisitWarning();
