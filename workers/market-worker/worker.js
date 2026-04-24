@@ -1483,13 +1483,14 @@ async function snapshotLeagueForDate(env, league, today) {
     }
     const nextPriceHistory = priceHistory;
 
-    const nextDistinctDays = countPriceHistoryDistinctDays(nextPriceHistory);
+    const previousDistinctDaysWithinCutoff = countPriceHistoryDistinctDays(previousPriceHistory, priceCutoffStr);
+    const nextDistinctDaysWithinCutoff = countPriceHistoryDistinctDays(nextPriceHistory, priceCutoffStr);
     const shrinkGuardFloor = Math.max(
       PRICE_HISTORY_GUARD_FLOOR_DAYS,
-      previousDistinctDays - 3
+      previousDistinctDaysWithinCutoff - 3
     );
-    const suspiciousShrink = previousDistinctDays >= PRICE_HISTORY_GUARD_MIN_DAYS
-      && nextDistinctDays < shrinkGuardFloor;
+    const suspiciousShrink = previousDistinctDaysWithinCutoff >= PRICE_HISTORY_GUARD_MIN_DAYS
+      && nextDistinctDaysWithinCutoff < shrinkGuardFloor;
     if (suspiciousShrink) {
       await markIncidentFailed(env, "snapshot_league", {
         message: "Snapshot failed: price history shrink guard triggered.",
@@ -1669,14 +1670,17 @@ function formatDateKeyUtc(date) {
   return `${y}-${m}-${d}`;
 }
 
-function countPriceHistoryDistinctDays(history) {
+function countPriceHistoryDistinctDays(history, minDateInclusive = "") {
   if (!history || typeof history !== "object") return 0;
+  const minDate = String(minDateInclusive || "");
   const dates = new Set();
   for (const seriesRaw of Object.values(history)) {
     const series = Array.isArray(seriesRaw) ? seriesRaw : [];
     for (const entry of series) {
       const date = String(entry?.date || "");
-      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) dates.add(date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (minDate && date < minDate) continue;
+      dates.add(date);
     }
   }
   return dates.size;
