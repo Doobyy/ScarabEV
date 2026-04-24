@@ -26,7 +26,8 @@ import {
   ATLAS_SAVE_KEY,
   BACKEND_TOKEN_SET_URL,
   BACKEND_SCARAB_METADATA_URL,
-  BACKEND_ADMIN_UI_URL
+  BACKEND_ADMIN_UI_URL,
+  FRONTEND_ENVIRONMENT
 } from './config.js';
 
 {
@@ -1775,11 +1776,12 @@ function updateSliderROI(threshold) {
   const avgInput = vendorPrices.length
     ? vendorPrices.reduce((s, p) => s + p, 0) / vendorPrices.length
     : 0;
-  // Keep ROI model-consistent with the active EV mode:
-  // harmonic mode uses harmonic return baseline, weighted mode uses calibrated weighted return.
-  const returnPerInput = weightedMode && state._calibratedRate !== null
-    ? state._calibratedRate
-    : autoEV;
+  // ROI source is 2-state by recommendation maturity:
+  // - recommended harmonic: harmonic mode uses harmonic ROI, weighted mode uses weighted ROI.
+  // - recommended weighted: both modes evaluate ROI from weighted source.
+  const useWeightedRoiSource = state._calibratedRate !== null
+    && (weightedMode || recommendedMode === 'weighted');
+  const returnPerInput = useWeightedRoiSource ? state._calibratedRate : autoEV;
   const estROI = avgInput > 0 ? Math.round((returnPerInput - avgInput) / avgInput * 100) : 0;
 
   if (roiEl) {
@@ -5790,7 +5792,27 @@ function parseChangelog(md) {
   return html;
 }
 
+function applyEnvironmentBadge() {
+  if (String(FRONTEND_ENVIRONMENT || '').toLowerCase() !== 'staging') return;
+  const badge = document.createElement('div');
+  badge.id = 'env-staging-badge';
+  badge.textContent = 'STAGING';
+  badge.style.position = 'fixed';
+  badge.style.right = '12px';
+  badge.style.bottom = '12px';
+  badge.style.zIndex = '99999';
+  badge.style.padding = '6px 10px';
+  badge.style.borderRadius = '999px';
+  badge.style.border = '1px solid rgba(255, 204, 0, 0.65)';
+  badge.style.background = 'rgba(20, 26, 38, 0.88)';
+  badge.style.color = '#ffcc00';
+  badge.style.font = '700 12px/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+  badge.style.letterSpacing = '0.08em';
+  document.body.appendChild(badge);
+}
+
 atlasLoad();    // restore saved atlas config before any rendering
+applyEnvironmentBadge();
 updateDailySnapshotCopy();
 (async () => {
   await Promise.allSettled([
