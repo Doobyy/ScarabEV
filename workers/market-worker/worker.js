@@ -34,6 +34,7 @@ const BACKUP_SMOKE_STATUS_KEY = `${CACHE_PREFIX}:backup-smoke-status`;
 const BACKUP_SMOKE_TEMP_PREFIX = `${CACHE_PREFIX}:backup-smoke-temp`;
 const PRICE_HISTORY_BACKFILL_FALLBACK_KEY = `${CACHE_PREFIX}:price-history-backfill-fallback`;
 const PRICE_HISTORY_BACKFILL_FALLBACK_MAX_MS = 6 * 60 * 60 * 1000;
+const WEIGHTED_HISTORY_GAP_WINDOW_DAYS = 7;
 const BULK_NAME_MAP_KEY = `${CACHE_PREFIX}:bulk-name-map`;
 const BULK_MISMATCH_LOG_KEY = `${CACHE_PREFIX}:bulk-mismatch-log`;
 const BULK_MISMATCH_LOG_MAX = 500;
@@ -815,6 +816,16 @@ async function handleManualRetry(request, url, env, ctx) {
         identifiers: { scope: "global" },
         finalStep: "fallback_disabled"
       });
+    } else if (action === "ev-history-backfill-weighted") {
+      const requestedLeague = String(url.searchParams.get("league") || "Standard").trim() || "Standard";
+      const backfillResult = await backfillStoredWeightedEvHistoryForLeague(env, requestedLeague);
+      return withCors(jsonResponse({
+        ok: true,
+        action,
+        league: requestedLeague,
+        backfillResult,
+        elapsedMs: Math.max(0, Date.now() - startedAt)
+      }));
     } else {
       return errorResponse("invalid_action", `Unsupported action: ${action}`, 400, "manual-retry");
     }
@@ -1421,7 +1432,7 @@ async function snapshotLeagueForDate(env, league, today) {
     const evCutoff = new Date();
     evCutoff.setDate(evCutoff.getDate() - 90);
     const evCutoffStr = evCutoff.toISOString().slice(0, 10);
-    const nextEvHistory = evHistory.filter((e) => e.date >= evCutoffStr);
+    let nextEvHistory = evHistory.filter((e) => e.date >= evCutoffStr);
 
     const atlasStored = await env.EV_HISTORY.get(atlasKey);
     const atlasHistory = atlasStored ? JSON.parse(atlasStored) : [];
@@ -1482,6 +1493,12 @@ async function snapshotLeagueForDate(env, league, today) {
         .filter((e) => e.date >= priceCutoffStr);
     }
     const nextPriceHistory = priceHistory;
+    const weightedRepair = reconcileMissingWeightedEvHistoryEntries(nextEvHistory, nextPriceHistory, weights, {
+      minDateInclusive: evCutoffStr,
+      maxDateInclusive: today,
+      fallbackPriceHistory: previousPriceHistory
+    });
+    nextEvHistory = weightedRepair.history;
 
     const previousDistinctDaysWithinCutoff = countPriceHistoryDistinctDays(previousPriceHistory, priceCutoffStr);
     const nextDistinctDaysWithinCutoff = countPriceHistoryDistinctDays(nextPriceHistory, priceCutoffStr);
@@ -1561,6 +1578,39 @@ async function snapshotLeagueForDate(env, league, today) {
         subsystem: "price-history",
         identifiers: { scope: "global" },
         finalStep: "fallback_inactive_during_snapshot"
+      });
+    }
+    if (weightedRepair.filledDates.length > 0) {
+      await logFailureEvent(env, "ev_history_weighted_backfill_applied", "Weighted EV history was backfilled from stored daily price history.", {
+        league,
+        date: today,
+        filledCount: weightedRepair.filledDates.length,
+        firstFilledDate: weightedRepair.filledDates[0],
+        lastFilledDate: weightedRepair.filledDates[weightedRepair.filledDates.length - 1]
+      }, {
+        severity: "warn"
+      });
+    }
+    const weightedGapDates = getRecentWeightedGapDates(nextEvHistory, today, WEIGHTED_HISTORY_GAP_WINDOW_DAYS);
+    if (weightedGapDates.length > 0) {
+      await markIncidentFailed(env, "snapshot_weighted_history_gap", {
+        message: "Recent weighted EV history has missing points.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        rootError: "weighted_history_gap_recent",
+        status: "degraded",
+        severity: "warn",
+        details: {
+          windowDays: WEIGHTED_HISTORY_GAP_WINDOW_DAYS,
+          missingDates: weightedGapDates
+        }
+      });
+    } else {
+      await markIncidentRecovered(env, "snapshot_weighted_history_gap", {
+        message: "Recent weighted EV history is complete.",
+        subsystem: "daily-snapshot",
+        identifiers: snapshotIdentifiers,
+        finalStep: "recent_weighted_history_complete"
       });
     }
     return {
@@ -1684,6 +1734,168 @@ function countPriceHistoryDistinctDays(history, minDateInclusive = "") {
     }
   }
   return dates.size;
+}
+
+function buildPriceByDateLookup(priceHistory) {
+  const byDate = new Map();
+  if (!priceHistory || typeof priceHistory !== "object") return byDate;
+  for (const [nameRaw, seriesRaw] of Object.entries(priceHistory)) {
+    const name = String(nameRaw || "").trim();
+    if (!name) continue;
+    const series = Array.isArray(seriesRaw) ? seriesRaw : [];
+    for (const entry of series) {
+      const date = String(entry?.date || "");
+      const price = Number(entry?.price);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (!Number.isFinite(price) || price <= 0) continue;
+      let dayMap = byDate.get(date);
+      if (!dayMap) {
+        dayMap = new Map();
+        byDate.set(date, dayMap);
+      }
+      dayMap.set(name, Number(price.toFixed(4)));
+    }
+  }
+  return byDate;
+}
+
+function calcWeightedThresholdEVFromPriceMap(priceByName, weights) {
+  if (!priceByName || typeof priceByName.get !== "function") return null;
+  if (!weights || typeof weights !== "object") return null;
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const [name, wRaw] of Object.entries(weights)) {
+    const w = Number(wRaw);
+    if (!Number.isFinite(w) || w <= 0) continue;
+    const price = Number(priceByName.get(name));
+    if (!Number.isFinite(price) || price <= 0) continue;
+    weightedSum += w * price;
+    totalWeight += w;
+  }
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) return null;
+  const thresholdEv = (weightedSum / totalWeight) / 3;
+  if (!Number.isFinite(thresholdEv) || thresholdEv <= 0) return null;
+  return thresholdEv;
+}
+
+function reconcileMissingWeightedEvHistoryEntries(evHistory, priceHistory, weights, opts = {}) {
+  const minDateInclusive = String(opts?.minDateInclusive || "");
+  const maxDateInclusive = String(opts?.maxDateInclusive || "");
+  const nextHistory = Array.isArray(evHistory) ? evHistory.map((entry) => ({ ...entry })) : [];
+  const priceByDate = buildPriceByDateLookup(priceHistory);
+  const fallbackPriceHistory = opts?.fallbackPriceHistory && typeof opts.fallbackPriceHistory === "object"
+    ? opts.fallbackPriceHistory
+    : null;
+  if (fallbackPriceHistory) {
+    const fallbackLookup = buildPriceByDateLookup(fallbackPriceHistory);
+    for (const [date, fallbackMap] of fallbackLookup.entries()) {
+      let target = priceByDate.get(date);
+      if (!target) {
+        target = new Map();
+        priceByDate.set(date, target);
+      }
+      for (const [name, price] of fallbackMap.entries()) {
+        if (!target.has(name)) target.set(name, price);
+      }
+    }
+  }
+  const filledDates = [];
+
+  for (const entry of nextHistory) {
+    const date = String(entry?.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (minDateInclusive && date < minDateInclusive) continue;
+    if (maxDateInclusive && date > maxDateInclusive) continue;
+    const existing = Number(entry?.weightedEv);
+    if (Number.isFinite(existing) && existing > 0) continue;
+    const priceByName = priceByDate.get(date);
+    if (!priceByName) continue;
+    const repaired = calcWeightedThresholdEVFromPriceMap(priceByName, weights);
+    if (!Number.isFinite(repaired) || repaired <= 0) continue;
+    entry.weightedEv = Number(repaired.toFixed(4));
+    filledDates.push(date);
+  }
+
+  return {
+    history: nextHistory,
+    filledDates
+  };
+}
+
+function getRecentWeightedGapDates(evHistory, todayKey, windowDays = WEIGHTED_HISTORY_GAP_WINDOW_DAYS) {
+  const today = String(todayKey || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) return [];
+  const start = new Date(`${today}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - (Math.max(1, Number(windowDays) || 1) - 1));
+  const startKey = start.toISOString().slice(0, 10);
+
+  const missing = [];
+  const source = Array.isArray(evHistory) ? evHistory : [];
+  for (const entry of source) {
+    const date = String(entry?.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (date < startKey || date > today) continue;
+    const harmonicEv = Number(entry?.harmonicEv ?? entry?.ev);
+    if (!Number.isFinite(harmonicEv) || harmonicEv <= 0) continue;
+    const weightedEv = Number(entry?.weightedEv);
+    if (Number.isFinite(weightedEv) && weightedEv > 0) continue;
+    missing.push(date);
+  }
+  return [...new Set(missing)].sort((a, b) => a.localeCompare(b));
+}
+
+async function backfillStoredWeightedEvHistoryForLeague(env, league) {
+  if (!env?.EV_HISTORY) return { ok: false, error: "kv_not_configured" };
+  const normalizedLeague = String(league || "").trim() || "Standard";
+  const evKey = `ev-history-${normalizedLeague.toLowerCase()}`;
+  const priceKey = `price-history-${normalizedLeague.toLowerCase()}`;
+  const backupKey = `price-history-backup-${normalizedLeague.toLowerCase()}`;
+  const [evRaw, priceRaw, backupRaw] = await Promise.all([
+    env.EV_HISTORY.get(evKey),
+    env.EV_HISTORY.get(priceKey),
+    env.EV_HISTORY.get(backupKey)
+  ]);
+  const evHistory = evRaw ? JSON.parse(evRaw) : [];
+  const priceHistory = priceRaw ? JSON.parse(priceRaw) : {};
+  const backupPayload = backupRaw ? JSON.parse(backupRaw) : null;
+  const backupPriceHistory = backupPayload && typeof backupPayload === "object" && backupPayload.data && typeof backupPayload.data === "object"
+    ? backupPayload.data
+    : null;
+  if (!Array.isArray(evHistory) || !evHistory.length) {
+    return { ok: true, updated: false, reason: "empty_ev_history", filledCount: 0 };
+  }
+  const weightResult = await fetchObservedWeightsForLeague(env, normalizedLeague);
+  const weights = weightResult && weightResult.weights;
+  if (!weights || typeof weights !== "object" || !Object.keys(weights).length) {
+    return {
+      ok: true,
+      updated: false,
+      reason: String(weightResult?.error || "weights_unavailable"),
+      filledCount: 0
+    };
+  }
+  const repaired = reconcileMissingWeightedEvHistoryEntries(evHistory, priceHistory, weights, {
+    fallbackPriceHistory: backupPriceHistory
+  });
+  if (!repaired.filledDates.length) {
+    return { ok: true, updated: false, reason: "no_missing_weighted_entries", filledCount: 0 };
+  }
+  await env.EV_HISTORY.put(evKey, JSON.stringify(repaired.history));
+  await logFailureEvent(env, "ev_history_weighted_backfill_applied", "Manual weighted EV history backfill completed.", {
+    league: normalizedLeague,
+    filledCount: repaired.filledDates.length,
+    firstFilledDate: repaired.filledDates[0],
+    lastFilledDate: repaired.filledDates[repaired.filledDates.length - 1]
+  }, {
+    severity: "warn"
+  });
+  return {
+    ok: true,
+    updated: true,
+    filledCount: repaired.filledDates.length,
+    firstFilledDate: repaired.filledDates[0],
+    lastFilledDate: repaired.filledDates[repaired.filledDates.length - 1]
+  };
 }
 
 async function saveSnapshotRetryState(env, date, failures, retryCount) {
