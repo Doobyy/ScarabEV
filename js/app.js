@@ -2653,12 +2653,19 @@ function renderEVChart(history) {
     }
   }
 
-  const dateSet = new Set([
-    ...harmonicSeries.map(h => h.date),
-    ...weightedSeries.map(h => h.date)
-  ]);
-  let dates = [...dateSet].sort((a, b) => a.localeCompare(b));
-  dates = dates.slice(-windowDays);
+  let chartMode = state._evMode === 'weighted' ? 'weighted' : 'harmonic';
+  let activeSeries = chartMode === 'weighted' ? weightedSeries : harmonicSeries;
+  if (activeSeries.length < 2) {
+    const fallbackMode = chartMode === 'weighted' ? 'harmonic' : 'weighted';
+    const fallbackSeries = fallbackMode === 'weighted' ? weightedSeries : harmonicSeries;
+    if (fallbackSeries.length >= 2) {
+      chartMode = fallbackMode;
+      activeSeries = fallbackSeries;
+    }
+  }
+
+  const dateSet = new Set(activeSeries.map(h => h.date));
+  let dates = [...dateSet].sort((a, b) => a.localeCompare(b)).slice(-windowDays);
 
   const isDemo = dates.length < 2;
   if (isDemo) {
@@ -2675,19 +2682,15 @@ function renderEVChart(history) {
       demo.push({ date: toLocalDateKey(d), ev: Number((base + drift).toFixed(4)), demo: true });
     }
     dates = demo.map(d => d.date);
-    harmonicSeries = demo.map(d => ({ date: d.date, ev: d.ev }));
-    weightedSeries = demo.map(d => ({ date: d.date, ev: Number((d.ev * 1.03).toFixed(4)) }));
+    activeSeries = chartMode === 'weighted'
+      ? demo.map(d => ({ date: d.date, ev: Number((d.ev * 1.03).toFixed(4)) }))
+      : demo.map(d => ({ date: d.date, ev: d.ev }));
   }
 
   const labels = dates.map(date => formatDateLabel(date));
-  const harmonicByDate = new Map(harmonicSeries.map(h => [h.date, h.ev]));
-  const weightedByDate = new Map(weightedSeries.map(h => [h.date, h.ev]));
-  const harmonicValues = dates.map(date => harmonicByDate.has(date) ? Number(harmonicByDate.get(date)) : null);
-  const weightedValues = dates.map(date => weightedByDate.has(date) ? Number(weightedByDate.get(date)) : null);
-
-  const harmonicNonNull = harmonicValues.filter(v => v !== null && Number.isFinite(v)).map(v => Number(v));
-  const weightedNonNull = weightedValues.filter(v => v !== null && Number.isFinite(v)).map(v => Number(v));
-  const allY = [...harmonicNonNull, ...weightedNonNull];
+  const activeByDate = new Map(activeSeries.map(h => [h.date, h.ev]));
+  const activeValues = dates.map(date => activeByDate.has(date) ? Number(activeByDate.get(date)) : null);
+  const activeNonNull = activeValues.filter(v => v !== null && Number.isFinite(v)).map(v => Number(v));
   const niceNum = (range, round) => {
     const safeRange = Math.max(Math.abs(Number(range) || 0), 1e-9);
     const exponent = Math.floor(Math.log10(safeRange));
@@ -2730,10 +2733,11 @@ function renderEVChart(history) {
       max: Number(niceMax.toFixed(6))
     };
   };
-  const yAxis = buildNiceAxis(allY, 6);
+  const yAxis = buildNiceAxis(activeNonNull, 6);
+  const modeLabel = chartMode === 'weighted' ? 'weighted' : 'harmonic';
   document.getElementById('evChartMeta').innerHTML = isDemo
     ? `<span style="color:var(--amber)">demo data \u2014 next real snapshot at ${getDailySnapshotLocalTimeLabel()}</span>`
-    : '';
+    : `<span style="color:var(--text-3)">showing ${modeLabel} threshold</span>`;
 
   const cs = getComputedStyle(document.documentElement);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -2759,16 +2763,19 @@ function renderEVChart(history) {
     data: {
       labels,
       datasets: [{
-        label: 'Harmonic',
-        data: harmonicValues,
-        borderColor: harmonicColor,
+        label: chartMode === 'weighted' ? 'Weighted' : 'Harmonic',
+        data: activeValues,
+        borderColor: chartMode === 'weighted' ? weightedColor : harmonicColor,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const area = chart?.chartArea;
-          if (!area) return colorWithAlpha(harmonicColor, harmonicFillFallbackAlpha);
+          const color = chartMode === 'weighted' ? weightedColor : harmonicColor;
+          const topAlpha = chartMode === 'weighted' ? weightedFillTopAlpha : harmonicFillTopAlpha;
+          const fallbackAlpha = chartMode === 'weighted' ? weightedFillFallbackAlpha : harmonicFillFallbackAlpha;
+          if (!area) return colorWithAlpha(color, fallbackAlpha);
           const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-          gradient.addColorStop(0, colorWithAlpha(harmonicColor, harmonicFillTopAlpha));
-          gradient.addColorStop(1, colorWithAlpha(harmonicColor, 0.0));
+          gradient.addColorStop(0, colorWithAlpha(color, topAlpha));
+          gradient.addColorStop(1, colorWithAlpha(color, 0.0));
           return gradient;
         },
         fill: true,
@@ -2776,27 +2783,7 @@ function renderEVChart(history) {
         spanGaps: true,
         pointRadius: dates.length <= 14 ? 3 : 0,
         pointHoverRadius: 3,
-        pointBackgroundColor: harmonicColor,
-        borderWidth: 1.5,
-      }, {
-        label: 'Weighted',
-        data: weightedValues,
-        borderColor: weightedColor,
-        backgroundColor: (ctx) => {
-          const chart = ctx.chart;
-          const area = chart?.chartArea;
-          if (!area) return colorWithAlpha(weightedColor, weightedFillFallbackAlpha);
-          const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-          gradient.addColorStop(0, colorWithAlpha(weightedColor, weightedFillTopAlpha));
-          gradient.addColorStop(1, colorWithAlpha(weightedColor, 0.0));
-          return gradient;
-        },
-        fill: true,
-        tension: 0.3,
-        spanGaps: true,
-        pointRadius: dates.length <= 14 ? 3 : 0,
-        pointHoverRadius: 3,
-        pointBackgroundColor: weightedColor,
+        pointBackgroundColor: chartMode === 'weighted' ? weightedColor : harmonicColor,
         borderWidth: 1.5,
       }]
     },
