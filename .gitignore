@@ -32,3 +32,10 @@ workers/scarabev-api/.dev.vars
 scripts/intake-pipeline-combined-sensitivity.mjs
 scripts/intake-tolerance-sensitivity.mjs
 scripts/validate-canonical-seeding.mjs
+
+# Local-only development/runtime trees (GitHub repo is frontend host surface)
+backend/
+workers/
+tests/
+scripts/
+.github/workflows/
