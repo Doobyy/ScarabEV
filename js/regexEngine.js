@@ -4,10 +4,10 @@
 // Keeps regex behavior reusable and UI-agnostic.
 // Does not touch DOM, clipboard, or rendering code.
 
-let POE_RE_TOKENS;
+let SCARAB_TOKENS;
 
 export function configureRegexEngine(deps) {
-  POE_RE_TOKENS = deps.POE_RE_TOKENS;
+  SCARAB_TOKENS = deps.SCARAB_TOKENS;
 }
 
 export function buildRegex(vendorNames) {
@@ -15,7 +15,7 @@ export function buildRegex(vendorNames) {
   const uncovered = [];
 
   for (const name of vendorNames) {
-    const tok = POE_RE_TOKENS[name];
+    const tok = SCARAB_TOKENS[name];
     if (tok) {
       tokens.push(tok);
     } else {
@@ -43,7 +43,7 @@ export function buildRegex(vendorNames) {
 // Build reverse token map: token -> scarab name
 export function buildReverseTokenMap() {
   const map = {};
-  for (const [name, token] of Object.entries(POE_RE_TOKENS)) {
+  for (const [name, token] of Object.entries(SCARAB_TOKENS || {})) {
     map[token.toLowerCase()] = name;
   }
   return map;
@@ -73,7 +73,7 @@ export function parseRegexToScarabs(regexStr) {
   }
 
   const matchedUniqueCount = new Set(matched).size;
-  const totalScarabTypes = Object.keys(POE_RE_TOKENS || {}).length;
+  const totalScarabTypes = Object.keys(SCARAB_TOKENS || {}).length;
   const identifiedCount = is_inverted
     ? Math.max(0, totalScarabTypes - matchedUniqueCount)
     : matchedUniqueCount;

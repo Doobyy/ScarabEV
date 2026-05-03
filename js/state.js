@@ -5,6 +5,9 @@
 // Does not perform rendering, fetching, or calculations.
 
 export const state = {
+  // Runtime scarab catalog hydrated from backend tokens.
+  scarabList: [],
+
   // Price / threshold
   ninjaEvOverride: null,
 
@@ -32,7 +35,6 @@ export const state = {
 
   // UI view state
   collapsedVendorGroups: new Set(),
-  groupOrderMode: 'ingame',      // 'ingame' | 'alpha'
   vendorViewMode: 'all',
   currentTab: 'ninja',
   vendorSortMode: null,         // null = grouped, 'chaosPerUnit-asc', 'chaosPerUnit-desc', etc.

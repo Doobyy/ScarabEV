@@ -1,166 +1,10 @@
-﻿// Static frontend configuration and constant datasets.
+// Static frontend configuration and constant datasets.
 // Owns immutable values: lists, maps, ordering, and endpoints.
 // Serves as a single source of truth shared across frontend modules.
 // Prevents duplication of large static data in runtime files.
 // Does not hold mutable state or execute app flow logic.
 
 
-export const CDN = 'https://web.poecdn.com/image/Art/2DItems/Currency/Scarabs/';
-
-export const SCARAB_LIST = [
-  // CARTOGRAPHY
-  { name:"Cartography Scarab of Escalation", group:"Cartography", icon:"LesserScarabMaps.webp" },
-  { name:"Cartography Scarab of Risk", group:"Cartography", icon:"NormalScarabMaps.webp" },
-  { name:"Cartography Scarab of Corruption", group:"Cartography", icon:"GreaterScarabMaps.webp" },
-  { name:"Cartography Scarab of the Multitude", group:"Cartography", icon:"AltNormalScarabMaps.webp" },
-  // DIVINATION
-  { name:"Divination Scarab of The Cloister", group:"Divination", icon:"LesserScarabDivination.webp" },
-  { name:"Divination Scarab of Plenty", group:"Divination", icon:"NormalScarabDivination.webp" },
-  { name:"Divination Scarab of Pilfering", group:"Divination", icon:"GreaterScarabDivination.webp" },
-  // BESTIARY
-  { name:"Bestiary Scarab", group:"Bestiary", icon:"LesserScarabBeasts.webp" },
-  { name:"Bestiary Scarab of the Herd", group:"Bestiary", icon:"NormalScarabBeasts.webp" },
-  { name:"Bestiary Scarab of Duplicating", group:"Bestiary", icon:"GreaterScarabBeasts.webp" },
-  // BETRAYAL
-  { name:"Betrayal Scarab", group:"Betrayal", icon:"LesserScarabBetrayal.webp" },
-  { name:"Betrayal Scarab of the Allflame", group:"Betrayal", icon:"NormalScarabBetrayal.webp" },
-  { name:"Betrayal Scarab of Reinforcements", group:"Betrayal", icon:"GreaterScarabBetrayal.webp" },
-  { name:"Betrayal Scarab of Unbreaking", group:"Betrayal", icon:"Tier4ScarabBetrayal.webp", isNew:true },
-  // INCURSION
-  { name:"Incursion Scarab", group:"Incursion", icon:"LesserScarabIncursion.webp" },
-  { name:"Incursion Scarab of Invasion", group:"Incursion", icon:"NormalScarabIncursion.webp" },
-  { name:"Incursion Scarab of Champions", group:"Incursion", icon:"GreaterScarabIncursion.webp" },
-  { name:"Incursion Scarab of Timelines", group:"Incursion", icon:"Tier4ScarabIncursion.webp" },
-  // SULPHITE
-  { name:"Sulphite Scarab", group:"Sulphite", icon:"LesserScarabSulphite.webp" },
-  { name:"Sulphite Scarab of Fumes", group:"Sulphite", icon:"GreaterScarabSulphite.webp" },
-  // AMBUSH
-  { name:"Ambush Scarab", group:"Ambush", icon:"LesserScarabStrongboxes.webp" },
-  { name:"Ambush Scarab of Hidden Compartments", group:"Ambush", icon:"NormalScarabStrongboxes.webp" },
-  { name:"Ambush Scarab of Potency", group:"Ambush", icon:"GreaterScarabStrongboxes.webp" },
-  { name:"Ambush Scarab of Discernment", group:"Ambush", icon:"AltTier4ScarabStrongboxes.webp" },
-  { name:"Ambush Scarab of Containment", group:"Ambush", icon:"Tier4ScarabStrongboxes.webp" },
-  // ANARCHY
-  { name:"Anarchy Scarab", group:"Anarchy", icon:"LesserScarabAnarchy.webp" },
-  { name:"Anarchy Scarab of Gigantification", group:"Anarchy", icon:"NormalScarabAnarchy.webp" },
-  { name:"Anarchy Scarab of Partnership", group:"Anarchy", icon:"GreaterScarabAnarchy.webp" },
-  { name:"Anarchy Scarab of the Exceptional", group:"Anarchy", icon:"GreaterScarabAnarchy.webp", isNew:true },
-  // BEYOND
-  { name:"Beyond Scarab", group:"Beyond", icon:"LesserScarabBeyond.webp" },
-  { name:"Beyond Scarab of Haemophilia", group:"Beyond", icon:"NormalScarabBeyond.webp" },
-  { name:"Beyond Scarab of Resurgence", group:"Beyond", icon:"AltGreaterScarabBeyond.webp" },
-  { name:"Beyond Scarab of the Invasion", group:"Beyond", icon:"Tier4ScarabBeyond.webp" },
-  // DOMINATION
-  { name:"Domination Scarab", group:"Domination", icon:"LesserScarabDomination.webp" },
-  { name:"Domination Scarab of Apparitions", group:"Domination", icon:"NormalScarabDomination.webp" },
-  { name:"Domination Scarab of Evolution", group:"Domination", icon:"GreaterScarabDomination.webp" },
-  { name:"Domination Scarab of Terrors", group:"Domination", icon:"Tier4ScarabDomination.webp" },
-  // ESSENCE
-  { name:"Essence Scarab", group:"Essence", icon:"LesserScarabEssence.webp" },
-  { name:"Essence Scarab of Ascent", group:"Essence", icon:"NormalScarabEssence.webp" },
-  { name:"Essence Scarab of Stability", group:"Essence", icon:"GreaterScarabEssence.webp" },
-  { name:"Essence Scarab of Calcification", group:"Essence", icon:"Tier4ScarabEssence.webp" },
-  { name:"Essence Scarab of Adaptation", group:"Essence", icon:"AltTier4ScarabEssence.webp" },
-  // TORMENT
-  { name:"Torment Scarab", group:"Torment", icon:"LesserScarabTorment.webp" },
-  { name:"Torment Scarab of Peculiarity", group:"Torment", icon:"NormalScarabTorment.webp" },
-  { name:"Torment Scarab of Possession", group:"Torment", icon:"Tier4ScarabTorment.webp" },
-  // INFLUENCING
-  { name:"Influencing Scarab of the Shaper", group:"Influencing", icon:"LesserScarabShaper.webp" },
-  { name:"Influencing Scarab of the Elder", group:"Influencing", icon:"LesserScarabElder.webp" },
-  { name:"Influencing Scarab of Hordes", group:"Influencing", icon:"GreaterScarabElder.webp" },
-  { name:"Influencing Scarab of Interference", group:"Influencing", icon:"Tier4ScarabShaper.webp" },
-  // TITANIC
-  { name:"Titanic Scarab", group:"Titanic", icon:"LesserScarabUnique.webp" },
-  { name:"Titanic Scarab of Treasures", group:"Titanic", icon:"NormalScarabUnique.webp" },
-  { name:"Titanic Scarab of Legend", group:"Titanic", icon:"GreaterScarabUnique.webp" },
-  // ABYSS
-  { name:"Abyss Scarab", group:"Abyss", icon:"LesserScarabAbyss.webp" },
-  { name:"Abyss Scarab of Multitudes", group:"Abyss", icon:"NormalScarabAbyss.webp" },
-  { name:"Abyss Scarab of Edifice", group:"Abyss", icon:"GreaterScarabAbyss.webp" },
-  { name:"Abyss Scarab of Profound Depth", group:"Abyss", icon:"AltTier4ScarabAbyss.webp" },
-  { name:"Abyss Scarab of Descending", group:"Abyss", icon:"AltNormalScarabAbyss.webp" },
-  // BLIGHT
-  { name:"Blight Scarab", group:"Blight", icon:"LesserScarabBlight.webp" },
-  { name:"Blight Scarab of the Blightheart", group:"Blight", icon:"GreaterScarabBlight.webp" },
-  { name:"Blight Scarab of Blooming", group:"Blight", icon:"Tier4ScarabBlight.webp" },
-  { name:"Blight Scarab of Invigoration", group:"Blight", icon:"AltTier4ScarabBlight.webp" },
-  // BREACH
-  { name:"Breach Scarab of the Hive", group:"Breach", icon:"LesserScarabBreach.webp" },
-  { name:"Breach Scarab of Instability", group:"Breach", icon:"NormalScarabBreach.webp" },
-  { name:"Breach Scarab of the Marshal", group:"Breach", icon:"AltGreaterScarabBreach.webp" },
-  { name:"Breach Scarab of the Incensed Swarm", group:"Breach", icon:"GreaterScarabBreach.webp" },
-  { name:"Breach Scarab of Resonant Cascade", group:"Breach", icon:"AltTier4ScarabBreach.webp" },
-  // DELIRIUM
-  { name:"Delirium Scarab", group:"Delirium", icon:"LesserScarabDelirium.webp" },
-  { name:"Delirium Scarab of Mania", group:"Delirium", icon:"NormalScarabDelirium.webp" },
-  { name:"Delirium Scarab of Paranoia", group:"Delirium", icon:"GreaterScarabDelirium.webp" },
-  { name:"Delirium Scarab of Neuroses", group:"Delirium", icon:"AltGreaterScarabDelirium.webp" },
-  { name:"Delirium Scarab of Delusions", group:"Delirium", icon:"Tier4ScarabDelirium.webp" },
-  // EXPEDITION
-  { name:"Expedition Scarab", group:"Expedition", icon:"LesserScarabExpedition.webp" },
-  { name:"Expedition Scarab of Runefinding", group:"Expedition", icon:"NormalScarabExpedition.webp" },
-  { name:"Expedition Scarab of Verisium Powder", group:"Expedition", icon:"GreaterScarabExpedition.webp" },
-  { name:"Expedition Scarab of Archaeology", group:"Expedition", icon:"Tier4ScarabExpedition.webp" },
-  { name:"Expedition Scarab of Infusion", group:"Expedition", icon:"AltGreaterScarabExpedition.webp", isNew:true },
-  // HARVEST
-  { name:"Harvest Scarab", group:"Harvest", icon:"LesserScarabHarvest.webp" },
-  { name:"Harvest Scarab of Doubling", group:"Harvest", icon:"GreaterScarabHarvest.webp" },
-  { name:"Harvest Scarab of Cornucopia", group:"Harvest", icon:"Tier4ScarabHarvest.webp" },
-  // KALGUURAN
-  { name:"Kalguuran Scarab", group:"Kalguuran", icon:"LesserScarabSettlers.webp" },
-  { name:"Kalguuran Scarab of Guarded Riches", group:"Kalguuran", icon:"NormalScarabSettlers.webp" },
-  { name:"Kalguuran Scarab of Refinement", group:"Kalguuran", icon:"GreaterScarabSettlers.webp" },
-  { name:"Kalguuran Scarab of Enriching", group:"Kalguuran", icon:"GreaterScarabSettlers.webp", isNew:true },
-  // LEGION
-  { name:"Legion Scarab", group:"Legion", icon:"LesserScarabLegion.webp" },
-  { name:"Legion Scarab of Officers", group:"Legion", icon:"NormalScarabLegion.webp" },
-  { name:"Legion Scarab of Treasures", group:"Legion", icon:"AltNormalScarabLegion.webp" },
-  { name:"Legion Scarab of Eternal Conflict", group:"Legion", icon:"Tier4ScarabLegion.webp" },
-  // RITUAL
-  { name:"Ritual Scarab of Selectiveness", group:"Ritual", icon:"LesserScarabRitual.webp" },
-  { name:"Ritual Scarab of Wisps", group:"Ritual", icon:"NormalScarabRitual.webp" },
-  { name:"Ritual Scarab of Abundance", group:"Ritual", icon:"GreaterScarabRitual.webp" },
-  { name:"Ritual Scarab of Corpses", group:"Ritual", icon:"NormalScarabRitual.webp", isNew:true },
-  // ULTIMATUM
-  { name:"Ultimatum Scarab", group:"Ultimatum", icon:"LesserScarabUltimatum.webp" },
-  { name:"Ultimatum Scarab of Bribing", group:"Ultimatum", icon:"NormalScarabUltimatum.webp" },
-  { name:"Ultimatum Scarab of Dueling", group:"Ultimatum", icon:"GreaterScarabUltimatum.webp" },
-  { name:"Ultimatum Scarab of Catalysing", group:"Ultimatum", icon:"Tier4ScarabUltimatum.webp" },
-  { name:"Ultimatum Scarab of Inscription", group:"Ultimatum", icon:"AltTier4ScarabUltimatum.webp" },
-  // MISC
-  { name:"Scarab of Monstrous Lineage", group:"Misc", icon:"LesserScarabMisc.webp" },
-  { name:"Scarab of Adversaries", group:"Misc", icon:"AltLesserScarabMisc.webp" },
-  { name:"Scarab of Divinity", group:"Misc", icon:"NormalScarabMisc.webp" },
-  { name:"Scarab of the Sinistral", group:"Misc", icon:"GreaterScarabMisc.webp" },
-  { name:"Scarab of Stability", group:"Misc", icon:"Tier4ScarabMisc.webp" },
-  { name:"Scarab of Wisps", group:"Misc", icon:"GreaterScarabMisc1.webp" },
-  { name:"Scarab of Radiant Storms", group:"Misc", icon:"Tier4ScarabMisc2.webp" },
-  { name:"Scarab of the Dextral", group:"Misc", icon:"AltLesserScarabMisc.webp", isNew:true },
-  // HORNED
-  { name:"Horned Scarab of Bloodlines", group:"Horned", icon:"SuperScarab1.webp" },
-  { name:"Horned Scarab of Nemeses", group:"Horned", icon:"SuperScarab2.webp" },
-  { name:"Horned Scarab of Preservation", group:"Horned", icon:"SuperScarab3.webp" },
-  { name:"Horned Scarab of Awakening", group:"Horned", icon:"SuperScarab1.webp" },
-  { name:"Horned Scarab of Glittering", group:"Horned", icon:"SuperScarab2.webp" },
-  { name:"Horned Scarab of Pandemonium", group:"Horned", icon:"SuperScarab3.webp" },
-  { name:"Horned Scarab of Tradition", group:"Horned", icon:"SuperScarab1.webp" },
-];
-
-export const ALPHA_ORDER = [
-  "Abyss","Ambush","Anarchy","Bestiary","Betrayal","Beyond","Blight","Breach",
-  "Cartography","Delirium","Divination","Domination","Essence","Expedition",
-  "Harvest","Horned","Incursion","Influencing","Kalguuran","Legion",
-  "Misc","Ritual","Sulphite","Titanic","Torment","Ultimatum"
-];
-
-export const INGAME_ORDER = [
-  "Cartography","Divination","Bestiary","Betrayal","Incursion","Sulphite",
-  "Ambush","Anarchy","Beyond","Domination","Essence","Torment",
-  "Influencing","Titanic","Abyss","Blight","Breach","Delirium",
-  "Expedition","Harvest","Kalguuran","Legion","Ritual","Ultimatum",
-  "Misc","Horned"
-];
 const FRONTEND_HOST = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.hostname)
   ? String(globalThis.location.hostname).toLowerCase()
   : '';
@@ -232,14 +76,14 @@ export const FAQ_SECTIONS = [
   {
     title: 'What is harmonic_EV?',
     body: `<p><strong>harmonic_EV</strong> treats every scarab type as an equal possible output and uses the harmonic mean of market prices.</p>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_EV = scarab_count / SUM(1 ÷ each_scarab_price)</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_EV = scarab_count / SUM(1 � each_scarab_price)</code>
 <p>Because cheap scarabs influence the result more than expensive outliers, harmonic_EV is naturally more conservative and stable.</p>
 <p>This is the <strong>recommended model</strong> while <strong>current-league weighting data</strong> is still developing.</p>`
   },
   {
     title: 'What is weighted_EV?',
     body: `<p><strong>weighted_EV</strong> uses observed vendor output frequencies from submitted sessions, then applies current market prices on top.</p>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_EV = SUM(drop_weight × current_price) / 3</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_EV = SUM(drop_weight � current_price) / 3</code>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">drop_weight = scarab_outputs_observed / total_outputs_observed</code>
 <p>This estimates long-run expected value using real community data from the active league.</p>
 <p>Once enough <strong>current-league data</strong> has been collected, weighted_EV becomes the <strong>recommended model</strong>.</p>`
@@ -260,8 +104,8 @@ export const FAQ_SECTIONS = [
     body: `<p>At the start of a new league, <strong>current-league weight data</strong> is still sparse. Using only fresh observations immediately would make early recommendations too reactive, since small sample noise can distort scarab frequencies before enough data has been collected.</p>
 <p>To smooth that transition, prior-league weights are blended with current-league weights using <strong>blend_factor</strong>. This provides stability early on, while still allowing the model to adapt as real current-league data builds.</p>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blend_factor = current_league_data_share / 100</code>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blended_weight = (blend_factor × current_league_weight) + ((1 - blend_factor) × prior_league_weight)</code>
-<p>As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league’s actual observed output distribution.</p>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blended_weight = (blend_factor � current_league_weight) + ((1 - blend_factor) � prior_league_weight)</code>
+<p>As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league�s actual observed output distribution.</p>
 <p>Once enough current-league data has been collected, prior-league influence is fully phased out and recommendations rely entirely on current-league weights.</p>`
   },
   {
@@ -299,9 +143,9 @@ export const FAQ_SECTIONS = [
   {
     title: 'How does the Atlas Optimizer work?',
     body: `<p>Each scarab type has an observed <strong>drop_weight</strong> based on community data. Those weights are combined with live prices to estimate the average value of future scarab drops.</p>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(drop_weight × current_price) / SUM(drop_weight)</code>
+<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(drop_weight � current_price) / SUM(drop_weight)</code>
 <p><strong>Block nodes</strong> remove weaker mechanics from the pool entirely.</p>
-<p>Boost nodes double a mechanic’s pool weight before the pool is rebalanced.</p>
+<p>Boost nodes double a mechanic�s pool weight before the pool is rebalanced.</p>
 <p>Every toggle recalculates instantly so the value impact of each atlas decision can be seen immediately.</p>`
   },
   {
@@ -367,146 +211,6 @@ export const FAQ_SECTIONS = [
 ];
 
 export const CHAR_LIMIT = 250;
-
-export const POE_RE_TOKENS = {
-  // ABYSS
-  "Abyss Scarab":                           "uls",
-  "Abyss Scarab of Edifice":                "gha",
-  "Abyss Scarab of Multitudes":             "cea",
-  "Abyss Scarab of Profound Depth":         "g,",
-  "Abyss Scarab of Descending":             "desc",
-  // AMBUSH
-  "Ambush Scarab":                          "u'",
-  "Ambush Scarab of Containment":           "urk",
-  "Ambush Scarab of Discernment":           "kee",
-  "Ambush Scarab of Hidden Compartments":   "bv",
-  "Ambush Scarab of Potency":               "loc",
-  // ANARCHY
-  "Anarchy Scarab":                         "it'",
-  "Anarchy Scarab of Gigantification":      "wt",
-  "Anarchy Scarab of Partnership":          "tn",
-  "Anarchy Scarab of the Exceptional":      "xce",
-  // BESTIARY
-  "Bestiary Scarab":                        "stm",
-  "Bestiary Scarab of Duplicating":         "at'",
-  "Bestiary Scarab of the Herd":            "ram",
-  // BETRAYAL
-  "Betrayal Scarab":                        "pay",
-  "Betrayal Scarab of Reinforcements":      "mov",
-  "Betrayal Scarab of the Allflame":        "fear",
-  "Betrayal Scarab of Unbreaking":          "nb",
-  // BEYOND
-  "Beyond Scarab":                          "wal",
-  "Beyond Scarab of Haemophilia":           "beg",
-  "Beyond Scarab of Resurgence":            "ung",
-  "Beyond Scarab of the Invasion":          "lmo",
-  // BLIGHT
-  "Blight Scarab":                          "ndr",
-  "Blight Scarab of Blooming":              "t-",
-  "Blight Scarab of Invigoration":          "pol",
-  "Blight Scarab of the Blightheart":       "yc",
-  // BREACH
-  "Breach Scarab of Resonant Cascade":      "lr",
-  "Breach Scarab of Instability":           "arp",
-  "Breach Scarab of the Hive":              "gd",
-  "Breach Scarab of the Marshal":           "nw",
-  "Breach Scarab of the Incensed Swarm":    "h'",
-  // CARTOGRAPHY
-  "Cartography Scarab of Escalation":       "thr",
-  "Cartography Scarab of Risk":             "efl",
-  "Cartography Scarab of the Multitude":    "izo",
-  "Cartography Scarab of Corruption":       "tw",
-  // DELIRIUM
-  "Delirium Scarab":                        "uo",
-  "Delirium Scarab of Delusions":           "lk",
-  "Delirium Scarab of Mania":               "y'",
-  "Delirium Scarab of Neuroses":            "eu",
-  "Delirium Scarab of Paranoia":            "noi",
-  // DIVINATION
-  "Divination Scarab of Pilfering":         "sei",
-  "Divination Scarab of Plenty":            "usa",
-  "Divination Scarab of The Cloister":      "loi",
-  // DOMINATION
-  "Domination Scarab":                      "sim",
-  "Domination Scarab of Apparitions":       "adn",
-  "Domination Scarab of Evolution":         "rif",
-  "Domination Scarab of Terrors":           "tev",
-  // ESSENCE
-  "Essence Scarab":                         "saf",
-  "Essence Scarab of Adaptation":           "tti",
-  "Essence Scarab of Ascent":               "cet",
-  "Essence Scarab of Calcification":        "lc",
-  "Essence Scarab of Stability":            "ool",
-  // EXPEDITION
-  "Expedition Scarab":                      "cro",
-  "Expedition Scarab of Archaeology":       "sd",
-  "Expedition Scarab of Runefinding":       "urn",
-  "Expedition Scarab of Verisium Powder":   "f V",
-  "Expedition Scarab of Infusion":          "nfu",
-  // HARVEST
-  "Harvest Scarab":                         "val",
-  "Harvest Scarab of Cornucopia":           "rnu",
-  "Harvest Scarab of Doubling":             "aso",
-  // HORNED
-  "Horned Scarab of Awakening":             "nyt",
-  "Horned Scarab of Bloodlines":            "urv",
-  "Horned Scarab of Glittering":            "%,",
-  "Horned Scarab of Nemeses":               "tig",
-  "Horned Scarab of Pandemonium":           "pun",
-  "Horned Scarab of Preservation":          "rva",
-  "Horned Scarab of Tradition":             "ges",
-  // INCURSION
-  "Incursion Scarab":                       "aa",
-  "Incursion Scarab of Champions":          "tz",
-  "Incursion Scarab of Invasion":           "ed,",
-  "Incursion Scarab of Timelines":          "h,",
-  // INFLUENCING
-  "Influencing Scarab of Interference":     "nq",
-  "Influencing Scarab of Hordes":           "idea",
-  "Influencing Scarab of the Elder":        "voi",
-  "Influencing Scarab of the Shaper":       "awai",
-  // KALGUURAN
-  "Kalguuran Scarab":                       "vei",
-  "Kalguuran Scarab of Guarded Riches":     "gg",
-  "Kalguuran Scarab of Refinement":         "ne,",
-  "Kalguuran Scarab of Enriching":          "nri",
-  // LEGION
-  "Legion Scarab":                          "arr",
-  "Legion Scarab of Treasures":             "hoa",
-  "Legion Scarab of Eternal Conflict":      "rni",
-  "Legion Scarab of Officers":              "gea",
-  // RITUAL
-  "Ritual Scarab of Abundance":             "abu",
-  "Ritual Scarab of Selectiveness":         "pic",
-  "Ritual Scarab of Wisps":                 "rus",
-  "Ritual Scarab of Corpses":               "pup",
-  // MISC
-  "Scarab of Adversaries":                  "dv",
-  "Scarab of the Sinistral":                "sini",
-  "Scarab of the Dextral":                  "xt",
-  "Scarab of Divinity":                     "-T",
-  "Scarab of Monstrous Lineage":            "eag",
-  "Scarab of Radiant Storms":               "cac",
-  "Scarab of Stability":                    "g!",
-  "Scarab of Wisps":                        "y 2",
-  // SULPHITE
-  "Sulphite Scarab":                        "ko",
-  "Sulphite Scarab of Fumes":               "k,",
-  // TITANIC
-  "Titanic Scarab":                         "nam",
-  "Titanic Scarab of Legend":               "ccu",
-  "Titanic Scarab of Treasures":            "gree",
-  // TORMENT
-  "Torment Scarab":                         "rim",
-  "Torment Scarab of Peculiarity":          "e!",
-  "Torment Scarab of Possession":           "e ne",
-  // ULTIMATUM
-  "Ultimatum Scarab":                       "req",
-  "Ultimatum Scarab of Bribing":            "dg",
-  "Ultimatum Scarab of Catalysing":         "egr",
-  "Ultimatum Scarab of Dueling":            "cto",
-  "Ultimatum Scarab of Inscription":        "nsc",
-};
 
 export const BACKEND_TOKEN_SET_URL = RESOLVED_FRONTEND_ENDPOINTS.backendTokenSetUrl;
 export const BACKEND_SCARAB_METADATA_URL = RESOLVED_FRONTEND_ENDPOINTS.backendScarabMetadataUrl;
