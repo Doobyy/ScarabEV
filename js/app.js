@@ -13,10 +13,6 @@ import { initHashRouting } from './hashRouting.js';
 import { exposeGlobals } from './globalExpose.js';
 import { maybeShowLeagueSessionCta } from './currentLeagueCta.js';
 import {
-  CDN,
-  SCARAB_LIST,
-  ALPHA_ORDER,
-  INGAME_ORDER,
   POOL_API_URL,
   FAQ_SECTIONS,
   CHAR_LIMIT,
@@ -29,6 +25,7 @@ import {
   BACKEND_ADMIN_UI_URL,
   FRONTEND_ENVIRONMENT
 } from './config.js';
+const SCARAB_LIST = state.scarabList;
 
 {
   const p = String(window.location.pathname || '').toLowerCase();
@@ -57,14 +54,59 @@ let _scarabMetaTooltipBound = false;
 let _scarabMetaTooltipEl = null;
 let _statInfoTooltipBound = false;
 let _statInfoTooltipEl = null;
-const _AMBIGUOUS_LAST = (() => {
+let _AMBIGUOUS_LAST = new Set();
+
+function refreshAmbiguousLast() {
   const counts = {};
   for (const s of SCARAB_LIST) {
     const last = s.name.split(' ').pop().toLowerCase();
     counts[last] = (counts[last] || 0) + 1;
   }
-  return new Set(Object.keys(counts).filter(k => counts[k] > 1));
-})();
+  _AMBIGUOUS_LAST = new Set(Object.keys(counts).filter(k => counts[k] > 1));
+}
+
+function inferScarabGroup(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return 'Misc';
+  if (/^scarab of\b/i.test(raw)) return 'Misc';
+  const match = raw.match(/^(.+?)\s+Scarab\b/i);
+  if (!match || !match[1]) return 'Misc';
+  return match[1].trim();
+}
+
+function getBackendScarabGroup(name) {
+  const key = normalizeScarabNameKey(name);
+  const meta = state._scarabMetaByName && state._scarabMetaByName[key];
+  const groupName = String(meta?.groupName || '').trim();
+  return groupName || null;
+}
+
+function rebuildRuntimeScarabList(tokenNames) {
+  const tokenList = Array.isArray(tokenNames) ? tokenNames : [];
+  if (!tokenList.length) {
+    throw new Error('backend_token_source_empty');
+  }
+  const names = tokenList;
+  const next = names
+    .map((name) => String(name || '').trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => {
+      const backendGroup = getBackendScarabGroup(name);
+      return {
+        name,
+        group: backendGroup || inferScarabGroup(name)
+      };
+    });
+  SCARAB_LIST.splice(0, SCARAB_LIST.length, ...next);
+  refreshAmbiguousLast();
+  configureScarabEngine({
+    SCARAB_LIST,
+    buildNinjaLookup,
+    getNinjaPrice
+  });
+}
+refreshAmbiguousLast();
 
 function mobileScarabName(fullName) {
   const words = fullName.split(' ');
@@ -265,11 +307,13 @@ async function fetchScarabMetadata() {
     if (!res.ok) return;
     const data = await res.json();
     const items = Array.isArray(data?.items) ? data.items : [];
+    state._scarabMetaItems = items;
     const map = {};
     for (const item of items) {
       const name = String(item?.name || '').trim();
       if (!name) continue;
       map[normalizeScarabNameKey(name)] = {
+        groupName: item?.groupName || null,
         description: item?.description || null,
         modifiers: Array.isArray(item?.modifiers) ? item.modifiers : [],
         flavorText: item?.flavorText || null
@@ -1536,15 +1580,13 @@ function renderVendorTable() {
   }
 
   // GROUPED view (default)
-  const activeOrder = state.groupOrderMode === 'alpha' ? ALPHA_ORDER : INGAME_ORDER;
   const groups = {};
   for (const s of items) {
     if (!groups[s.group]) groups[s.group] = [];
     groups[s.group].push(s);
   }
   const gnames = Object.keys(groups).sort((a,b) => {
-    const ia = activeOrder.indexOf(a); const ib = activeOrder.indexOf(b);
-    return (ia===-1?999:ia) - (ib===-1?999:ib);
+    return String(a || '').localeCompare(String(b || ''));
   });
 
   for (const gname of gnames) {
@@ -1574,7 +1616,7 @@ function buildVendorTableRow(s, ev) {
     diffHtml = d<=0 ? `<span class="ev-diff below">&darr; ${Math.abs(d).toFixed(2)}c</span>` : `<span class="ev-diff above">&uarr; ${d.toFixed(2)}c</span>`;
   }
 
-  const imgSrc = getNinjaImage(s.name) || `${CDN}${s.icon}`;
+  const imgSrc = getNinjaImage(s.name) || '';
   const priceDisplay = s.chaosPerUnit !== null ? s.chaosPerUnit.toFixed(2)+'c' : '\u2014';
 
   const priceCell = document.createElement('div');
@@ -4987,7 +5029,7 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
   enriched.sort((a, b) => b.valueChaos - a.valueChaos);
   const tbody = document.getElementById('bulkTableBody');
   tbody.innerHTML = enriched.map(r => {
-    const icon = getNinjaImage(r.canonical.name) || (CDN + r.canonical.icon);
+    const icon = getNinjaImage(r.canonical.name) || '';
     const diff = (r.priceEa || 0) - threshold;
     const diffCls = diff >= 0 ? 'bulk-diff-pos' : 'bulk-diff-neg';
     const badgeCls = r.isVendor ? 'bulk-pill bulk-pill-vendor' : 'bulk-pill bulk-pill-keep';
@@ -5973,15 +6015,25 @@ atlasLoad();    // restore saved atlas config before any rendering
 applyEnvironmentBadge();
 updateDailySnapshotCopy();
 (async () => {
-  await Promise.allSettled([
-    initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
-    fetchScarabMetadata(),
-    fetchCurrentLeague()
-  ]);
-  fetchMarketScarabPrices();
-  fetchPriceHistory();
-  fetchAndRenderEVChart();
-  fetchAndRenderAtlasTrendPreview();
+  try {
+    const [tokenInit] = await Promise.all([
+      initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
+      fetchScarabMetadata(),
+      fetchCurrentLeague()
+    ]);
+    const tokensByName = tokenInit?.tokensByName;
+    const tokenNames = tokensByName && typeof tokensByName === 'object' ? Object.keys(tokensByName) : [];
+    rebuildRuntimeScarabList(tokenNames);
+    fetchMarketScarabPrices();
+    fetchPriceHistory();
+    fetchAndRenderEVChart();
+    fetchAndRenderAtlasTrendPreview();
+  } catch (e) {
+    const msg = (e && e.message) ? String(e.message) : String(e);
+    const st = document.getElementById('ninjaStatus');
+    if (st) st.textContent = `Startup error: ${msg}`;
+    throw e;
+  }
 })();
 updateSortArrows();
 initSlider();
