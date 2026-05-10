@@ -4665,6 +4665,39 @@ function matchBulkName(rawName, index) {
   return null;
 }
 
+function findBulkLowConfidenceCandidate(rawName, index) {
+  const q = String(rawName || '').trim().toLowerCase();
+  if (!q) return null;
+  const qToks = tokenizeBulkName(q);
+  if (qToks.length < 2) return null;
+
+  const qFirst = qToks[0] || '';
+  const qLast = qToks[qToks.length - 1] || '';
+  if (!qFirst || !qLast) return null;
+
+  const scored = index.map((e) => {
+    const et = tokenizeBulkName(e.nameLower);
+    const ef = et[0] || '';
+    const el = et[et.length - 1] || '';
+    if (!ef || !el) return null;
+
+    // Intentionally looser than primary matching; used only to decide mismatch logging.
+    const fedMax = Math.max(1, Math.floor(Math.max(qFirst.length, ef.length) * 0.5));
+    const ledMax = Math.max(1, Math.floor(Math.max(qLast.length, el.length) * 0.5));
+    const fed = levenshteinDistance(qFirst, ef);
+    const led = levenshteinDistance(qLast, el);
+    if (fed > fedMax || led > ledMax) return null;
+
+    const score = fed * 0.4 + led * 0.6;
+    return { e, score };
+  }).filter(Boolean).sort((a, b) => a.score - b.score);
+
+  if (!scored.length) return null;
+  if (scored.length === 1) return scored[0].e;
+  if (scored[0].score + 0.35 < scored[1].score) return scored[0].e;
+  return null;
+}
+
 function parseBulkCsv(text) {
   const lines = text.replace(/^\uFEFF/, '').split('\n');
   const rows = [];
@@ -4762,33 +4795,78 @@ async function analyzeBulkFromImage() {
     const base64 = String(dataUrl).split(',')[1];
 
 	const body = {
-	  system_instruction: {
-		parts: [{
-		  text: "You are a PoE OCR tool. The image contains 2 or 3 distinct vertical tables.\n\n" +
-				"PROCESSING PROTOCOL (CRITICAL):\n" +
-				"1. Focus on one vertical column at a time. Start with the leftmost column.\n" +
-				"2. For every row, identify the WHOLE NUMBER at the start (Qty) and the TEXT immediately following it (Name).\n" +
-				"3. STRICT RULE: A number containing a decimal (e.g., 44.45) is a price. You MUST ignore it. Never use a decimal number as a Quantity.\n" +
-				"4. COHESION: If you find a Quantity like '79', ensure it stays linked to the item on its immediate right ('Kalguuran'). Do not jump to other columns.\n\n" +
-				"OUTPUT FORMAT:\n" +
-				"- Return ONLY 'Name,Qty' CSV lines.\n" +
-				"- No markdown blocks, no headers, no conversational text.\n" +
-				"- Example: 'Ambush,33'"
-		}]
-	  },
-      contents: [
-        {
-          parts: [
-            { text: "Extract Name,Qty from this TFT listing." },
-            {
-              inline_data: {
-                mime_type: state._bulkImageFile.type || 'image/png',
-                data: base64
-              }
-            }
-          ]
-        }
-      ],
+		system_instruction: {
+			parts: [{
+				text:
+				"You are a STRICT OCR extraction engine for Path of Exile TFT listing images.\n\n" +
+
+				"ABSOLUTE RULE: THIS IS NOT INTERPRETATION. THIS IS TEXT EXTRACTION ONLY.\n\n" +
+
+				"CRITICAL CONSTRAINTS:\n" +
+				"- You must extract ONLY text that is visibly present in the image.\n" +
+				"- You are NOT allowed to infer, correct, normalize, or complete item names.\n" +
+				"- You are NOT allowed to use external knowledge of Path of Exile items.\n" +
+				"- You are NOT allowed to 'fix' partial or unclear names.\n\n" +
+
+				"ROW STRUCTURE RULE:\n" +
+				"- Each horizontal background band is exactly one row.\n" +
+				"- Each row must be processed independently.\n" +
+				"- Do not combine text across rows under any circumstance.\n\n" +
+
+				"VISUAL ALIGNMENT RULE:\n" +
+				"- An Item Name belongs to the Quantity it is horizontally level with.\n" +
+				"- Do not pull words from the row below into the current row's name.\n\n" +
+				
+				"CROSS-ROW FORBIDDEN MEMORY RULE (CRITICAL):\n" +
+				"- Each row must be processed as an independent isolated unit.\n" +
+				"- You MUST NOT reuse or reference any numeric values (Quantity) from any other row, even if visually similar.\n" +
+				"- Every Quantity must be derived ONLY from text inside the current row band.\n" +
+				"- If a Quantity is not clearly visible in the current row band, output nothing for that row (do not substitute).\n\n" +
+
+				"ABSOLUTE RULE:\n" +
+				"- Under no circumstances may a value from a different row be used, copied, or inferred for the current row.\n\n" +
+
+				"FIELD RULES:\n" +
+				"- Quantity = the first whole integer visible in the row.\n" +
+				"- Item Name = ONLY the exact text visible in that same row.\n" +
+				"- Do NOT modify spelling.\n" +
+				"- Do NOT expand abbreviations.\n" +
+				"- Do NOT complete partial words.\n" +
+				"- Do NOT merge split words unless they are visually continuous in the same row.\n\n" +
+
+				"QUANTITY PARSING RULE (CRITICAL):\n" +
+				"- Quantities may be visually formatted with spaces as thousand separators.\n" +
+				"- Example: '1 288' must be read as 1288.\n" +
+				"- Example: '12 345' must be read as 12345.\n" +
+				"- If multiple numeric tokens appear consecutively in the quantity position, they MUST be merged into a single number.\n" +
+				"- Only apply this merging rule to numbers in the quantity position of the row.\n" +
+				"- Do NOT split or reinterpret quantities once identified.\n\n" +
+
+				"STRICT ANTI-HALLUCINATION RULE:\n" +
+				"- If a name is partially visible, output it exactly as seen, even if incomplete.\n" +
+				"- Never replace or correct item names to a 'known' version.\n\n" +
+
+				"OUTPUT RULES:\n" +
+				"- Return ONLY CSV lines: Name,Qty\n" +
+				"- No commentary, no notes, no headers, no extra text.\n" +
+				"- Each line must correspond to exactly one row."
+			}]
+		},
+
+	  contents: [
+		{
+		  parts: [
+			{ text: "Extract Name,Qty exactly as visible." },
+			{
+			  inline_data: {
+				mime_type: state._bulkImageFile.type || 'image/png',
+				data: base64
+			  }
+			}
+		  ]
+		}
+	  ],
+
 	  generationConfig: {
 		temperature: 0,
 		topP: 1,
@@ -4974,7 +5052,10 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
     const match = matchBulkName(r.rawName, index);
     if (!match) {
       unmatched.push(r);
-      logBulkMismatch(r.rawName, r.qty, source);
+      const likelyScarabMiss = findBulkLowConfidenceCandidate(r.rawName, index);
+      if (likelyScarabMiss) {
+        logBulkMismatch(r.rawName, r.qty, source);
+      }
       continue;
     }
     const priceEa = priceMap[match.name] || 0;
