@@ -3443,9 +3443,12 @@ body.graph-palette-ruby {
         <div class="bulk-right-bottom">
           <div class="bulk-inputs-row">
             <div class="bulk-field">
-              <label class="bulk-label">Asking price (chaos)</label>
-              <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="e.g. 2053" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { const v = parseFloat(this.value); if (Number.isFinite(v) && v > 0) analyzeBulkFromImage(); } }" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_asking_chaos" data-lpignore="true" />
-              <div class="bulk-hint">Use the seller's total chaos cost for the lot.</div>
+              <label class="bulk-label">Asking price</label>
+              <div style="display:flex;gap:8px">
+                <input id="bulkAskingDivine" class="bulk-input" type="number" min="0" step="1" placeholder="Divine" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { analyzeBulkFromImage(); } }" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_asking_divine" data-lpignore="true" />
+                <input id="bulkAskingChaos" class="bulk-input" type="number" min="0" step="1" placeholder="Chaos" onkeydown="if (event.key==='Enter') { event.preventDefault(); if (_bulkImageFile) { analyzeBulkFromImage(); } }" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="bulk_asking_chaos" data-lpignore="true" />
+              </div>
+              <div class="bulk-hint">Enter seller's asking price in divine + chaos.</div>
             </div>
             <div class="bulk-field">
               <label class="bulk-label">Gemini API key</label>

@@ -76,14 +76,14 @@ export const FAQ_SECTIONS = [
   {
     title: 'What is harmonic_EV?',
     body: `<p><strong>harmonic_EV</strong> treats every scarab type as an equal possible output and uses the harmonic mean of market prices.</p>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_EV = scarab_count / SUM(1 � each_scarab_price)</code>
+      <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">harmonic_EV = scarab_count / SUM(1 / each_scarab_price)</code>
 <p>Because cheap scarabs influence the result more than expensive outliers, harmonic_EV is naturally more conservative and stable.</p>
 <p>This is the <strong>recommended model</strong> while <strong>current-league weighting data</strong> is still developing.</p>`
   },
   {
     title: 'What is weighted_EV?',
     body: `<p><strong>weighted_EV</strong> uses observed vendor output frequencies from submitted sessions, then applies current market prices on top.</p>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_EV = SUM(drop_weight � current_price) / 3</code>
+      <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">weighted_EV = SUM(drop_weight * current_price) / 3</code>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">drop_weight = scarab_outputs_observed / total_outputs_observed</code>
 <p>This estimates long-run expected value using real community data from the active league.</p>
 <p>Once enough <strong>current-league data</strong> has been collected, weighted_EV becomes the <strong>recommended model</strong>.</p>`
@@ -104,8 +104,8 @@ export const FAQ_SECTIONS = [
     body: `<p>At the start of a new league, <strong>current-league weight data</strong> is still sparse. Using only fresh observations immediately would make early recommendations too reactive, since small sample noise can distort scarab frequencies before enough data has been collected.</p>
 <p>To smooth that transition, prior-league weights are blended with current-league weights using <strong>blend_factor</strong>. This provides stability early on, while still allowing the model to adapt as real current-league data builds.</p>
 <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blend_factor = current_league_data_share / 100</code>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blended_weight = (blend_factor � current_league_weight) + ((1 - blend_factor) � prior_league_weight)</code>
-<p>As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league�s actual observed output distribution.</p>
+      <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">blended_weight = (blend_factor * current_league_weight) + ((1 - blend_factor) * prior_league_weight)</code>
+      <p>As current-league data share increases, the blend shifts progressively away from prior-league behavior and toward the new league's actual observed output distribution.</p>
 <p>Once enough current-league data has been collected, prior-league influence is fully phased out and recommendations rely entirely on current-league weights.</p>`
   },
   {
@@ -143,9 +143,9 @@ export const FAQ_SECTIONS = [
   {
     title: 'How does the Atlas Optimizer work?',
     body: `<p>Each scarab type has an observed <strong>drop_weight</strong> based on community data. Those weights are combined with live prices to estimate the average value of future scarab drops.</p>
-<code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(drop_weight � current_price) / SUM(drop_weight)</code>
+      <code style="display:block;margin:8px 0;padding:8px 12px;background:var(--bg-group);border-radius:4px;font-size:11px;color:var(--chaos)">map_drop_EV = SUM(drop_weight * current_price) / SUM(drop_weight)</code>
 <p><strong>Block nodes</strong> remove weaker mechanics from the pool entirely.</p>
-<p>Boost nodes double a mechanic�s pool weight before the pool is rebalanced.</p>
+      <p>Boost nodes double a mechanic's pool weight before the pool is rebalanced.</p>
 <p>Every toggle recalculates instantly so the value impact of each atlas decision can be seen immediately.</p>`
   },
   {

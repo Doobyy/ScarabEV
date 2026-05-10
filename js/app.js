@@ -4686,6 +4686,27 @@ function formatBulkChaosValue(chaos, divRate) {
   return d >= 1 ? d.toFixed(1) + 'd' : Math.round(chaos) + 'c';
 }
 
+function parseBulkAskingChaos() {
+  const divRate = getDivineRate();
+  const askDivEl = document.getElementById('bulkAskingDivine');
+  const askChaosEl = document.getElementById('bulkAskingChaos');
+  const askDivStr = askDivEl?.value || '';
+  const askChaosStr = askChaosEl?.value || '';
+  const divinePart = askDivStr.trim() === '' ? 0 : Number(askDivStr);
+  const chaosPart = askChaosStr.trim() === '' ? 0 : Number(askChaosStr);
+  if (!Number.isFinite(divinePart) || divinePart < 0 || !Number.isFinite(chaosPart) || chaosPart < 0) {
+    return { ok: false, error: 'Please enter a valid asking price. Use non-negative divine/chaos values.' };
+  }
+  if (divinePart > 0 && !(divRate > 0)) {
+    return { ok: false, error: 'Divine rate is unavailable. Load market prices first on Scarab Vendor tab.' };
+  }
+  const askingChaos = (divinePart * (divRate || 0)) + chaosPart;
+  if (!(askingChaos > 0)) {
+    return { ok: false, error: 'Please enter the total asking price before analyzing.' };
+  }
+  return { ok: true, askingChaos };
+}
+
 function detectBulkPartialParse(rawText) {
   const cleaned = String(rawText || '')
     .replace(/```(?:csv|text)?/gi, '')
@@ -4716,10 +4737,9 @@ async function analyzeBulkFromImage() {
     return;
   }
 
-  const askStr = document.getElementById('bulkAskingChaos').value || '';
-  const askingChaos = parseFloat(askStr);
-  if (!Number.isFinite(askingChaos) || askingChaos <= 0) {
-    errEl.textContent = 'Please enter the total asking price in chaos before analyzing.';
+  const askingParse = parseBulkAskingChaos();
+  if (!askingParse.ok) {
+    errEl.textContent = askingParse.error;
     errEl.style.display = 'block';
     return;
   }
@@ -4884,7 +4904,6 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
   state._bulkSource = source;
 
   const csvText = document.getElementById('bulkCsv').value || '';
-  const askingStr = document.getElementById('bulkAskingChaos').value || '';
   const errEl = document.getElementById('bulkError');
   const summaryEl = document.getElementById('bulkSummary');
   const tableWrap = document.getElementById('bulkTableWrap');
@@ -4904,12 +4923,13 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
     return;
   }
 
-  const askingChaos = parseFloat(askingStr);
-  if (!Number.isFinite(askingChaos) || askingChaos <= 0) {
-    errEl.textContent = 'Please enter the total asking price in chaos.';
+  const askingParse = parseBulkAskingChaos();
+  if (!askingParse.ok) {
+    errEl.textContent = askingParse.error;
     errEl.style.display = 'block';
     return;
   }
+  const askingChaos = askingParse.askingChaos;
 
   if (!Object.keys(state.ninjaPrices || {}).length) {
     errEl.textContent = 'Load market prices first (open the Scarab Vendor tab).';
@@ -6064,15 +6084,8 @@ function copyRegex(type) {
 
 
 // Expose selected helpers on window for debug tooling and static markup hooks.
-exposeGlobals({
+const UI_GLOBALS = {
   mobileScarabName,
-  computeWeightBasedRate,
-  fetchObservedWeights,
-  fetchPriceHistory,
-  getPriceTrend,
-  buildSparkline,
-  showSparkTooltip,
-  hideSparkTooltip,
   toggleTheme,
   switchTab,
   toggleHamburger,
@@ -6081,10 +6094,31 @@ exposeGlobals({
   initFaq,
   toggleFaqGroup,
   toggleFaqItem,
+  showToast,
+  checkVersionToast,
+  showVersionToast,
+  dismissVersionToast,
+  versionToastClick,
+  toggleChangelog,
+  loadChangelog,
+  parseChangelog
+};
+
+const CORE_CALC_GLOBALS = {
+  computeWeightBasedRate,
+  fetchObservedWeights,
+  fetchPriceHistory,
+  getPriceTrend,
+  buildSparkline,
+  showSparkTooltip,
+  hideSparkTooltip,
   calcEV,
   buildRegex,
   syncLoggerRegex,
-  updateRegexUI,
+  updateRegexUI
+};
+
+const MARKET_VENDOR_GLOBALS = {
   parseWorkerResponse,
   buildNinjaLookup,
   getNinjaPrice,
@@ -6098,7 +6132,10 @@ exposeGlobals({
   recalculateVendorTargets,
   renderVendorTable,
   buildVendorTableRow,
-  setNinjaView,
+  setNinjaView
+};
+
+const EV_ESTIMATOR_GLOBALS = {
   initSlider,
   positionMarker,
   onSliderChange,
@@ -6120,10 +6157,12 @@ exposeGlobals({
   renderEstimator,
   toggleEVChart,
   setEVChartRange,
-  toggleAtlasTrendPreview,
-  setAtlasTrendRange,
   fetchAndRenderEVChart,
   renderEVChart,
+  copyRegex
+};
+
+const LOGGER_ANALYSIS_GLOBALS = {
   parseSnapCSV,
   handleSnap,
   buildReverseTokenMap,
@@ -6146,7 +6185,10 @@ exposeGlobals({
   hideAnalysisBarTooltip,
   sortAnalysisWeight,
   setAnalysisWeightFilter,
-  renderAnalysisWeightTable,
+  renderAnalysisWeightTable
+};
+
+const BULK_GLOBALS = {
   normalizeBulkNameMap,
   recomputeBulkNameMap,
   loadBulkDefaultNameMap,
@@ -6177,7 +6219,12 @@ exposeGlobals({
   parseBulkCsv,
   formatBulkChaosValue,
   analyzeBulkFromImage,
-  analyzeBulkFromCsv,
+  analyzeBulkFromCsv
+};
+
+const ATLAS_GLOBALS = {
+  toggleAtlasTrendPreview,
+  setAtlasTrendRange,
   atlasSave,
   atlasLoad,
   atlasCheckRevisitWarning,
@@ -6194,16 +6241,17 @@ exposeGlobals({
   atlasToggleExpand,
   atlasResetBlocks,
   atlasResetBoosts,
-  atlasToggleLeftovers,
-  showToast,
-  checkVersionToast,
-  showVersionToast,
-  dismissVersionToast,
-  versionToastClick,
-  toggleChangelog,
-  loadChangelog,
-  parseChangelog,
-  copyRegex
+  atlasToggleLeftovers
+};
+
+exposeGlobals({
+  ...UI_GLOBALS,
+  ...CORE_CALC_GLOBALS,
+  ...MARKET_VENDOR_GLOBALS,
+  ...EV_ESTIMATOR_GLOBALS,
+  ...LOGGER_ANALYSIS_GLOBALS,
+  ...BULK_GLOBALS,
+  ...ATLAS_GLOBALS
 });
 
 Object.defineProperty(window, '_bulkImageFile', {
