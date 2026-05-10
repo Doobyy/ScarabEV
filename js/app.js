@@ -4665,37 +4665,18 @@ function matchBulkName(rawName, index) {
   return null;
 }
 
-function findBulkLowConfidenceCandidate(rawName, index) {
+function isBulkScarabLikeName(rawName) {
   const q = String(rawName || '').trim().toLowerCase();
-  if (!q) return null;
+  if (!q) return false;
   const qToks = tokenizeBulkName(q);
-  if (qToks.length < 2) return null;
-
-  const qFirst = qToks[0] || '';
-  const qLast = qToks[qToks.length - 1] || '';
-  if (!qFirst || !qLast) return null;
-
-  const scored = index.map((e) => {
-    const et = tokenizeBulkName(e.nameLower);
-    const ef = et[0] || '';
-    const el = et[et.length - 1] || '';
-    if (!ef || !el) return null;
-
-    // Intentionally looser than primary matching; used only to decide mismatch logging.
-    const fedMax = Math.max(1, Math.floor(Math.max(qFirst.length, ef.length) * 0.5));
-    const ledMax = Math.max(1, Math.floor(Math.max(qLast.length, el.length) * 0.5));
-    const fed = levenshteinDistance(qFirst, ef);
-    const led = levenshteinDistance(qLast, el);
-    if (fed > fedMax || led > ledMax) return null;
-
-    const score = fed * 0.4 + led * 0.6;
-    return { e, score };
-  }).filter(Boolean).sort((a, b) => a.score - b.score);
-
-  if (!scored.length) return null;
-  if (scored.length === 1) return scored[0].e;
-  if (scored[0].score + 0.35 < scored[1].score) return scored[0].e;
-  return null;
+  if (!qToks.length) return false;
+  if (q.includes(' scarab ') || q.endsWith(' scarab') || q.startsWith('scarab ')) return true;
+  return qToks.some((tok) => {
+    if (!tok) return false;
+    if (tok === 'scarab') return true;
+    if (tok.length >= 4 && tok.includes('scarab')) return true;
+    return levenshteinDistance(tok, 'scarab') <= 2;
+  });
 }
 
 function parseBulkCsv(text) {
@@ -5052,8 +5033,7 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
     const match = matchBulkName(r.rawName, index);
     if (!match) {
       unmatched.push(r);
-      const likelyScarabMiss = findBulkLowConfidenceCandidate(r.rawName, index);
-      if (likelyScarabMiss) {
+      if (isBulkScarabLikeName(r.rawName)) {
         logBulkMismatch(r.rawName, r.qty, source);
       }
       continue;
