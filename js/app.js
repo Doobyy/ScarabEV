@@ -4137,9 +4137,8 @@ function renderAnalysisWeightTable() {
 
  // 'image' or 'csv'
 const GEMINI_KEY_STORAGE = 'poepool-gemini-api-key';
-const GEMINI_FLASH_SKIP_DATE_KEY = 'poepool-gemini-flash-skip-date';
+const GEMINI_RATE_LIMITED_KEYS_STORAGE = 'poepool-gemini-rate-limited-keys';
 const GEMINI_MODEL_FLASH = 'gemini-2.5-flash';
-const GEMINI_MODEL_LITE = 'gemini-2.5-flash-lite';
 // Optional: set a default key for personal/local use ONLY.
 // Do not share a copy of this file if you populate this value.
 const DEFAULT_GEMINI_API_KEY = '';
@@ -4445,18 +4444,41 @@ function initBulkGeminiKey() {
   } catch(e) {}
 }
 
-// Model fallback: prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads).
+// Bulk analyzer uses Flash only. If a key is rate-limited, block reuse of that key for the rest of the local day.
 function getTodayDateKey() {
   return toLocalDateKey(); // YYYY-MM-DD (local)
 }
-function isFlashSkippedToday() {
+function readGeminiRateLimitedKeyMap() {
   try {
-    return localStorage.getItem(GEMINI_FLASH_SKIP_DATE_KEY) === getTodayDateKey();
-  } catch (e) { return false; }
+    const raw = localStorage.getItem(GEMINI_RATE_LIMITED_KEYS_STORAGE);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return parsed;
+  } catch (e) { return {}; }
 }
-function setFlashSkippedToday() {
+function writeGeminiRateLimitedKeyMap(map) {
   try {
-    localStorage.setItem(GEMINI_FLASH_SKIP_DATE_KEY, getTodayDateKey());
+    localStorage.setItem(GEMINI_RATE_LIMITED_KEYS_STORAGE, JSON.stringify(map && typeof map === 'object' ? map : {}));
+  } catch (e) {}
+}
+function getGeminiKeyFingerprint(apiKey) {
+  const key = String(apiKey || '').trim();
+  if (!key) return '';
+  return key.slice(0, 12);
+}
+function isGeminiKeyRateLimitedToday(apiKey) {
+  const fingerprint = getGeminiKeyFingerprint(apiKey);
+  if (!fingerprint) return false;
+  const map = readGeminiRateLimitedKeyMap();
+  return map[fingerprint] === getTodayDateKey();
+}
+function setGeminiKeyRateLimitedToday(apiKey) {
+  const fingerprint = getGeminiKeyFingerprint(apiKey);
+  if (!fingerprint) return;
+  const map = readGeminiRateLimitedKeyMap();
+  map[fingerprint] = getTodayDateKey();
+  try {
+    writeGeminiRateLimitedKeyMap(map);
   } catch (e) {}
 }
 function isRateLimitError(res, status, text) {
@@ -4750,6 +4772,11 @@ async function analyzeBulkFromImage() {
     errEl.style.display = 'block';
     return;
   }
+  if (isGeminiKeyRateLimitedToday(apiKey)) {
+    errEl.textContent = 'Daily Gemini request limit reached for this API key. Please wait until your daily quota resets, then try again.';
+    errEl.style.display = 'block';
+    return;
+  }
 
   const askingParse = parseBulkAskingChaos();
   if (!askingParse.ok) {
@@ -4776,150 +4803,137 @@ async function analyzeBulkFromImage() {
     const base64 = String(dataUrl).split(',')[1];
 
 	const body = {
-		system_instruction: {
-			parts: [{
-				text:
-				"You are a STRICT OCR extraction engine for Path of Exile TFT listing images.\n\n" +
+			system_instruction: {
+				parts: [{
+					text:
+					"You are a STRICT OCR extraction engine for Path of Exile TFT listing images.\n\n" +
 
-				"ABSOLUTE RULE: THIS IS NOT INTERPRETATION. THIS IS TEXT EXTRACTION ONLY.\n\n" +
+					"ABSOLUTE RULE: THIS IS NOT INTERPRETATION. THIS IS TEXT EXTRACTION ONLY.\n\n" +
 
-				"CRITICAL CONSTRAINTS:\n" +
-				"- You must extract ONLY text that is visibly present in the image.\n" +
-				"- You are NOT allowed to infer, correct, normalize, or complete item names.\n" +
-				"- You are NOT allowed to use external knowledge of Path of Exile items.\n" +
-				"- You are NOT allowed to 'fix' partial or unclear names.\n\n" +
+					"CRITICAL CONSTRAINTS:\n" +
+					"- You must extract ONLY text that is visibly present in the image.\n" +
+					"- You are NOT allowed to infer, correct, normalize, or complete item names.\n" +
+					"- You are NOT allowed to use external knowledge of Path of Exile items.\n" +
+					"- You are NOT allowed to 'fix' partial or unclear names.\n\n" +
 
-				"ROW STRUCTURE RULE:\n" +
-				"- Each horizontal background band is exactly one row.\n" +
-				"- Each row must be processed independently.\n" +
-				"- Do not combine text across rows under any circumstance.\n\n" +
+					"ROW STRUCTURE RULE:\n" +
+					"- Each horizontal background band is exactly one row.\n" +
+					"- Each row must be processed independently.\n" +
+					"- Do not combine text across rows under any circumstance.\n\n" +
 
-				"VISUAL ALIGNMENT RULE:\n" +
-				"- An Item Name belongs to the Quantity it is horizontally level with.\n" +
-				"- Do not pull words from the row below into the current row's name.\n\n" +
-				
-				"CROSS-ROW FORBIDDEN MEMORY RULE (CRITICAL):\n" +
-				"- Each row must be processed as an independent isolated unit.\n" +
-				"- You MUST NOT reuse or reference any numeric values (Quantity) from any other row, even if visually similar.\n" +
-				"- Every Quantity must be derived ONLY from text inside the current row band.\n" +
-				"- If a Quantity is not clearly visible in the current row band, output nothing for that row (do not substitute).\n\n" +
+					"VISUAL ALIGNMENT RULE:\n" +
+					"- An Item Name belongs to the Quantity it is horizontally level with.\n" +
+					"- Do not pull words from the row below into the current row's name.\n\n" +
+					
+					"CROSS-ROW FORBIDDEN MEMORY RULE (CRITICAL):\n" +
+					"- Each row must be processed as an independent isolated unit.\n" +
+					"- You MUST NOT reuse or reference any numeric values (Quantity) from any other row, even if visually similar.\n" +
+					"- Every Quantity must be derived ONLY from text inside the current row band.\n" +
+					"- If a Quantity is not clearly visible in the current row band, output nothing for that row (do not substitute).\n\n" +
 
-				"ABSOLUTE RULE:\n" +
-				"- Under no circumstances may a value from a different row be used, copied, or inferred for the current row.\n\n" +
+					"ABSOLUTE RULE:\n" +
+					"- Under no circumstances may a value from a different row be used, copied, or inferred for the current row.\n\n" +
 
-				"FIELD RULES:\n" +
-				"- Quantity = the first whole integer visible in the row.\n" +
-				"- Item Name = ONLY the exact text visible in that same row.\n" +
-				"- Do NOT modify spelling.\n" +
-				"- Do NOT expand abbreviations.\n" +
-				"- Do NOT complete partial words.\n" +
-				"- Do NOT merge split words unless they are visually continuous in the same row.\n\n" +
+					"FIELD RULES:\n" +
+					"- Quantity = the first whole integer visible in the row.\n" +
+					"- Item Name = ONLY the exact text visible in that same row.\n" +
+					"- Do NOT modify spelling.\n" +
+					"- Do NOT expand abbreviations.\n" +
+					"- Do NOT complete partial words.\n" +
+					"- Do NOT merge split words unless they are visually continuous in the same row.\n\n" +
 
-				"QUANTITY PARSING RULE (CRITICAL):\n" +
-				"- Quantities may be visually formatted with spaces as thousand separators.\n" +
-				"- Example: '1 288' must be read as 1288.\n" +
-				"- Example: '12 345' must be read as 12345.\n" +
-				"- If multiple numeric tokens appear consecutively in the quantity position, they MUST be merged into a single number.\n" +
-				"- Only apply this merging rule to numbers in the quantity position of the row.\n" +
-				"- Do NOT split or reinterpret quantities once identified.\n\n" +
+					"QUANTITY PARSING RULE (CRITICAL):\n" +
+					"- Quantities may be visually formatted with spaces as thousand separators.\n" +
+					"- Example: '1 288' must be read as 1288.\n" +
+					"- Example: '12 345' must be read as 12345.\n" +
+					"- If multiple numeric tokens appear consecutively in the quantity position, they MUST be merged into a single number.\n" +
+					"- Only apply this merging rule to numbers in the quantity position of the row.\n" +
+					"- Do NOT split or reinterpret quantities once identified.\n\n" +
 
-				"STRICT ANTI-HALLUCINATION RULE:\n" +
-				"- If a name is partially visible, output it exactly as seen, even if incomplete.\n" +
-				"- Never replace or correct item names to a 'known' version.\n\n" +
+					"STRICT ANTI-HALLUCINATION RULE:\n" +
+					"- If a name is partially visible, output it exactly as seen, even if incomplete.\n" +
+					"- Never replace or correct item names to a 'known' version.\n\n" +
 
-				"OUTPUT RULES:\n" +
-				"- Return ONLY CSV lines: Name,Qty\n" +
-				"- No commentary, no notes, no headers, no extra text.\n" +
-				"- Each line must correspond to exactly one row."
-			}]
-		},
+					"OUTPUT RULES:\n" +
+					"- Return ONLY CSV lines: Name,Qty\n" +
+					"- No commentary, no notes, no headers, no extra text.\n" +
+					"- Each line must correspond to exactly one row."
+				}]
+			},
 
-	  contents: [
-		{
-		  parts: [
-			{ text: "Extract Name,Qty exactly as visible." },
+		  contents: [
 			{
-			  inline_data: {
-				mime_type: state._bulkImageFile.type || 'image/png',
-				data: base64
-			  }
+			  parts: [
+				{ text: "Extract Name,Qty exactly as visible." },
+				{
+				  inline_data: {
+					mime_type: state._bulkImageFile.type || 'image/png',
+					data: base64
+				  }
+				}
+			  ]
 			}
-		  ]
-		}
-	  ],
+		  ],
 
-	  generationConfig: {
-		temperature: 0,
-		topP: 1,
-		topK: 1,
-		maxOutputTokens: 8192,
-		responseMimeType: "text/plain"
-	  }
-	};
+		  generationConfig: {
+			temperature: 0,
+			topP: 1,
+			topK: 1,
+			maxOutputTokens: 8192,
+			responseMimeType: "text/plain"
+		  }
+		};
 
-    // Prefer Flash; if rate-limited, skip Flash for rest of day (persists across reloads) and use Lite.
-    let modelId = isFlashSkippedToday() ? GEMINI_MODEL_LITE : GEMINI_MODEL_FLASH;
-    let lastError = null;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_FLASH}:generateContent?key=` + encodeURIComponent(apiKey);
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=` + encodeURIComponent(apiKey);
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+    const txt = await res.text();
 
-      const txt = await res.text();
-
-      if (res.ok) {
-        const json = JSON.parse(txt);
-        const parts = json?.candidates?.[0]?.content?.parts || [];
-        const text = parts.map(p => p.text || '').join('\n').trim();
-        if (!text) {
-          lastError = new Error('No text returned from Gemini.');
-          break;
-        }
-        const quality = detectBulkPartialParse(text);
-        if (quality.partial) {
-          document.getElementById('bulkCsv').value = text;
-          const zone = document.getElementById('bulkDropZone');
-          const textEl = document.getElementById('bulkDropText');
-          const hintEl = document.getElementById('bulkDropHint');
-          if (zone) zone.classList.add('parse-failed', 'loaded');
-          if (textEl) textEl.textContent = 'Parse failed: partial CSV detected.';
-          if (hintEl) hintEl.textContent = 'Data was not applied. Re-crop image and retry, or fix CSV then use Analyze CSV only.';
-          const warningEl = document.getElementById('bulkResultWarning');
-          if (warningEl) {
-            warningEl.style.display = 'none';
-            warningEl.textContent = '';
-          }
-          return;
-        }
+    if (res.ok) {
+      const json = JSON.parse(txt);
+      const parts = json?.candidates?.[0]?.content?.parts || [];
+      const text = parts.map(p => p.text || '').join('\n').trim();
+      if (!text) throw new Error('No text returned from Gemini.');
+      const quality = detectBulkPartialParse(text);
+      if (quality.partial) {
         document.getElementById('bulkCsv').value = text;
-        state._bulkSource = 'image';
-        await analyzeBulkFromCsv('image');
         const zone = document.getElementById('bulkDropZone');
         const textEl = document.getElementById('bulkDropText');
         const hintEl = document.getElementById('bulkDropHint');
-        if (zone) {
-          zone.classList.remove('parse-failed');
-          zone.classList.add('loaded');
+        if (zone) zone.classList.add('parse-failed', 'loaded');
+        if (textEl) textEl.textContent = 'Parse failed: partial CSV detected.';
+        if (hintEl) hintEl.textContent = 'Data was not applied. Re-crop image and retry, or fix CSV then use Analyze CSV only.';
+        const warningEl = document.getElementById('bulkResultWarning');
+        if (warningEl) {
+          warningEl.style.display = 'none';
+          warningEl.textContent = '';
         }
-        if (textEl) textEl.textContent = `Parsed successfully: ${state._bulkImageFile?.name || 'image'}`;
-        if (hintEl) hintEl.textContent = 'Image data applied to CSV. You can edit the CSV and re-run Analyze CSV only.';
         return;
       }
-
-      lastError = new Error(`Gemini error ${res.status}: ${txt.slice(0, 200)}`);
-      if (isRateLimitError(res, res.status, txt) && modelId === GEMINI_MODEL_FLASH) {
-        setFlashSkippedToday();
-        modelId = GEMINI_MODEL_LITE;
-        continue;
+      document.getElementById('bulkCsv').value = text;
+      state._bulkSource = 'image';
+      await analyzeBulkFromCsv('image');
+      const zone = document.getElementById('bulkDropZone');
+      const textEl = document.getElementById('bulkDropText');
+      const hintEl = document.getElementById('bulkDropHint');
+      if (zone) {
+        zone.classList.remove('parse-failed');
+        zone.classList.add('loaded');
       }
-      break;
+      if (textEl) textEl.textContent = `Parsed successfully: ${state._bulkImageFile?.name || 'image'}`;
+      if (hintEl) hintEl.textContent = 'Image data applied to CSV. You can edit the CSV and re-run Analyze CSV only.';
+      return;
     }
 
-    throw lastError;
+    if (isRateLimitError(res, res.status, txt)) {
+      setGeminiKeyRateLimitedToday(apiKey);
+      throw new Error('Daily Gemini request limit reached for this API key. Please wait until your daily quota resets, then try again.');
+    }
+    throw new Error(`Gemini error ${res.status}: ${txt.slice(0, 200)}`);
   } catch (e) {
     errEl.textContent = 'Gemini parse failed: ' + (e.message || e);
     errEl.style.display = 'block';
@@ -6273,8 +6287,6 @@ const BULK_GLOBALS = {
   onBulkGeminiKeyChange,
   initBulkGeminiKey,
   getTodayDateKey,
-  isFlashSkippedToday,
-  setFlashSkippedToday,
   isRateLimitError,
   clearBulkImage,
   handleBulkImage,
