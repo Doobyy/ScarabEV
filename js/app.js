@@ -4940,10 +4940,15 @@ async function analyzeBulkFromCsv(sourceOverride = 'csv') {
   const lower = buildNinjaLookup();
   const entries = SCARAB_LIST.map(s => ({ chaosEa: getNinjaPrice(s.name, lower) }));
   const priced = entries.filter(e => e.chaosEa > 0);
-  const autoEV = calcEV(priced);
-  const threshold = state.ninjaEvOverride !== null ? state.ninjaEvOverride : autoEV;
+  const harmonicEV = calcEV(priced);
+  const recommendedMode = getRecommendedEVModeForShare(getCurrentLeagueSharePctFromState());
+  const weightedEV = state._calibratedMean;
+  const recommendedThreshold = (recommendedMode === 'weighted' && Number.isFinite(weightedEV) && weightedEV > 0)
+    ? weightedEV
+    : harmonicEV;
+  const threshold = state.ninjaEvOverride !== null ? state.ninjaEvOverride : recommendedThreshold;
   if (threshold == null) {
-    errEl.textContent = 'Could not determine harmonic EV \u2014 ensure market prices are loaded.';
+    errEl.textContent = `Could not determine ${recommendedMode} EV \u2014 ensure market prices are loaded.`;
     errEl.style.display = 'block';
     return;
   }
