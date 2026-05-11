@@ -4139,6 +4139,7 @@ function renderAnalysisWeightTable() {
 const GEMINI_KEY_STORAGE = 'poepool-gemini-api-key';
 const GEMINI_RATE_LIMITED_KEYS_STORAGE = 'poepool-gemini-rate-limited-keys';
 const GEMINI_MODEL_FLASH = 'gemini-2.5-flash';
+const GEMINI_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 // Optional: set a default key for personal/local use ONLY.
 // Do not share a copy of this file if you populate this value.
 const DEFAULT_GEMINI_API_KEY = '';
@@ -4444,7 +4445,7 @@ function initBulkGeminiKey() {
   } catch(e) {}
 }
 
-// Bulk analyzer uses Flash only. If a key is rate-limited, block reuse of that key for the rest of the local day.
+// Bulk analyzer uses Flash only. If a key is rate-limited, cool it down to prevent hammering.
 function getTodayDateKey() {
   return toLocalDateKey(); // YYYY-MM-DD (local)
 }
@@ -4466,17 +4467,27 @@ function getGeminiKeyFingerprint(apiKey) {
   if (!key) return '';
   return key.slice(0, 12);
 }
-function isGeminiKeyRateLimitedToday(apiKey) {
+function getGeminiKeyCooldownRemainingMs(apiKey) {
   const fingerprint = getGeminiKeyFingerprint(apiKey);
-  if (!fingerprint) return false;
+  if (!fingerprint) return 0;
   const map = readGeminiRateLimitedKeyMap();
-  return map[fingerprint] === getTodayDateKey();
+  const until = Number(map[fingerprint] || 0);
+  if (!Number.isFinite(until) || until <= 0) return 0;
+  const remaining = until - Date.now();
+  return remaining > 0 ? remaining : 0;
 }
-function setGeminiKeyRateLimitedToday(apiKey) {
+function formatCooldownRemaining(remainingMs) {
+  const totalSeconds = Math.ceil(Math.max(0, remainingMs) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+function setGeminiKeyRateLimitedCooldown(apiKey, cooldownMs = GEMINI_RATE_LIMIT_COOLDOWN_MS) {
   const fingerprint = getGeminiKeyFingerprint(apiKey);
   if (!fingerprint) return;
   const map = readGeminiRateLimitedKeyMap();
-  map[fingerprint] = getTodayDateKey();
+  const duration = Number.isFinite(cooldownMs) && cooldownMs > 0 ? cooldownMs : GEMINI_RATE_LIMIT_COOLDOWN_MS;
+  map[fingerprint] = Date.now() + duration;
   try {
     writeGeminiRateLimitedKeyMap(map);
   } catch (e) {}
@@ -4772,8 +4783,9 @@ async function analyzeBulkFromImage() {
     errEl.style.display = 'block';
     return;
   }
-  if (isGeminiKeyRateLimitedToday(apiKey)) {
-    errEl.textContent = 'Daily Gemini request limit reached for this API key. Please wait until your daily quota resets, then try again.';
+  const cooldownRemainingMs = getGeminiKeyCooldownRemainingMs(apiKey);
+  if (cooldownRemainingMs > 0) {
+    errEl.textContent = `Daily Gemini request limit reached for this API key. If you upgraded your limit, cooldown remaining is ${formatCooldownRemaining(cooldownRemainingMs)} until you can try again.`;
     errEl.style.display = 'block';
     return;
   }
@@ -4930,7 +4942,7 @@ async function analyzeBulkFromImage() {
     }
 
     if (isRateLimitError(res, res.status, txt)) {
-      setGeminiKeyRateLimitedToday(apiKey);
+      setGeminiKeyRateLimitedCooldown(apiKey);
       throw new Error('Daily Gemini request limit reached for this API key. Please wait until your daily quota resets, then try again.');
     }
     throw new Error(`Gemini error ${res.status}: ${txt.slice(0, 200)}`);
