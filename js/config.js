@@ -217,7 +217,7 @@ export const BACKEND_SCARAB_METADATA_URL = RESOLVED_FRONTEND_ENDPOINTS.backendSc
 export const BACKEND_ADMIN_UI_URL = RESOLVED_FRONTEND_ENDPOINTS.backendAdminUiUrl;
 export const WORKER_URL = RESOLVED_FRONTEND_ENDPOINTS.marketWorkerUrl;
 
-export const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum'];
+export const ATLAS_BLOCKABLE = ['Breach','Legion','Expedition','Harvest','Abyss','Delirium','Kalguuran','Ritual','Blight','Ultimatum','Trarthan'];
 export const ATLAS_BOOSTABLE = ['Essence','Beyond','Torment','Titanic','Cartography','Divination','Ambush','Anarchy','Domination'];
 export const ATLAS_SAVE_KEY = 'scarabev-atlas-config';
 
