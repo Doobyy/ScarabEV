@@ -695,7 +695,7 @@ async function cachePublishedTokenPayload(
   const response = jsonResponse(payload, {
     status: 200,
     headers: {
-      "cache-control": "public, max-age=60"
+      "cache-control": "public, max-age=31536000, immutable"
     }
   });
 
