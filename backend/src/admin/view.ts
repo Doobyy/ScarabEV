@@ -1,0 +1,296 @@
+export function buildAdminMarkup(): string {
+  return String.raw`
+<header id="topBar" class="top"><div class="top-left"><button id="navToggleBtn" class="btn ghost nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><div><div class="title">ScarabEV Admin Plane <span id="envBadge" class="badge warn hidden" style="margin-left:8px">STAGING</span></div><div id="panelTitle" class="sub">Scarab Manager | Control plane</div></div></div><div class="toolbar"><button id="themeBtn" class="btn ghost" type="button">Theme: Dark</button><button id="signoutBtn" class="btn ghost" type="button">Sign Out</button><span id="sessionTxt" class="sub mono">Signed out</span></div></header>
+<section id="login"><div class="login-shell"><div class="card login-card"><div class="login-brand"><div class="login-brand-title">ScarabEV</div><div class="login-brand-sub">Admin Dashboard</div></div><div class="grid2"><input id="username" autocomplete="username" placeholder="Username"/><input id="password" type="password" autocomplete="current-password" placeholder="Password"/></div><div class="toolbar"><button id="loginBtn" class="btn" type="button" onclick="if(typeof login==='function'){login();}else{const n=document.getElementById('authStatus');if(n){n.className='status err';n.textContent='Login handler unavailable. Hard refresh and retry.';}}">Login</button></div><div id="authStatus" class="status hidden"></div></div></div></section>
+<section id="app" class="shell hidden">
+  <aside class="sidebar"><div class="h">Navigation</div><button id="navHealth" class="navbtn active" type="button" data-panel="health">Health</button><button id="navFailures" class="navbtn" type="button" data-panel="failures">Failure Logs</button><button id="navBulkTools" class="navbtn" type="button" data-panel="bulktools">Bulk Tools</button><button id="navScarab" class="navbtn" type="button" data-panel="scarab">Scarab Manager</button><button id="navSessions" class="navbtn" type="button" data-panel="sessions">Session Manager</button><button id="navRegex" class="navbtn" type="button" data-panel="regex">Regex Lab</button><button id="navRecomb" class="navbtn" type="button" data-panel="recomb">Recombinator Lab</button><button id="navDocumentation" class="navbtn" type="button" data-panel="docs">Documentation</button></aside>
+  <div id="navBackdrop" class="nav-backdrop"></div>
+  <main class="content">
+    <section id="panel-scarab" class="panel">
+      <div class="mobile-tab-pick"><select id="scarabTabMobile" aria-label="Scarab section"><option value="list">Scarab List</option><option value="restore">Restore</option><option value="regex">Regex Test</option></select></div>
+      <div class="mgr-filetabs"><button id="scarabTabList" class="mgr-tab active" type="button">Scarab List</button><button id="scarabTabRestore" class="mgr-tab" type="button">Restore</button><button id="scarabTabRegex" class="mgr-tab" type="button">Regex Test</button></div>
+      <div class="card mgr-frame">
+        <section id="scarabPaneList" class="scarab-pane active">
+          <div class="kpi"><div class="metric"><span>Total</span><b id="metricTotal">0</b></div><div class="metric"><span>Active</span><b id="metricActive">0</b></div><div class="metric"><span>Retired</span><b id="metricRetired">0</b></div><div class="metric"><span>Regex Conflicts</span><b id="metricConflicts">0</b></div></div>
+          <div class="toolbar"><button id="addBtn" class="btn" type="button">Add Scarab</button><button id="captureToolBtn" class="btn ghost" type="button">Capture Tool</button><button id="importBtn" class="btn ghost" type="button">Upload JSON Import</button><input id="importFile" type="file" accept="application/json,.json" class="hidden" /><button id="retireSelectedBtn" class="btn warn" type="button">Retire Selected</button><button id="deleteSelectedBtn" class="btn danger" type="button">Delete Selected</button><button id="genActiveBtn" class="btn ghost" type="button">Generate Draft</button><button id="publishActiveBtn" class="btn ghost" type="button">Publish Draft</button><button id="refreshBtn" class="btn ghost" type="button">Refresh</button></div><div id="bulkProgressStatus" class="status hidden"><div id="bulkProgressText">Working...</div><div class="progress"><div id="bulkProgressBar" class="progress-bar" style="width:0%"></div></div></div><div class="grid3 scarab-filters"><input id="q" placeholder="Search name / token..."/><select id="sf"><option value="all">All statuses</option><option value="active">Active</option><option value="draft">Draft</option><option value="retired">Retired</option></select><select id="sortBy"><option value="name_asc">Sort: Name (A-Z)</option><option value="name_desc">Sort: Name (Z-A)</option><option value="created_desc">Sort: Newest first</option><option value="created_asc">Sort: Oldest first</option><option value="status">Sort: Status</option></select></div><div class="list scarab-list"><table><thead><tr><th style="width:40px"><input id="selectAll" type="checkbox"/></th><th>Name</th><th>Group</th><th>Status</th><th>Published Token</th><th>Draft Token</th></tr></thead><tbody id="rows"></tbody></table></div><div id="listStatus" class="status">Loading...</div>
+        </section>
+        <section id="scarabPaneRestore" class="scarab-pane">
+          <div class="sub">Recovery tools for when a publish goes wrong. Roll back to a known-good token set.</div><div class="toolbar"><button id="tokRefreshBtn" class="btn ghost" type="button">Refresh Sets</button></div><div class="sub">Published: <span id="pubVer" class="mono">-</span> | Items: <span id="pubCount" class="mono">-</span></div><div class="grid2"><input id="rbId" placeholder="token set id for rollback or delete"/><div class="toolbar"><button id="rbBtn" class="btn warn" type="button">Rollback</button><button id="deleteSetBtn" class="btn danger" type="button">Delete Set</button></div></div><div class="list token-set-list"><table><thead><tr><th>ID</th><th>State</th><th>Created</th><th>Items</th></tr></thead><tbody id="setRows"></tbody></table></div><div id="tokStatus" class="status">Ready.</div>
+        </section>
+        <section id="scarabPaneRegex" class="scarab-pane">
+          <div class="sub">Quick in-game validation helper. Builds two regex strings from the latest draft set.</div>
+          <div class="toolbar"><button id="buildRegexBtn" class="btn ghost" type="button">Build 2 Regex (250 max)</button></div>
+          <div class="grid2"><textarea id="regex1" rows="3" placeholder="Regex 1"></textarea><textarea id="regex2" rows="3" placeholder="Regex 2"></textarea></div>
+          <div id="regexStatus" class="status">Build regex from latest draft.</div>
+        </section>
+      </div>
+    </section>
+    <section id="panel-sessions" class="panel">
+      <div class="mobile-tab-pick"><select id="sessTabMobile" aria-label="Session section"><option value="sessions">Session Manager</option><option value="backups">Session Backups</option><option value="review">Review Queue</option><option value="research">Research Pile</option><option value="analytics">Intake Analytics</option></select></div>
+      <div class="sess-filetabs"><button id="sessTabSessions" class="sess-tab active" type="button">Session Manager</button><button id="sessTabBackups" class="sess-tab" type="button">Session Backups</button><button id="sessTabReview" class="sess-tab" type="button">Review Queue</button><button id="sessTabResearch" class="sess-tab" type="button">Research Pile</button><button id="sessTabAnalytics" class="sess-tab" type="button">Intake Analytics</button></div>
+      <div class="card sess-frame">
+        <section id="sessPaneSessions" class="sess-pane active">
+          <div class="toolbar session-head"><div class="sub">Primary intake workspace. L1 is the structural gate; L2 holds only composition outliers worth manual moderation before aggregate inclusion.</div><button id="sessOpenCfgBtn" class="btn ghost mini subtle" type="button">API Settings</button></div>
+          <div class="toolbar sess-rows-top"><span class="sub">Rows</span><select id="sessPageSize"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select></div>
+          <div class="toolbar">
+            <button id="sessLoadBtn" class="btn" type="button">Refresh Sessions</button>
+            <button id="sessRecomputeBtn" class="btn warn" type="button">Recompute Aggregate</button>
+            <button id="sessRerunSelectedBtn" class="btn ghost" type="button" disabled>Rerun Validation</button>
+            <span id="sessRerunSummary" class="sub mono"></span>
+          </div>
+          <div class="kpi sess-kpi">
+            <div class="metric"><span>Sessions</span><b id="sessMetricCount">0</b></div>
+            <div class="metric"><span>Scarabs In</span><b id="sessMetricConsumed">0</b></div>
+            <div class="metric"><span>Scarabs Out</span><b id="sessMetricTrades">0</b></div>
+            <div class="metric"><span>Total Profit (div)</span><b id="sessMetricProfit">0</b></div>
+            <div class="metric">
+              <span class="metric-head-inline"><span id="sessMetricHealthLabel">Avg Health</span><button id="sessHealthScopeBtn" class="metric-scope-toggle" type="button">All</button></span>
+              <b id="sessMetricHealth">-</b>
+            </div>
+          </div>
+          <div class="list session-list">
+            <table>
+              <thead>
+                <tr>
+                  <th><input id="sessSelectAllVisible" type="checkbox" aria-label="Select all visible sessions"/></th><th>ID</th><th>Date</th><th>League</th><th>SCARABS IN</th><th>SCARABS OUT</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>ROI%</th><th>Drift</th><th>Drift%</th><th>L1 Health</th><th>L2 Score</th><th>Notes</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="sessRows"></tbody>
+            </table>
+          </div>
+          <div class="toolbar pager pager-discreet"><span id="sessPagerSummary" class="sub mono">Showing 0-0 of 0</span><div class="pager-right"><button id="sessPagePrev" class="btn ghost mini subtle" type="button">Prev</button><button id="sessPageNext" class="btn ghost mini subtle" type="button">Next</button></div></div>
+          <div id="sessStatus" class="status">Configure API URL + admin key, then load sessions.</div>
+        </section>
+        <section id="sessPaneBackups" class="sess-pane">
+          <div class="sub">Backup snapshots are shown in local time.</div>
+          <div class="toolbar"><button id="opsListBtn" class="btn ghost" type="button">Refresh Backups</button><button id="opsRunBtn" class="btn" type="button">Run Backup</button></div>
+          <div id="stagingRefreshWrap" class="card hidden" style="margin:10px 0;padding:10px">
+            <div class="sub"><b>Staging Refresh Tool</b></div>
+            <div class="status warn">This replaces staging data with a copy of production data. Production is not modified.</div>
+            <div class="toolbar"><button id="stagingRefreshBtn" class="btn warn" type="button">Refresh Staging From Production</button></div>
+            <div id="stagingRefreshStatus" class="status">Use this only when staging needs a fresh production-aligned dataset.</div>
+          </div>
+          <div class="list ops-list"><table><thead><tr><th style="width:280px">Snapshot ID</th><th style="width:140px">Created</th><th style="width:220px">Run Status</th><th style="width:110px">Size</th><th>Object Path</th><th style="width:120px">Actions</th></tr></thead><tbody id="opsRows"></tbody></table></div>
+          <div id="opsSummary" class="sub">Use this tab when you need backup tools.</div>
+          <div id="opsStorageSummary" class="sub mono">R2 usage: -</div>
+          <div id="opsStatus" class="status">Use this section to run or inspect backup snapshots.</div>
+        </section>
+        <section id="sessPaneReview" class="sess-pane">
+          <div class="sub">Filtered moderation view for held submissions only. Same expandable context as Session Manager, with Accept/Reject actions inline.</div>
+          <div class="toolbar"><button id="sessReviewRefreshBtn" class="btn ghost" type="button">Refresh Review Queue</button></div>
+          <div class="list session-list"><table><thead><tr><th></th><th>ID</th><th>Date</th><th>League</th><th>SCARABS IN</th><th>SCARABS OUT</th><th>Input</th><th>Output</th><th>Profit (div)</th><th>ROI%</th><th>Drift</th><th>Drift%</th><th>L1 Health</th><th>L2 Score</th><th>Notes</th><th>Action</th></tr></thead><tbody id="sessReviewRows"></tbody></table></div>
+          <div id="sessReviewStatus" class="status">Load review queue.</div>
+        </section>
+        <section id="sessPaneResearch" class="sess-pane">
+          <div class="sub">Research pile keeps rejected sessions accessible for follow-up and audits.</div>
+          <div class="toolbar"><button id="sessResearchRefreshBtn" class="btn ghost" type="button">Refresh Research Pile</button></div>
+          <div class="list ops-list"><table><thead><tr><th style="width:110px">Session ID</th><th style="width:140px">Date</th><th style="width:100px">League</th><th style="width:80px">Scarabs In</th><th style="width:70px">Scarabs Out</th><th style="width:90px">Input</th><th style="width:90px">Output</th><th style="width:90px">State</th><th>Reasons</th><th style="width:120px">Action</th></tr></thead><tbody id="sessResearchRows"></tbody></table></div>
+          <div id="sessResearchStatus" class="status">Load research pile.</div>
+        </section>
+        <section id="sessPaneAnalytics" class="sess-pane">
+          <div class="sub">Read-only intake analytics from stored submission and review state data.</div>
+          <div class="toolbar"><button id="sessAnalyticsRefreshBtn" class="btn ghost" type="button">Refresh Intake Analytics</button></div>
+          <div class="kpi">
+            <div class="metric"><span>Total Submissions</span><b id="sessAnalyticsTotal">0</b></div>
+            <div class="metric"><span>Avg L2 Score</span><b id="sessAnalyticsAvgL2">-</b></div>
+            <div class="metric"><span>Median L2 Score</span><b id="sessAnalyticsMedianL2">-</b></div>
+            <div class="metric"><span>L2 Score Samples</span><b id="sessAnalyticsScoreCount">0</b></div>
+          </div>
+          <div class="list ops-list">
+            <table>
+              <thead><tr><th style="width:220px">Metric</th><th style="width:160px">Count</th><th>Percent of Submissions</th></tr></thead>
+              <tbody id="sessAnalyticsStateRows"></tbody>
+            </table>
+          </div>
+          <div class="list ops-list">
+            <table>
+              <thead><tr><th style="width:220px">L2 Histogram Band</th><th style="width:160px">Count</th><th>Percent of L2 Scores</th></tr></thead>
+              <tbody id="sessAnalyticsHistRows"></tbody>
+            </table>
+          </div>
+          <div id="sessAnalyticsStatus" class="status">Load intake analytics.</div>
+        </section>
+      </div>
+    </section>
+    <section id="panel-regex" class="panel">
+      <div class="card regex-card">
+        <div class="h">Regex Lab</div>
+        <div class="sub">Build one regex at a time. Use <b>Basic</b> for easier inputs, or <b>Raw</b> if you want to write regex yourself.</div>
+        <div class="syntax-guide">
+          <div class="syntax-block">
+            <div class="sub"><b>Basic mode quick guide</b></div>
+            <div class="sub mono">"literal text" -> match these exact words</div>
+            <div class="sub mono">[10-50] or [10..50] -> match any number from 10 to 50</div>
+            <div class="sub mono">{10,25,60} -> match one of these exact numbers</div>
+          </div>
+          <div class="syntax-block">
+            <div class="sub"><b>How Basic mode reads your input</b></div>
+            <div class="sub mono">Regular text is treated as plain text (safe, auto-escaped).</div>
+            <div class="sub mono">If a quote/bracket/brace is not closed, build fails and tells you why.</div>
+            <div class="sub mono">Very large numeric ranges are blocked to avoid huge regex output.</div>
+          </div>
+          <div class="syntax-block">
+            <div class="sub"><b>Space behavior</b></div>
+            <div class="sub mono">If regex operators are present and box is checked, spaces become \s+ (one or more spaces/tabs/newlines).</div>
+            <div class="sub mono">If no operators are present, repeated spaces are cleaned to one space.</div>
+          </div>
+          <div class="syntax-block">
+            <div class="sub"><b>Raw mode</b></div>
+            <div class="sub mono">Your input is used exactly as typed (no auto-fixes, no DSL parsing).</div>
+          </div>
+        </div>
+        <div class="regex-controls"><select id="rbMode"><option value="basic">Basic (recommended)</option><option value="raw">Raw regex</option></select><label class="check"><input id="rbWs" type="checkbox" checked/>When operators exist, normalize spaces as \\s+</label></div>
+        <textarea id="rbInput" rows="4" placeholder="Type literal text or syntax, e.g. players are 60% delirious"></textarea>
+        <div class="toolbar"><button id="rbBuildBtn" class="btn" type="button">Build Regex</button><button id="rbCopyBtn" class="btn ghost" type="button">Copy</button></div>
+        <textarea id="rbOut" rows="5" placeholder="Generated regex"></textarea>
+        <div id="rbStatus" class="status">Ready. Enter a query and build.</div>
+      </div>
+      <div class="card regex-card">
+        <div class="h">Confirmed PoE Operators</div>
+        <div class="sub">These operators are confirmed working in PoE. Read each row as: pattern shape, what it matches, and what it does not match.</div>
+        <div class="syntax-ops">
+          <div class="syntax-op syntax-head"><span class="mono">Syntax</span><span>Pattern Shape</span><span>Matches</span><span>Does Not Match</span></div>
+          <div class="syntax-op"><span class="mono">a|b</span><span>Either left side or right side.</span><span><span class="mono">chaos|fire</span><span class="op-outcome"> -> "chaos"</span></span><span><span class="mono">chaos|fire</span><span class="op-outcome"> -> "cold"</span></span></div>
+          <div class="syntax-op"><span class="mono">(...)</span><span>Keep words grouped as one unit.</span><span><span class="mono">(scarab|map) drop</span><span class="op-outcome"> -> "map drop"</span></span><span><span class="mono">(scarab|map) drop</span><span class="op-outcome"> -> "map loot"</span></span></div>
+          <div class="syntax-op"><span class="mono">[abc] / [a-z]</span><span>One character from set/range.</span><span><span class="mono">tier [1-9]</span><span class="op-outcome"> -> "tier 7"</span></span><span><span class="mono">tier [1-9]</span><span class="op-outcome"> -> "tier 10"</span></span></div>
+          <div class="syntax-op"><span class="mono">.</span><span>Any single character in that spot.</span><span><span class="mono">t..n</span><span class="op-outcome"> -> "toon"</span></span><span><span class="mono">t..n</span><span class="op-outcome"> -> "tin"</span></span></div>
+          <div class="syntax-op"><span class="mono">{n}</span><span>Exact repeat count.</span><span><span class="mono">a{3}</span><span class="op-outcome"> -> "aaa"</span></span><span><span class="mono">a{3}</span><span class="op-outcome"> -> "aa"</span></span></div>
+          <div class="syntax-op"><span class="mono">*</span><span>Zero or more repeats.</span><span><span class="mono">ab*</span><span class="op-outcome"> -> "a", "ab", "abbb"</span></span><span><span class="mono">ab*</span><span class="op-outcome"> -> "b"</span></span></div>
+          <div class="syntax-op"><span class="mono">+</span><span>One or more repeats.</span><span><span class="mono">ha+</span><span class="op-outcome"> -> "ha", "haaa"</span></span><span><span class="mono">ha+</span><span class="op-outcome"> -> "h"</span></span></div>
+          <div class="syntax-op"><span class="mono">?</span><span>Optional once (0 or 1).</span><span><span class="mono">maps?</span><span class="op-outcome"> -> "map", "maps"</span></span><span><span class="mono">maps?</span><span class="op-outcome"> -> "mapss"</span></span></div>
+          <div class="syntax-op"><span class="mono">\d</span><span>One digit (0-9).</span><span><span class="mono">tier \d</span><span class="op-outcome"> -> "tier 3"</span></span><span><span class="mono">tier \d</span><span class="op-outcome"> -> "tier A"</span></span></div>
+          <div class="syntax-op"><span class="mono">\w</span><span>One word char (letter/number/_).</span><span><span class="mono">\w+</span><span class="op-outcome"> -> "map_2"</span></span><span><span class="mono">\w+</span><span class="op-outcome"> -> "!!!"</span></span></div>
+          <div class="syntax-op"><span class="mono">\W</span><span>One non-word char (space/punctuation).</span><span><span class="mono">scarab\W</span><span class="op-outcome"> -> "scarab "</span></span><span><span class="mono">scarab\W</span><span class="op-outcome"> -> "scarabx"</span></span></div>
+          <div class="syntax-op"><span class="mono">\S</span><span>One non-space char.</span><span><span class="mono">\S+</span><span class="op-outcome"> -> "hello"</span></span><span><span class="mono">\S+</span><span class="op-outcome"> -> "   "</span></span></div>
+          <div class="syntax-op"><span class="mono">(?=...)</span><span>Next text must exist, but is not consumed.</span><span><span class="mono">scarab(?= of)</span><span class="op-outcome"> -> "scarab of"</span></span><span><span class="mono">scarab(?= of)</span><span class="op-outcome"> -> "scarab in"</span></span></div>
+        </div>
+      </div>
+    </section>
+    <section id="panel-recomb" class="panel">
+      <div class="card recomb-card">
+        <div class="h">Recombinator Lab</div>
+        <div class="sub">In-game style bench: one item on the left, one on the right, recombine into a middle result. Use <b>Simple</b> mode for direct recombine intuition, or <b>Weighted</b> mode to prioritize selected affixes.</div>
+        <div class="grid3 recomb-top-controls">
+          <div><div class="sub">Recomb Mode</div><select id="recombMode"><option value="simple" selected>Simple</option><option value="weighted">Weighted (Select Affixes)</option></select></div>
+          <div><div class="sub">Engine Profile</div><select id="recombEngine"><option value="new" selected>New (3.25+)</option><option value="legacy">Legacy (approx)</option></select></div>
+          <div><div class="sub">Legacy Boost (%)</div><input id="recombLegacyBoost" type="number" min="0" max="25" value="2"/></div>
+        </div>
+        <div class="grid3 recomb-item-head">
+          <div><div class="sub">Left Base</div><input id="recombLeftBase" placeholder="e.g. Titanium Spirit Shield"/></div>
+          <div><div class="sub">Middle</div><div class="sub mono recomb-mid-label">RECOMBINED RESULT</div></div>
+          <div><div class="sub">Right Base</div><input id="recombRightBase" placeholder="e.g. Titanium Spirit Shield"/></div>
+        </div>
+        <div class="grid3 recomb-visual-row">
+          <div id="recombVisualLeft" class="recomb-item-card"></div>
+          <div id="recombVisualMid" class="recomb-item-card recomb-item-card-mid"></div>
+          <div id="recombVisualRight" class="recomb-item-card"></div>
+        </div>
+        <div id="recombSheetRows" class="recomb-sheet-wrap"></div>
+        <div class="toolbar recomb-actions"><button id="recombRunBtn" class="btn" type="button">Recombine (Estimate)</button></div>
+        <div id="recombMetrics" class="kpi"></div>
+        <div class="grid2 recomb-results">
+          <div class="list recomb-list"><div id="recombPrefixDist"></div></div>
+          <div class="list recomb-list"><div id="recombSuffixDist"></div></div>
+        </div>
+        <div id="recombStatus" class="status">Ready. Enter left/right item mods and run recombine.</div>
+      </div>
+      <div class="card recomb-card">
+        <div class="h">Exclusive + Fill-Order Monte Carlo</div>
+        <div class="sub">Experimental side-order simulation with exclusive pruning across both pools. Use this for edge-case intuition, not exact GGG odds.</div>
+        <div class="grid3">
+          <div><div class="sub">Mode</div><select id="recombMcMode"><option value="new" selected>New (3.25+)</option><option value="legacy">Legacy (approx)</option></select></div>
+          <div><div class="sub">Fill Order</div><select id="recombMcOrder"><option value="50" selected>50 / 50</option><option value="prefix">Prefix First</option><option value="suffix">Suffix First</option></select></div>
+          <div><div class="sub">Trials</div><input id="recombMcTrials" type="number" min="100" max="200000" value="15000"/></div>
+        </div>
+        <div class="grid3">
+          <div><div class="sub">Prefix Natural Count</div><input id="recombMcPrefixNatural" type="number" min="0" max="6" value="3"/></div>
+          <div><div class="sub">Prefix Exclusive Count</div><input id="recombMcPrefixExclusive" type="number" min="0" max="6" value="1"/></div>
+          <div><div class="sub">Desired Prefix Naturals</div><input id="recombMcDesiredPrefixNatural" type="number" min="0" max="6" value="1"/></div>
+        </div>
+        <div class="grid3">
+          <div><div class="sub">Suffix Natural Count</div><input id="recombMcSuffixNatural" type="number" min="0" max="6" value="3"/></div>
+          <div><div class="sub">Suffix Exclusive Count</div><input id="recombMcSuffixExclusive" type="number" min="0" max="6" value="1"/></div>
+          <div><div class="sub">Desired Suffix Naturals</div><input id="recombMcDesiredSuffixNatural" type="number" min="0" max="6" value="1"/></div>
+        </div>
+        <div class="toolbar recomb-actions"><button id="recombMcRunBtn" class="btn" type="button">Run Monte Carlo</button></div>
+        <div class="list recomb-list"><div id="recombMcResults"></div></div>
+        <div class="grid2 recomb-results">
+          <div class="list recomb-list"><div id="recombMcBucketsRolled"></div></div>
+          <div class="list recomb-list"><div id="recombMcBucketsSelected"></div></div>
+        </div>
+        <div id="recombMcStatus" class="status">Ready. Configure pools and run simulation.</div>
+      </div>
+    </section>
+    <section id="panel-health" class="panel active">
+      <div class="card">
+        <div class="h">Health Overview</div>
+        <div class="sub">Quick signal checks across admin API, token pipeline, session API integration, and backups.</div>
+        <div class="toolbar"><button id="healthRefreshBtn" class="btn ghost" type="button">Refresh Health</button></div>
+        <div id="healthGrid" class="health-grid"></div>
+        <div id="healthStatus" class="status">Health checks run automatically on sign-in.</div>
+      </div>
+    </section>
+    <section id="panel-failures" class="panel">
+      <div class="card">
+        <div class="h">Failure Logs</div>
+        <div class="sub">Operational incident lifecycle feed (failed, recovered, unresolved closures) from market-worker and backup systems.</div>
+        <div class="toolbar"><select id="failureDays"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option></select><button id="failureRefreshBtn" class="btn ghost" type="button">Refresh Logs</button><button id="failureClearBtn" class="btn ghost" type="button">Clear Logs</button><button id="failureBackfillEnableBtn" class="btn warn" type="button">Enable Price History Backfill (6h)</button><button id="failureBackfillDisableBtn" class="btn ghost" type="button">Disable Price History Backfill</button></div>
+        <div class="list ops-list"><table><thead><tr><th style="width:150px">Time (PDT)</th><th style="width:190px">Code</th><th style="width:130px">Source</th><th style="width:170px">Outcome</th><th>Message</th><th style="width:290px">Context</th></tr></thead><tbody id="failureRows"></tbody></table></div>
+        <div id="failureMeta" class="sub mono">No logs loaded.</div>
+        <div id="failureStatus" class="status">Open this tab to load operational incident history.</div>
+      </div>
+    </section>
+    <section id="panel-bulktools" class="panel">
+      <div class="card">
+        <div class="h">Bulk Tools</div>
+        <div class="sub">Admin-only controls for bulk analyzer name mapping. This replaces public ?dev=1 tools.</div>
+        <div class="toolbar"><button id="bulkToolsLoadBtn" class="btn ghost" type="button">Load Map</button><button id="bulkToolsSaveBtn" class="btn" type="button">Save Map</button><button id="bulkToolsScarabBtn" class="btn ghost" type="button">Refresh Scarab List</button><button id="bulkToolsMismatchLoadBtn" class="btn ghost" type="button">Load Mismatches</button><button id="bulkToolsMismatchClearBtn" class="btn ghost" type="button">Clear Mismatches</button></div>
+        <div class="grid2">
+          <div>
+            <div class="sub"><b>Bulk Name Map (JSON)</b></div>
+            <textarea id="bulkToolsMapInput" rows="18" placeholder='{\n  "horned of bloodlines": "Horned Scarab of Bloodlines"\n}' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+            <div id="bulkToolsMeta" class="sub mono">No map loaded yet.</div>
+          </div>
+          <div>
+            <div class="sub"><b>Canonical Scarab Reference</b></div>
+            <div class="list ops-list" style="max-height:420px;overflow:auto"><div id="bulkToolsScarabList" class="sub mono">No scarab data loaded.</div></div>
+          </div>
+        </div>
+        <div class="sub"><b>Recent Bulk Mismatches</b></div>
+        <div class="list ops-list" style="max-height:260px;overflow:auto"><div id="bulkToolsMismatchList" class="sub mono">No mismatches loaded.</div></div>
+        <div id="bulkToolsStatus" class="status">Open this tab to load bulk tools.</div>
+      </div>
+    </section>
+    <section id="panel-docs" class="panel">
+      <div class="card docs-shell">
+        <div class="h">Documentation</div>
+        <div class="sub">Internal end-to-end technical manual for operating, troubleshooting, and modifying ScarabEV safely.</div>
+        <div class="docs-doctabs" role="tablist" aria-label="Documentation sections">
+          <button id="docsTabBible" class="docs-doctab active" type="button" data-doc-book="project-bible" role="tab" aria-selected="true">Project Bible</button>
+          <button id="docsTabCurriculum" class="docs-doctab" type="button" data-doc-book="owner-curriculum" role="tab" aria-selected="false">Owner Curriculum</button>
+          <button id="docsTabPracticeLab" class="docs-doctab" type="button" data-doc-book="practice-lab" role="tab" aria-selected="false">Practice Lab</button>
+          <button id="docsTabKnowledgeChecks" class="docs-doctab" type="button" data-doc-book="knowledge-checks" role="tab" aria-selected="false">Knowledge Checks</button>
+          <button id="docsTabMentoredWorkshops" class="docs-doctab" type="button" data-doc-book="mentored-workshops" role="tab" aria-selected="false">Mentored Workshops</button>
+        </div>
+        <div class="docs-toolbar">
+          <input id="docsSearchInput" placeholder="Search docs (endpoints, files, runbooks, tokens, backups...)" />
+          <button id="docsSearchClearBtn" class="btn ghost" type="button">Clear</button>
+        </div>
+        <div id="docsSearchMeta" class="sub mono">Loading documentation...</div>
+        <div class="docs-layout">
+          <aside class="docs-toc-wrap">
+            <div class="sub"><b>Table of Contents</b></div>
+            <div id="docsToc" class="docs-toc"></div>
+          </aside>
+          <section id="docsContent" class="docs-content"></section>
+        </div>
+      </div>
+    </section>
+  </main>
+</section>
+<section id="sessCfgModalWrap" class="modal-wrap"><div class="modal" style="width:min(760px,95vw)"><div class="modal-head"><div><div class="h">Session API Settings</div><div class="sub">Set once, then use Session Manager without extra clutter.</div></div><button id="sessCfgCloseBtn" class="btn ghost" type="button">Close</button></div><div class="grid2"><input id="sessApiUrl" placeholder="Session API base URL (e.g. https://scarabev-api.../admin/sessions)" /><input id="sessAdminKey" type="password" autocomplete="off" placeholder="Admin key" /></div><label class="check"><input id="sessRememberKey" type="checkbox" />Remember admin key on this device (less secure)</label><div class="toolbar"><button id="sessSaveCfgBtn" class="btn" type="button">Save Key</button></div><div class="status warn">By default, admin key is kept for this browser session only. Enable Remember only on trusted personal devices. Lost your admin key? Generate or rotate a new <span class="mono">ADMIN_KEY</span> in Cloudflare Worker settings for the session API service, then paste and save again.</div></div></section>
+<section id="editorModalWrap" class="modal-wrap"><div class="modal"><div class="modal-head"><div><div class="h">Scarab Editor</div><div id="editorMode" class="sub">Create new scarab</div></div><button id="editorCloseBtn" class="btn ghost" type="button">Close</button></div><div class="grid2"><div class="card"><div class="h">Parse From Advanced Text</div><textarea id="paste" rows="10" autocomplete="off" data-lpignore="true" placeholder="Paste PoE Advanced Item copy here..."></textarea><div class="toolbar"><button id="parseBtn" class="btn" type="button">Parse Into Form</button><button id="clearPasteBtn" class="btn ghost" type="button">Clear</button></div><div id="pasteStatus" class="status">Paste then parse.</div></div><div class="card"><div class="h">Scarab Fields</div><input id="name" autocomplete="off" data-lpignore="true" placeholder="Scarab name"/><input id="groupName" autocomplete="off" data-lpignore="true" placeholder="group override (optional)"/><textarea id="desc" rows="3" autocomplete="off" data-lpignore="true" placeholder="Tooltip / description"></textarea><textarea id="mods" rows="4" autocomplete="off" data-lpignore="true" placeholder="Modifiers (one per line)"></textarea><textarea id="flavor" rows="3" autocomplete="off" data-lpignore="true" placeholder="Flavor text"></textarea><select id="status"><option value="active">active</option><option value="draft">draft</option><option value="retired">retired</option></select><input id="league" autocomplete="off" data-lpignore="true" placeholder="leagueId (optional)"/><input id="season" autocomplete="off" data-lpignore="true" placeholder="seasonId (optional, auto from workspace if blank)"/><div class="sub">Token: <span id="tokenPreview" class="chip">-</span></div><div id="meta" class="sub mono">No scarab selected.</div><div class="toolbar"><button id="saveBtn" class="btn" type="button">Save</button><button id="retireBtn" class="btn warn" type="button">Retire</button><button id="deleteBtn" class="btn danger" type="button">Delete</button></div><div id="editStatus" class="status">Ready.</div></div></div></div></section>
+<section id="captureModalWrap" class="modal-wrap"><div class="modal"><div class="modal-head"><div><div class="h">Capture Helper</div><div class="sub">Web version of the old Python capture flow.</div></div><button id="captureCloseBtn" class="btn ghost" type="button">Close</button></div><div class="toolbar"><button id="captureFromClipboardBtn" class="btn" type="button">Capture Clipboard</button><button id="captureImportBtn" class="btn warn" type="button">Import Queue</button><button id="captureExportBtn" class="btn ghost" type="button">Export JSON</button><button id="captureClearBtn" class="btn danger" type="button">Reset Queue</button></div><div class="sub">Flow: hover item in game -> Ctrl+Alt+C -> return here -> Capture Clipboard.</div><div class="list capture-list"><table><thead><tr><th style="width:64px">#</th><th>Name</th><th>Captured (UTC)</th></tr></thead><tbody id="captureRows"></tbody></table></div><div id="captureStatus" class="status">Queue is empty.</div></div></section>
+<div id="toast" class="toast"></div>
+`;
+}

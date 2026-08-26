@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": ".tmp-test",
+    "types": ["@cloudflare/workers-types", "node"],
+    "noEmit": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": []
+}

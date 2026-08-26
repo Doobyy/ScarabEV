@@ -1,0 +1,39 @@
+name = "scarabev-backend-staging"
+main = "src/index.ts"
+compatibility_date = "2026-04-02"
+compatibility_flags = ["global_fetch_strictly_public"]
+workers_dev = true
+
+[vars]
+APP_NAME = "scarabev-backend"
+APP_ENV = "staging"
+LOG_LEVEL = "info"
+OBS_SAMPLE_RATE = "1"
+BACKUP_ENABLED = "true"
+BACKUP_RETENTION_DAYS = "7"
+BACKUP_REQUIRE_EXTERNAL = "true"
+BACKUP_OBJECT_PREFIX = "snapshots"
+BACKUP_CRON_ENABLED = "false"
+MARKET_WORKER_URL = "https://scarabev-market-worker-staging.paperpandastacks.workers.dev"
+SESSION_API_BASE_URL = "https://scarabev-api-staging.paperpandastacks.workers.dev/admin/sessions"
+D1_RESOURCE_LABEL = "scarabev-backend-staging"
+BACKUP_R2_BUCKET_LABEL = "scarabev-backups-staging"
+CLOUDFLARE_ACCOUNT_ID = "eadee6082f6fd4e091342957f4122b57"
+STAGING_REFRESH_SOURCE_D1_ID = "02b7cda8-ed66-4340-8a44-457226b11ca2"
+STAGING_REFRESH_SOURCE_D1_LABEL = "scarabev-backend-production"
+STAGING_REFRESH_SOURCE_KV_NAMESPACE_ID = "45058621c81d439d9ce0d12b61dc0c66"
+STAGING_REFRESH_SOURCE_KV_NAMESPACE_LABEL = "EV_HISTORY-production"
+STAGING_REFRESH_TARGET_KV_NAMESPACE_ID = "3acaaaca375f47a4beb918a88d5ff8fd"
+STAGING_REFRESH_TARGET_KV_NAMESPACE_LABEL = "ev-history-staging"
+
+[triggers]
+crons = ["0 9 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "scarabev-backend-staging"
+database_id = "704619f4-eb84-4c4f-a978-b8eb2d781338"
+
+[[r2_buckets]]
+binding = "BACKUP_R2"
+bucket_name = "scarabev-backups-staging"
