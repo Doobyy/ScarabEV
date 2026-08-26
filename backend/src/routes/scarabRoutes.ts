@@ -29,7 +29,10 @@ export async function handleScarabRoutes(
     normalizePublishToken,
     validateTokenAgainstPoeRegexProfile,
     POE_REGEX_PROFILE_NAME,
-    withPublicCorsHeaders
+    withPublicCorsHeaders,
+    cachePublicScarabMetadata,
+    getCachedPublicScarabMetadata,
+    clearCachedPublicScarabMetadata,
   } = helpers;
 
   if (request.method === "OPTIONS" && url.pathname === "/public/scarabs/metadata") {
@@ -37,7 +40,38 @@ export async function handleScarabRoutes(
   }
 
   if (request.method === "GET" && url.pathname === "/public/scarabs/metadata") {
-    const scarabs = await deps.securityRepo.listScarabs({ statuses: ["active"], orderBy: "name" });
+    const cached = await getCachedPublicScarabMetadata();
+
+    if (cached) {
+      const payload = (await cached.json()) as {
+        ok: boolean;
+        itemCount: number;
+        items: Array<{
+          id: string;
+          name: string;
+          groupName: string | null;
+          description: string | null;
+          modifiers: string[];
+          flavorText: string | null;
+        }>;
+      };
+
+      return withPublicCorsHeaders(
+        jsonResponse(
+          {
+            ...payload,
+            requestId: context.requestId
+          },
+          { status: 200 }
+        )
+      );
+    }
+
+    const scarabs = await deps.securityRepo.listScarabs({
+      statuses: ["active"],
+      orderBy: "name"
+    });
+
     const items = scarabs.map((scarab) => ({
       id: scarab.id,
       name: scarab.currentText.name,
@@ -46,19 +80,26 @@ export async function handleScarabRoutes(
       modifiers: scarab.currentText.modifiers || [],
       flavorText: scarab.currentText.flavorText
     }));
+
+    const payload = {
+      itemCount: items.length,
+      items
+    };
+
+    await cachePublicScarabMetadata(payload);
+
     return withPublicCorsHeaders(
       jsonResponse(
         {
           ok: true,
           requestId: context.requestId,
-          itemCount: items.length,
-          items
+          ...payload
         },
         { status: 200 }
       )
     );
   }
-
+  
   if (request.method === "GET" && url.pathname === "/admin/scarabs/token-inputs") {
     const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
     if (auth instanceof Response) {
@@ -208,6 +249,8 @@ export async function handleScarabRoutes(
         { status: 400 }
       );
     }
+
+    await clearCachedPublicScarabMetadata();
 
     await writeAudit(deps.securityRepo, context, request, "admin.scarab.create", 201, auth.session.user.id, {
       scarabId: created.id,
@@ -376,6 +419,8 @@ export async function handleScarabRoutes(
       );
     }
 
+    await clearCachedPublicScarabMetadata();
+
     await writeAudit(deps.securityRepo, context, request, "admin.scarab.update", 200, auth.session.user.id, {
       scarabId,
       status: updated.status,
@@ -420,6 +465,8 @@ export async function handleScarabRoutes(
         { status: 404 }
       );
     }
+
+    await clearCachedPublicScarabMetadata();
 
     await writeAudit(deps.securityRepo, context, request, "admin.scarab.delete", 200, auth.session.user.id, {
       scarabId
@@ -494,6 +541,8 @@ export async function handleScarabRoutes(
       );
     }
 
+    await clearCachedPublicScarabMetadata();
+
     await writeAudit(deps.securityRepo, context, request, "admin.scarab.retire", 200, auth.session.user.id, {
       scarabId
     });
@@ -567,6 +616,8 @@ export async function handleScarabRoutes(
         { status: 404 }
       );
     }
+
+    await clearCachedPublicScarabMetadata();
 
     await writeAudit(deps.securityRepo, context, request, "admin.scarab.reactivate", 200, auth.session.user.id, {
       scarabId

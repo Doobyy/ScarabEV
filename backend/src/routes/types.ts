@@ -97,6 +97,21 @@ export interface ScarabRouteHelpers extends BaseRouteHelpers {
   validateTokenAgainstPoeRegexProfile: (token: string) => PoeRegexViolation | null;
   POE_REGEX_PROFILE_NAME: string;
   withPublicCorsHeaders: (response: Response) => Response;
+  cachePublicScarabMetadata: (
+    payload: {
+      itemCount: number;
+      items: Array<{
+        id: string;
+        name: string;
+        groupName: string | null;
+        description: string | null;
+        modifiers: string[];
+        flavorText: string | null;
+      }>;
+    }
+  ) => Promise<void>;
+  getCachedPublicScarabMetadata: () => Promise<Response | null>;
+  clearCachedPublicScarabMetadata: () => Promise<void>;
 }
 
 export interface TokenRouteHelpers extends BaseRouteHelpers {

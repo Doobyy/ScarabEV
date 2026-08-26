@@ -722,6 +722,68 @@ async function clearCachedPublishedLatest(): Promise<void> {
   await cache.delete(new Request(latestUrl, { method: "GET" }));
 }
 
+const SCARAB_METADATA_CACHE_URL = "https://cache.internal/public/scarabs/metadata";
+
+async function cachePublicScarabMetadata(payload: {
+  itemCount: number;
+  items: Array<{
+    id: string;
+    name: string;
+    groupName: string | null;
+    description: string | null;
+    modifiers: string[];
+    flavorText: string | null;
+  }>;
+}): Promise<void> {
+  if (typeof caches === "undefined" || !("default" in caches)) {
+    return;
+  }
+
+  const cache = caches.default as Cache;
+  const response = jsonResponse(
+    {
+      ok: true,
+      itemCount: payload.itemCount,
+      items: payload.items
+    },
+    {
+      status: 200,
+      headers: {
+        "cache-control": "public, max-age=31536000, immutable"
+      }
+    }
+  );
+
+  await cache.put(
+    new Request(SCARAB_METADATA_CACHE_URL, { method: "GET" }),
+    response
+  );
+}
+
+async function getCachedPublicScarabMetadata(): Promise<Response | null> {
+  if (typeof caches === "undefined" || !("default" in caches)) {
+    return null;
+  }
+
+  const cache = caches.default as Cache;
+  return (
+    (await cache.match(
+      new Request(SCARAB_METADATA_CACHE_URL, { method: "GET" })
+    )) ?? null
+  );
+}
+
+async function clearCachedPublicScarabMetadata(): Promise<void> {
+  if (typeof caches === "undefined" || !("default" in caches)) {
+    return;
+  }
+
+  const cache = caches.default as Cache;
+  await cache.delete(
+    new Request(SCARAB_METADATA_CACHE_URL, { method: "GET" })
+  );
+}
+
 interface BackupSnapshotSummary {
   id: string;
   triggerType: "scheduled" | "manual";
@@ -2872,7 +2934,10 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     normalizePublishToken,
     validateTokenAgainstPoeRegexProfile,
     POE_REGEX_PROFILE_NAME,
-    withPublicCorsHeaders
+    withPublicCorsHeaders,
+    cachePublicScarabMetadata,
+    getCachedPublicScarabMetadata,
+    clearCachedPublicScarabMetadata
   });
   if (scarabRouteResponse) return scarabRouteResponse;
 
