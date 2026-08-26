@@ -13,6 +13,7 @@ export async function handleOpsRoutes(
     writeAudit,
     requireRoleOrResponse,
     listBackupSnapshots,
+    getLatestBackupHealth,
     getLatestBackupCoverage,
     getMarketBackupSmokeStatus,
     runMarketBackupSmokeTest,
@@ -124,6 +125,47 @@ export async function handleOpsRoutes(
         backupSmokeStatus,
         backupSmokeStatusError,
         items
+      },
+      { status: 200 }
+    );
+    return withBaseHeaders(response, context.requestId, responseCookieHeaders);
+  }
+
+  if (request.method === "GET" && url.pathname === "/admin/ops/backups/health") {
+    const auth = await authenticateRequest(request, deps, context, responseCookieHeaders);
+    if (auth instanceof Response) {
+      return auth;
+    }
+    const ownerOnly = requireRoleOrResponse(auth, "owner", context.requestId);
+    if (ownerOnly) {
+      await writeAudit(deps.securityRepo, context, request, "admin.backup_health", 403, auth.session.user.id);
+      return ownerOnly;
+    }
+
+    if (!deps.db) {
+      await writeAudit(deps.securityRepo, context, request, "admin.backup_health", 503, auth.session.user.id, {
+        reason: "missing_db_binding"
+      });
+      return jsonResponse(
+        {
+          ok: false,
+          error: "backup_unavailable",
+          requestId: context.requestId
+        },
+        { status: 503 }
+      );
+    }
+
+    const latest = await getLatestBackupHealth(deps.db);
+    await writeAudit(deps.securityRepo, context, request, "admin.backup_health", 200, auth.session.user.id, {
+      found: !!latest
+    });
+
+    const response = jsonResponse(
+      {
+        ok: true,
+        requestId: context.requestId,
+        latest
       },
       { status: 200 }
     );

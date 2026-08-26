@@ -162,6 +162,16 @@ export interface OpsRouteHelpers extends BaseRouteHelpers {
     };
   }>;
   listBackupSnapshots: (db: D1Database, backupR2: R2Bucket | undefined, limit: number) => Promise<unknown[]>;
+  getLatestBackupHealth: (
+    db: D1Database
+  ) => Promise<{
+    id: string;
+    triggerType: "manual" | "scheduled";
+    status: "ok" | "failed";
+    itemCount: number;
+    errorMessage: string | null;
+    createdAt: string;
+  } | null>;
   getLatestBackupCoverage: (
     db: D1Database,
     backupR2: R2Bucket | undefined

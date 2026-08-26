@@ -1436,6 +1436,48 @@ async function runStagingRefreshFromProduction(
   };
 }
 
+async function getLatestBackupHealth(
+  db: D1Database
+): Promise<{
+  id: string;
+  triggerType: "manual" | "scheduled";
+  status: "ok" | "failed";
+  itemCount: number;
+  errorMessage: string | null;
+  createdAt: string;
+} | null> {
+  const row = await db
+    .prepare(
+      `
+      SELECT id, trigger_type, status, item_count, error_message, created_at
+      FROM backup_snapshots
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `
+    )
+    .first<{
+      id: string;
+      trigger_type: "manual" | "scheduled";
+      status: "ok" | "failed";
+      item_count: number;
+      error_message: string | null;
+      created_at: string;
+    }>();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    triggerType: row.trigger_type,
+    status: row.status,
+    itemCount: row.item_count,
+    errorMessage: row.error_message,
+    createdAt: row.created_at
+  };
+}
+
 async function listBackupSnapshots(
   db: D1Database,
   backupR2: R2Bucket | undefined,
@@ -2869,6 +2911,7 @@ async function routeRequest(request: Request, deps: RouteDeps, context: RequestC
     requireRoleOrResponse,
     runStagingRefreshFromProduction,
     listBackupSnapshots: (db: D1Database, backupR2: R2Bucket | undefined, limit: number) => listBackupSnapshots(db, backupR2, limit),
+    getLatestBackupHealth: (db: D1Database) => getLatestBackupHealth(db),
     getLatestBackupCoverage,
     getMarketBackupSmokeStatus: (config: RuntimeConfig) => getMarketBackupSmokeStatus(config),
     runMarketBackupSmokeTest: (config: RuntimeConfig) => runMarketBackupSmokeTest(config),

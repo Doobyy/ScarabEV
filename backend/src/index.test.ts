@@ -134,6 +134,7 @@ class InMemorySecurityRepository implements SecurityRepository {
     const scarab: Scarab = {
       id: input.id,
       status: input.status,
+      groupName: null,
       leagueId: input.leagueId,
       seasonId: input.seasonId,
       retiredLeagueId: null,
