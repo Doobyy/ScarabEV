@@ -52,6 +52,7 @@ function renderOpsBackups(items){
   rows.querySelectorAll('button[data-copy]').forEach((btn)=>{btn.onclick=async()=>{try{await navigator.clipboard.writeText(btn.dataset.copy||'');toast('Copied');}catch(e){toast('Copy failed');}};});
 }
 async function opsListBackups(opts){const quiet=!!(opts&&opts.quiet);const showBusy=!quiet;if(showBusy)busy('opsListBtn',true);try{const r=await api('/admin/ops/backups?limit=10');if(r.res.status!==200||!r.json){if(!quiet)status('opsStatus','List backups failed ('+r.res.status+'). Owner role may be required.','err');return null;}const items=Array.isArray(r.json.items)?r.json.items:[];state.backupsAutoLoaded=true;renderOpsBackups(items);renderOpsStorageSummary(r.json.storageUsage||null);$('opsSummary').textContent='Backups: '+items.length+' latest snapshot(s), with per-run status and size.';if(!quiet)status('opsStatus','Backup list refreshed.','ok');return items;}finally{if(showBusy)busy('opsListBtn',false);}}
+async function opsLatestBackup(opts){const quiet=!!(opts&&opts.quiet);try{const r=await api('/admin/ops/backups/health');if(r.res.status!==200||!r.json){if(!quiet)status('opsStatus','Latest backup check failed ('+r.res.status+'). Owner role may be required.','err');return null;}const latest=r.json.latest||null;return latest?[latest]:[];}catch(e){if(!quiet)status('opsStatus','Latest backup check failed.','err');return null;}}
 function collectBackupIds(items){
   const ids=new Set();
   if(Array.isArray(items)){
@@ -82,7 +83,7 @@ async function waitForBackupConfirmation(beforeIds,expectedId,timeoutMs){
     attempts+=1;
     const secs=Math.max(0,Math.floor((Date.now()-startedAt)/1000));
     status('opsStatus','Verifying backup completion... check '+attempts+' ('+secs+'s)','warn');
-    const items=await opsListBackups({quiet:true});
+    const items=await opsLatestBackup({quiet:true});
     const confirmed=findConfirmedBackup(items,beforeIds,expectedId);
     if(confirmed){
       return confirmed;
@@ -95,7 +96,7 @@ async function opsRunBackup(){
   busy('opsRunBtn',true);
   const runBtn=$('opsRunBtn');
   const prevBtnText=runBtn?String(runBtn.textContent||'Run Backup'):'Run Backup';
-  const beforeItems=await opsListBackups({quiet:true});
+  const beforeItems=await opsLatestBackup({quiet:true});
   const beforeIds=collectBackupIds(beforeItems);
   let expectedId='';
   let responseDetail='';
