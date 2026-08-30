@@ -463,6 +463,11 @@ function evaluateSessionIntake(session) {
       `Declared total_consumed (${declaredTotalConsumed}) does not match row consumed sum (${actualConsumedRowTotal}).`
     );
   }
+  if (actualConsumedRowTotal < 1000) {
+    structuralIssues.push(
+      `Scarab intake is below the minimum required 1000 scarabs (${actualConsumedRowTotal} received).`
+    );
+  }
   const declaredTotalTrades = toOptionalNonNegativeInteger(session?.total_trades);
   const totalInput = toNonNegativeNumber(session?.input_value);
   const totalOutput = toNonNegativeNumber(session?.output_value);
