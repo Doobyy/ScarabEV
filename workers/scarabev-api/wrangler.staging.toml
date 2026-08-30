@@ -1,0 +1,13 @@
+name = "scarabev-api-staging"
+main = "index.js"
+compatibility_date = "2026-04-19"
+compatibility_flags = ["global_fetch_strictly_public"]
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "poepool-db-staging"
+database_id = "cac500c6-d4be-4352-928b-d23662936edf"
+
+# Required secret for admin endpoints:
+#   wrangler secret put ADMIN_KEY --config workers/scarabev-api/wrangler.staging.toml
