@@ -19,7 +19,7 @@ backend/.tmp-test/
 backend/.tmp-cookies.txt
 .wrangler/
 workers/market-worker/.wrangler/
-AGENTS.md
+agents.md
 **/node_modules/
 **/*.log
 **/*.tmp
@@ -35,7 +35,6 @@ scripts/validate-canonical-seeding.mjs
 
 # Local-only development/runtime trees (GitHub repo is frontend host surface)
 
-workers/
 tests/
 
 .github/workflows/
