@@ -34,7 +34,6 @@ scripts/intake-tolerance-sensitivity.mjs
 scripts/validate-canonical-seeding.mjs
 
 # Local-only development/runtime trees (GitHub repo is frontend host surface)
-
 tests/
 
 .github/workflows/
