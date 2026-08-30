@@ -1,7 +1,9 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// src/index.js
+// index.js
+var __defProp2 = Object.defineProperty;
+var __name2 = /* @__PURE__ */ __name((target, value) => __defProp2(target, "name", { value, configurable: true }), "__name");
 var MAX_SESSIONS_PER_IP_PER_HOUR = 20;
 var L1_NEGATIVE_DRIFT_RATE = 0.0125;
 var L1_POSITIVE_DRIFT_RATE = 0.015;
@@ -161,11 +163,10 @@ var CANONICAL_SCARAB_LIST = [
   { name: "Horned Scarab of Glittering", group: "Horned", icon: "SuperScarab2.webp" },
   { name: "Horned Scarab of Pandemonium", group: "Horned", icon: "SuperScarab3.webp" },
   { name: "Horned Scarab of Tradition", group: "Horned", icon: "SuperScarab1.webp" },
-  { name: "Trarthan Scarab", group: "Trarthan"},
-  { name: "Trarthan Scarab of Infamy", group: "Trarthan"},
-  { name: "Trarthan Scarab of Renown", group: "Trarthan"},
-  { name: "Trarthan Scarab of Surprising Alliances", group: "Trarthan"}
-  
+  { name: "Trarthan Scarab", group: "Trarthan" },
+  { name: "Trarthan Scarab of Infamy", group: "Trarthan" },
+  { name: "Trarthan Scarab of Renown", group: "Trarthan" },
+  { name: "Trarthan Scarab of Surprising Alliances", group: "Trarthan" }
 ];
 var CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -179,10 +180,12 @@ function json(body, status = 200) {
   });
 }
 __name(json, "json");
+__name2(json, "json");
 function sqlQuoted(value) {
   return `'${String(value || "").replace(/'/g, "''")}'`;
 }
 __name(sqlQuoted, "sqlQuoted");
+__name2(sqlQuoted, "sqlQuoted");
 var APPROVED_STATE_SQL_LIST = APPROVED_INTAKE_STATES.map((s) => sqlQuoted(s)).join(", ");
 var APPROVED_STATE_WHERE = `(intake_state IS NULL OR intake_state IN (${APPROVED_STATE_SQL_LIST}))`;
 var intakeSchemaReady = null;
@@ -265,7 +268,7 @@ async function ensureIntakeSchema(env) {
         generated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
         version TEXT NOT NULL
       )`
-    ).run();	
+    ).run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_intake_state_created ON sessions(intake_state, created_at DESC)").run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_intake_fingerprint ON sessions(intake_fingerprint)").run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_intake_events_created ON session_intake_events(created_at DESC)").run();
@@ -278,6 +281,7 @@ async function ensureIntakeSchema(env) {
   return intakeSchemaReady;
 }
 __name(ensureIntakeSchema, "ensureIntakeSchema");
+__name2(ensureIntakeSchema, "ensureIntakeSchema");
 function toNonNegativeInteger(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || Math.floor(n) !== n)
@@ -285,12 +289,14 @@ function toNonNegativeInteger(value) {
   return n;
 }
 __name(toNonNegativeInteger, "toNonNegativeInteger");
+__name2(toNonNegativeInteger, "toNonNegativeInteger");
 function toOptionalNonNegativeInteger(value) {
   if (value === null || value === void 0 || value === "")
     return null;
   return toNonNegativeInteger(value);
 }
 __name(toOptionalNonNegativeInteger, "toOptionalNonNegativeInteger");
+__name2(toOptionalNonNegativeInteger, "toOptionalNonNegativeInteger");
 function toNonNegativeNumber(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0)
@@ -298,12 +304,14 @@ function toNonNegativeNumber(value) {
   return n;
 }
 __name(toNonNegativeNumber, "toNonNegativeNumber");
+__name2(toNonNegativeNumber, "toNonNegativeNumber");
 function toOptionalNonNegativeNumber(value) {
   if (value === null || value === void 0 || value === "")
     return null;
   return toNonNegativeNumber(value);
 }
 __name(toOptionalNonNegativeNumber, "toOptionalNonNegativeNumber");
+__name2(toOptionalNonNegativeNumber, "toOptionalNonNegativeNumber");
 function normalizeNumberForFingerprint(value) {
   const n = Number(value);
   if (!Number.isFinite(n))
@@ -311,6 +319,7 @@ function normalizeNumberForFingerprint(value) {
   return Math.round(n * 1e6) / 1e6;
 }
 __name(normalizeNumberForFingerprint, "normalizeNumberForFingerprint");
+__name2(normalizeNumberForFingerprint, "normalizeNumberForFingerprint");
 function buildNormalizedSubmissionPayload(session) {
   if (!session || typeof session !== "object")
     return null;
@@ -368,6 +377,7 @@ function buildNormalizedSubmissionPayload(session) {
   return normalized;
 }
 __name(buildNormalizedSubmissionPayload, "buildNormalizedSubmissionPayload");
+__name2(buildNormalizedSubmissionPayload, "buildNormalizedSubmissionPayload");
 async function computeSubmissionFingerprint(session) {
   const normalized = buildNormalizedSubmissionPayload(session);
   if (!normalized)
@@ -382,6 +392,7 @@ async function computeSubmissionFingerprint(session) {
   };
 }
 __name(computeSubmissionFingerprint, "computeSubmissionFingerprint");
+__name2(computeSubmissionFingerprint, "computeSubmissionFingerprint");
 async function findDuplicateSubmission(env, fingerprint) {
   if (!fingerprint)
     return null;
@@ -401,6 +412,7 @@ async function findDuplicateSubmission(env, fingerprint) {
   };
 }
 __name(findDuplicateSubmission, "findDuplicateSubmission");
+__name2(findDuplicateSubmission, "findDuplicateSubmission");
 function evaluateSessionIntake(session) {
   const structuralIssues = [];
   const scarabsRaw = Array.isArray(session?.scarabs) ? session.scarabs : null;
@@ -561,6 +573,7 @@ function evaluateSessionIntake(session) {
   };
 }
 __name(evaluateSessionIntake, "evaluateSessionIntake");
+__name2(evaluateSessionIntake, "evaluateSessionIntake");
 function l1DistanceNormalized(aMap, bMap, names) {
   if (!Array.isArray(names) || names.length === 0)
     return 0;
@@ -573,6 +586,7 @@ function l1DistanceNormalized(aMap, bMap, names) {
   return clamp01(sum / 2);
 }
 __name(l1DistanceNormalized, "l1DistanceNormalized");
+__name2(l1DistanceNormalized, "l1DistanceNormalized");
 function computeHhi(shareMap, names) {
   let hhi = 0;
   for (const name of names || []) {
@@ -582,6 +596,7 @@ function computeHhi(shareMap, names) {
   return hhi;
 }
 __name(computeHhi, "computeHhi");
+__name2(computeHhi, "computeHhi");
 function computeSessionReceivedShareMap(rows) {
   const receivedByName = {};
   let totalReceived = 0;
@@ -604,13 +619,14 @@ function computeSessionReceivedShareMap(rows) {
   return { receivedByName, shareByName, totalReceived };
 }
 __name(computeSessionReceivedShareMap, "computeSessionReceivedShareMap");
+__name2(computeSessionReceivedShareMap, "computeSessionReceivedShareMap");
 function computeL2ShapeTerms(priorReceivedByScarab, scarabRows, expectedFinal) {
   const observedBefore = priorReceivedByScarab || {};
   const { receivedByName, shareByName: sessionShares } = computeSessionReceivedShareMap(scarabRows);
   const priorCounts = Object.entries(observedBefore || {}).map(([name, count]) => [String(name), Math.max(0, Number(count) || 0)]);
   const commonNames = priorCounts.filter(([, count]) => count >= 200).map(([name]) => name);
   const midNames = priorCounts.filter(([, count]) => count >= 40 && count < 200).map(([name]) => name);
-  const matureNames = [...new Set([...commonNames, ...midNames])];
+  const matureNames = [.../* @__PURE__ */ new Set([...commonNames, ...midNames])];
   const totalCommonPrior = commonNames.reduce((sum, name) => sum + (Number(observedBefore?.[name]) || 0), 0);
   const totalMidPrior = midNames.reduce((sum, name) => sum + (Number(observedBefore?.[name]) || 0), 0);
   const totalMaturePrior = matureNames.reduce((sum, name) => sum + (Number(observedBefore?.[name]) || 0), 0);
@@ -680,6 +696,7 @@ function computeL2ShapeTerms(priorReceivedByScarab, scarabRows, expectedFinal) {
   };
 }
 __name(computeL2ShapeTerms, "computeL2ShapeTerms");
+__name2(computeL2ShapeTerms, "computeL2ShapeTerms");
 function evaluateL2Intake(intake, priorReceivedByScarab) {
   const expectedFinal = Math.max(0, Number(intake.expectedFinal) || 0);
   const shape = computeL2ShapeTerms(priorReceivedByScarab || {}, intake.normalizedScarabs || [], expectedFinal);
@@ -797,6 +814,7 @@ function evaluateL2Intake(intake, priorReceivedByScarab) {
   };
 }
 __name(evaluateL2Intake, "evaluateL2Intake");
+__name2(evaluateL2Intake, "evaluateL2Intake");
 function parseScarabRows(raw) {
   try {
     const parsed = JSON.parse(String(raw || "[]"));
@@ -806,6 +824,7 @@ function parseScarabRows(raw) {
   }
 }
 __name(parseScarabRows, "parseScarabRows");
+__name2(parseScarabRows, "parseScarabRows");
 function buildSessionPayloadFromStoredRow(row) {
   const scarabRows = parseScarabRows(row?.scarabs_json || "[]");
   const normalizedRows = [];
@@ -848,6 +867,7 @@ function buildSessionPayloadFromStoredRow(row) {
   };
 }
 __name(buildSessionPayloadFromStoredRow, "buildSessionPayloadFromStoredRow");
+__name2(buildSessionPayloadFromStoredRow, "buildSessionPayloadFromStoredRow");
 function buildReceivedByScarabMap(scarabs) {
   const out = {};
   for (const row of scarabs || []) {
@@ -862,6 +882,7 @@ function buildReceivedByScarabMap(scarabs) {
   return out;
 }
 __name(buildReceivedByScarabMap, "buildReceivedByScarabMap");
+__name2(buildReceivedByScarabMap, "buildReceivedByScarabMap");
 async function applySessionAggregateDelta(env, sessionRow, direction) {
   const dir = Number(direction) >= 0 ? 1 : -1;
   const aggRow = await env.DB.prepare(
@@ -893,6 +914,7 @@ async function applySessionAggregateDelta(env, sessionRow, direction) {
   return { sessionCount: nextSessions };
 }
 __name(applySessionAggregateDelta, "applySessionAggregateDelta");
+__name2(applySessionAggregateDelta, "applySessionAggregateDelta");
 async function insertIntakeEvent(env, payload) {
   await env.DB.prepare(
     `INSERT INTO session_intake_events (
@@ -921,12 +943,14 @@ async function insertIntakeEvent(env, payload) {
   ).run();
 }
 __name(insertIntakeEvent, "insertIntakeEvent");
+__name2(insertIntakeEvent, "insertIntakeEvent");
 async function hashIP(ip) {
   const enc = new TextEncoder().encode(ip || "unknown");
   const buf = await crypto.subtle.digest("SHA-256", enc);
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 __name(hashIP, "hashIP");
+__name2(hashIP, "hashIP");
 async function checkRateLimit(env, ipHash) {
   const windowStart = Math.floor(Date.now() / 36e5);
   const row = await env.DB.prepare("SELECT window_start, count FROM rate_limit WHERE ip_hash = ?").bind(ipHash).first();
@@ -942,12 +966,14 @@ async function checkRateLimit(env, ipHash) {
   return { allowed: true };
 }
 __name(checkRateLimit, "checkRateLimit");
+__name2(checkRateLimit, "checkRateLimit");
 function clamp01(n) {
   if (!Number.isFinite(n))
     return 0;
   return Math.max(0, Math.min(1, n));
 }
 __name(clamp01, "clamp01");
+__name2(clamp01, "clamp01");
 function safeParseJsonMap(raw) {
   try {
     const parsed = JSON.parse(raw || "{}");
@@ -957,6 +983,7 @@ function safeParseJsonMap(raw) {
   }
 }
 __name(safeParseJsonMap, "safeParseJsonMap");
+__name2(safeParseJsonMap, "safeParseJsonMap");
 function safeParseJsonArray(raw) {
   try {
     const parsed = JSON.parse(raw || "[]");
@@ -966,11 +993,13 @@ function safeParseJsonArray(raw) {
   }
 }
 __name(safeParseJsonArray, "safeParseJsonArray");
+__name2(safeParseJsonArray, "safeParseJsonArray");
 async function loadApprovedReceivedByScarab(env) {
   const row = await env.DB.prepare("SELECT received_by_scarab FROM aggregate WHERE id = 1").first();
   return safeParseJsonMap(row?.received_by_scarab || "{}");
 }
 __name(loadApprovedReceivedByScarab, "loadApprovedReceivedByScarab");
+__name2(loadApprovedReceivedByScarab, "loadApprovedReceivedByScarab");
 function splitCanonicalGroups(catalog) {
   const groups = /* @__PURE__ */ new Map();
   for (const item of catalog) {
@@ -983,6 +1012,7 @@ function splitCanonicalGroups(catalog) {
   return groups;
 }
 __name(splitCanonicalGroups, "splitCanonicalGroups");
+__name2(splitCanonicalGroups, "splitCanonicalGroups");
 function buildCanonicalScarabCatalog() {
   const seen = /* @__PURE__ */ new Set();
   const ordered = [];
@@ -999,6 +1029,7 @@ function buildCanonicalScarabCatalog() {
   return { ordered, byName, groups };
 }
 __name(buildCanonicalScarabCatalog, "buildCanonicalScarabCatalog");
+__name2(buildCanonicalScarabCatalog, "buildCanonicalScarabCatalog");
 var CANONICAL_SCARAB_CATALOG = buildCanonicalScarabCatalog();
 function pickObviousBaseScarab(groupItems) {
   if (!Array.isArray(groupItems) || groupItems.length === 0)
@@ -1017,6 +1048,7 @@ function pickObviousBaseScarab(groupItems) {
   return sortedByName[0]?.name || null;
 }
 __name(pickObviousBaseScarab, "pickObviousBaseScarab");
+__name2(pickObviousBaseScarab, "pickObviousBaseScarab");
 function stableHash32(input) {
   let h = 2166136261 >>> 0;
   const str = String(input || "");
@@ -1027,6 +1059,7 @@ function stableHash32(input) {
   return h >>> 0;
 }
 __name(stableHash32, "stableHash32");
+__name2(stableHash32, "stableHash32");
 function pickDeterministicRareSlot(groupName, candidates, leagueKey) {
   if (!Array.isArray(candidates) || candidates.length === 0)
     return null;
@@ -1038,6 +1071,7 @@ function pickDeterministicRareSlot(groupName, candidates, leagueKey) {
   return candidates[idx];
 }
 __name(pickDeterministicRareSlot, "pickDeterministicRareSlot");
+__name2(pickDeterministicRareSlot, "pickDeterministicRareSlot");
 function normalizeWeightMapStable(weightMap, catalog) {
   let sum = 0;
   for (const v of Object.values(weightMap || {}))
@@ -1053,6 +1087,7 @@ function normalizeWeightMapStable(weightMap, catalog) {
   return out;
 }
 __name(normalizeWeightMapStable, "normalizeWeightMapStable");
+__name2(normalizeWeightMapStable, "normalizeWeightMapStable");
 function seedCanonicalWeights(rawWeights, leagueKey) {
   const catalog = CANONICAL_SCARAB_CATALOG;
   const source = rawWeights && typeof rawWeights === "object" ? rawWeights : {};
@@ -1125,6 +1160,7 @@ function seedCanonicalWeights(rawWeights, leagueKey) {
   };
 }
 __name(seedCanonicalWeights, "seedCanonicalWeights");
+__name2(seedCanonicalWeights, "seedCanonicalWeights");
 function normalizeLeagueInfo(rawLeague) {
   const raw = String(rawLeague || "").trim();
   const lowered = raw.toLowerCase();
@@ -1165,6 +1201,7 @@ function normalizeLeagueInfo(rawLeague) {
   };
 }
 __name(normalizeLeagueInfo, "normalizeLeagueInfo");
+__name2(normalizeLeagueInfo, "normalizeLeagueInfo");
 function createLeagueStats(key, kind) {
   return {
     key,
@@ -1182,6 +1219,7 @@ function createLeagueStats(key, kind) {
   };
 }
 __name(createLeagueStats, "createLeagueStats");
+__name2(createLeagueStats, "createLeagueStats");
 function finalizeWeights(receivedByScarab) {
   const totalReceived = Object.values(receivedByScarab).reduce((sum, n) => sum + (Number(n) || 0), 0);
   if (totalReceived <= 0)
@@ -1195,6 +1233,7 @@ function finalizeWeights(receivedByScarab) {
   return { totalReceived, weights };
 }
 __name(finalizeWeights, "finalizeWeights");
+__name2(finalizeWeights, "finalizeWeights");
 function buildLeagueStats(rows) {
   const byKey = {};
   for (const row of rows) {
@@ -1233,6 +1272,7 @@ function buildLeagueStats(rows) {
   return byKey;
 }
 __name(buildLeagueStats, "buildLeagueStats");
+__name2(buildLeagueStats, "buildLeagueStats");
 function normalizeLeagueStatsForStorage(stats) {
   const receivedByScarab = stats?.receivedByScarab && typeof stats.receivedByScarab === "object" ? stats.receivedByScarab : {};
   const finalized = finalizeWeights(receivedByScarab);
@@ -1254,6 +1294,7 @@ function normalizeLeagueStatsForStorage(stats) {
   };
 }
 __name(normalizeLeagueStatsForStorage, "normalizeLeagueStatsForStorage");
+__name2(normalizeLeagueStatsForStorage, "normalizeLeagueStatsForStorage");
 function buildLeagueStatsFromMaterializedRows(rows) {
   const byKey = {};
   for (const row of rows || []) {
@@ -1280,6 +1321,7 @@ function buildLeagueStatsFromMaterializedRows(rows) {
   return byKey;
 }
 __name(buildLeagueStatsFromMaterializedRows, "buildLeagueStatsFromMaterializedRows");
+__name2(buildLeagueStatsFromMaterializedRows, "buildLeagueStatsFromMaterializedRows");
 async function readMaterializedLeagueStats(env) {
   const { results: rows } = await env.DB.prepare(
     `SELECT league_key, league_kind, session_count, total_consumed, total_trades, total_input, total_output,
@@ -1290,6 +1332,7 @@ async function readMaterializedLeagueStats(env) {
   return buildLeagueStatsFromMaterializedRows(rows || []);
 }
 __name(readMaterializedLeagueStats, "readMaterializedLeagueStats");
+__name2(readMaterializedLeagueStats, "readMaterializedLeagueStats");
 function computeLeagueAggregateFromStats(byKey, rawLeague, cachedBaseline = null) {
   const leagueInfo = normalizeLeagueInfo(rawLeague);
   const model = pickLeagueModel(leagueInfo, byKey || {}, cachedBaseline);
@@ -1320,7 +1363,7 @@ function computeLeagueAggregateFromStats(byKey, rawLeague, cachedBaseline = null
       handoverConsumed: HANDOVER_CONSUMED,
       consumedCurrent: byKey?.[leagueInfo.key]?.totalConsumed || 0,
       priorLeagueKey: model.priorLeagueKey || null,
-	  baselineIncludedLeagueKeys: model.baselineIncludedLeagueKeys || [],
+      baselineIncludedLeagueKeys: model.baselineIncludedLeagueKeys || [],
       challengeLeagueOrder: model.challengeKeys || [],
       supportingOutputs: model.supportingOutputs || stats.totalReceived || 0,
       divineSessionCount: stats.divineSessionCount || 0,
@@ -1334,6 +1377,7 @@ function computeLeagueAggregateFromStats(byKey, rawLeague, cachedBaseline = null
   };
 }
 __name(computeLeagueAggregateFromStats, "computeLeagueAggregateFromStats");
+__name2(computeLeagueAggregateFromStats, "computeLeagueAggregateFromStats");
 function combineLeagueStats(statsList) {
   const combined = createLeagueStats("combined", "challenge");
   for (const stats of statsList) {
@@ -1359,9 +1403,10 @@ function combineLeagueStats(statsList) {
   return combined;
 }
 __name(combineLeagueStats, "combineLeagueStats");
+__name2(combineLeagueStats, "combineLeagueStats");
 function blendWeightMaps(newWeights, oldWeights, alpha) {
   const a = clamp01(alpha);
-  const names = new Set([...Object.keys(newWeights || {}), ...Object.keys(oldWeights || {})]);
+  const names = /* @__PURE__ */ new Set([...Object.keys(newWeights || {}), ...Object.keys(oldWeights || {})]);
   const blended = {};
   let sum = 0;
   for (const name of names) {
@@ -1378,6 +1423,7 @@ function blendWeightMaps(newWeights, oldWeights, alpha) {
   return blended;
 }
 __name(blendWeightMaps, "blendWeightMaps");
+__name2(blendWeightMaps, "blendWeightMaps");
 function buildHistoricalBaselineFromStats(byKey, currentLeagueKey) {
   const challengeStats = Object.values(byKey || {}).filter(
     (s) => s.kind === "challenge" && s.key !== currentLeagueKey
@@ -1387,11 +1433,9 @@ function buildHistoricalBaselineFromStats(byKey, currentLeagueKey) {
       return a.latestCreatedAt < b.latestCreatedAt ? 1 : -1;
     return (b.totalConsumed || 0) - (a.totalConsumed || 0);
   });
-
   const qualifiedIndex = challengeStats.findIndex(
-    (stats) => (Number(stats.totalConsumed) || 0) >= HANDOVER_CONSUMED
+    (stats2) => (Number(stats2.totalConsumed) || 0) >= HANDOVER_CONSUMED
   );
-
   if (qualifiedIndex < 0) {
     return {
       available: false,
@@ -1400,10 +1444,8 @@ function buildHistoricalBaselineFromStats(byKey, currentLeagueKey) {
       stats: null
     };
   }
-
   const included = challengeStats.slice(0, qualifiedIndex + 1);
   const stats = combineLeagueStats(included);
-
   return {
     available: stats.totalConsumed >= HANDOVER_CONSUMED,
     baselineLeagueKey: challengeStats[qualifiedIndex]?.key || null,
@@ -1412,7 +1454,7 @@ function buildHistoricalBaselineFromStats(byKey, currentLeagueKey) {
   };
 }
 __name(buildHistoricalBaselineFromStats, "buildHistoricalBaselineFromStats");
-
+__name2(buildHistoricalBaselineFromStats, "buildHistoricalBaselineFromStats");
 async function readCachedLeagueBaseline(env, currentLeagueKey) {
   const row = await env.DB.prepare(
     `SELECT league_key, available, baseline_league_key, included_league_keys,
@@ -1421,10 +1463,8 @@ async function readCachedLeagueBaseline(env, currentLeagueKey) {
      FROM league_weighting_baselines
      WHERE league_key = ?`
   ).bind(currentLeagueKey).first();
-
   if (!row || String(row.version || "") !== LEAGUE_BASELINE_CACHE_VERSION)
     return null;
-
   return {
     available: Number(row.available) === 1,
     leagueKey: String(row.league_key || currentLeagueKey),
@@ -1439,22 +1479,18 @@ async function readCachedLeagueBaseline(env, currentLeagueKey) {
   };
 }
 __name(readCachedLeagueBaseline, "readCachedLeagueBaseline");
-
+__name2(readCachedLeagueBaseline, "readCachedLeagueBaseline");
 async function getOrCreateLeagueBaseline(env, byKey, currentLeagueKey) {
   const cached = await readCachedLeagueBaseline(env, currentLeagueKey);
   if (cached)
     return cached;
-
   const baseline = buildHistoricalBaselineFromStats(byKey, currentLeagueKey);
   if (!baseline.available || !baseline.stats)
-	return null;
-  const baselineStats =
-    baseline.stats ||
-    createLeagueStats(
-      baseline.baselineLeagueKey || "historical-baseline",
-      "challenge"
-    );
-
+    return null;
+  const baselineStats = baseline.stats || createLeagueStats(
+    baseline.baselineLeagueKey || "historical-baseline",
+    "challenge"
+  );
   const payload = {
     leagueKey: currentLeagueKey,
     available: baseline.available,
@@ -1465,7 +1501,6 @@ async function getOrCreateLeagueBaseline(env, byKey, currentLeagueKey) {
     receivedByScarab: baselineStats.receivedByScarab,
     weights: baselineStats.weights
   };
-
   await env.DB.prepare(
     `INSERT INTO league_weighting_baselines (
        league_key, available, baseline_league_key, included_league_keys,
@@ -1483,11 +1518,10 @@ async function getOrCreateLeagueBaseline(env, byKey, currentLeagueKey) {
     JSON.stringify(payload.weights),
     LEAGUE_BASELINE_CACHE_VERSION
   ).run();
-
   return await readCachedLeagueBaseline(env, currentLeagueKey);
 }
 __name(getOrCreateLeagueBaseline, "getOrCreateLeagueBaseline");
-
+__name2(getOrCreateLeagueBaseline, "getOrCreateLeagueBaseline");
 function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
   const challengeStats = Object.values(byKey || {}).filter(
     (s) => s.kind === "challenge"
@@ -1535,7 +1569,6 @@ function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
     };
   }
   const current = byKey[leagueInfo.key] || null;
-
   const historicalBaseline = cachedBaseline || null;
   const baselineStats = historicalBaseline ? {
     ...createLeagueStats(
@@ -1547,13 +1580,7 @@ function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
     receivedByScarab: historicalBaseline.receivedByScarab,
     weights: historicalBaseline.weights
   } : null;
-
-  if (
-    current &&
-    current.totalReceived >= MIN_WEIGHT_OUTPUTS &&
-    baselineStats &&
-    baselineStats.totalReceived >= MIN_WEIGHT_OUTPUTS
-  ) {
+  if (current && current.totalReceived >= MIN_WEIGHT_OUTPUTS && baselineStats && baselineStats.totalReceived >= MIN_WEIGHT_OUTPUTS) {
     const alpha = clamp01((current.totalConsumed || 0) / HANDOVER_CONSUMED);
     const blended = blendWeightMaps(
       current.weights,
@@ -1567,13 +1594,10 @@ function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
         mode: "challenge-blend",
         alphaGlobal: alpha,
         priorLeagueKey: historicalBaseline.baselineLeagueKey || null,
-        baselineIncludedLeagueKeys:
-          historicalBaseline.includedLeagueKeys || [],
+        baselineIncludedLeagueKeys: historicalBaseline.includedLeagueKeys || [],
         supportsWeighted: true,
-        supportingSessionCount: (current.sessionCount || 0),
-        supportingOutputs:
-          (current.totalReceived || 0) +
-          (baselineStats.totalReceived || 0),
+        supportingSessionCount: current.sessionCount || 0,
+        supportingOutputs: (current.totalReceived || 0) + (baselineStats.totalReceived || 0),
         challengeKeys
       };
     }
@@ -1585,13 +1609,11 @@ function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
       mode: "challenge-current-only",
       alphaGlobal: 1,
       priorLeagueKey: historicalBaseline?.baselineLeagueKey || null,
-      baselineIncludedLeagueKeys:
-        historicalBaseline?.includedLeagueKeys || [],
+      baselineIncludedLeagueKeys: historicalBaseline?.includedLeagueKeys || [],
       supportsWeighted: true,
       challengeKeys
     };
   }
-
   if (baselineStats && baselineStats.totalReceived >= MIN_WEIGHT_OUTPUTS) {
     return {
       weights: baselineStats.weights,
@@ -1599,10 +1621,9 @@ function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
       mode: "challenge-historical-baseline",
       alphaGlobal: 0,
       priorLeagueKey: historicalBaseline.baselineLeagueKey || null,
-      baselineIncludedLeagueKeys:
-        historicalBaseline.includedLeagueKeys || [],
+      baselineIncludedLeagueKeys: historicalBaseline.includedLeagueKeys || [],
       supportsWeighted: true,
-      supportingOutputs: baselineStats.totalReceived,	  
+      supportingOutputs: baselineStats.totalReceived,
       challengeKeys
     };
   }
@@ -1618,6 +1639,7 @@ function pickLeagueModel(leagueInfo, byKey, cachedBaseline = null) {
   };
 }
 __name(pickLeagueModel, "pickLeagueModel");
+__name2(pickLeagueModel, "pickLeagueModel");
 async function readMaterializedLeagueStatsForLeague(env, leagueKey) {
   const row = await env.DB.prepare(
     `SELECT league_key, league_kind, session_count, total_consumed,
@@ -1627,59 +1649,45 @@ async function readMaterializedLeagueStatsForLeague(env, leagueKey) {
      FROM league_aggregates
      WHERE league_key = ?`
   ).bind(leagueKey).first();
-
   return buildLeagueStatsFromMaterializedRows(row ? [row] : []);
 }
 __name(readMaterializedLeagueStatsForLeague, "readMaterializedLeagueStatsForLeague");
-
+__name2(readMaterializedLeagueStatsForLeague, "readMaterializedLeagueStatsForLeague");
 async function computeLeagueAggregate(env, rawLeague) {
   const leagueInfo = normalizeLeagueInfo(rawLeague);
-
   if (leagueInfo.kind === "challenge") {
-    const currentByKey =
-      await readMaterializedLeagueStatsForLeague(env, leagueInfo.key);
-
+    const currentByKey = await readMaterializedLeagueStatsForLeague(env, leagueInfo.key);
     const current = currentByKey?.[leagueInfo.key] || null;
-
-    if (
-      current &&
-      (Number(current.totalConsumed) || 0) >= HANDOVER_CONSUMED
-    )
+    if (current && (Number(current.totalConsumed) || 0) >= HANDOVER_CONSUMED)
       return computeLeagueAggregateFromStats(
         currentByKey,
         rawLeague,
         null
       );
-
-    const cachedBaseline =
-      await readCachedLeagueBaseline(env, leagueInfo.key);
-
+    const cachedBaseline = await readCachedLeagueBaseline(env, leagueInfo.key);
     if (cachedBaseline)
       return computeLeagueAggregateFromStats(
         currentByKey,
         rawLeague,
         cachedBaseline
       );
-
-    const byKey = await readMaterializedLeagueStats(env);
-    const generatedBaseline =
-      await getOrCreateLeagueBaseline(
-        env,
-        byKey,
-        leagueInfo.key
-      );
-
+    const byKey2 = await readMaterializedLeagueStats(env);
+    const generatedBaseline = await getOrCreateLeagueBaseline(
+      env,
+      byKey2,
+      leagueInfo.key
+    );
     return computeLeagueAggregateFromStats(
       currentByKey,
       rawLeague,
       generatedBaseline
     );
   }
-
   const byKey = await readMaterializedLeagueStats(env);
   return computeLeagueAggregateFromStats(byKey, rawLeague);
 }
 __name(computeLeagueAggregate, "computeLeagueAggregate");
+__name2(computeLeagueAggregate, "computeLeagueAggregate");
 async function computeLeagueAggregateFromRawSessions(env, rawLeague) {
   const { results: rows } = await env.DB.prepare(
     `SELECT created_at, league, league_key, total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json
@@ -1687,27 +1695,18 @@ async function computeLeagueAggregateFromRawSessions(env, rawLeague) {
      WHERE ${APPROVED_STATE_WHERE}`
   ).all();
   const byKey = buildLeagueStats(rows || []);
-
   const leagueInfo = normalizeLeagueInfo(rawLeague);
-  const baseline =
-    leagueInfo.kind === "challenge"
-      ? buildHistoricalBaselineFromStats(byKey, leagueInfo.key)
-      : null;
-
-  const cachedBaseline =
-    baseline?.available && baseline.stats
-      ? {
-          available: true,
-          leagueKey: leagueInfo.key,
-          baselineLeagueKey: baseline.baselineLeagueKey,
-          includedLeagueKeys: baseline.includedLeagueKeys,
-          totalConsumed: baseline.stats.totalConsumed,
-          totalReceived: baseline.stats.totalReceived,
-          receivedByScarab: baseline.stats.receivedByScarab,
-          weights: baseline.stats.weights
-        }
-      : null;
-
+  const baseline = leagueInfo.kind === "challenge" ? buildHistoricalBaselineFromStats(byKey, leagueInfo.key) : null;
+  const cachedBaseline = baseline?.available && baseline.stats ? {
+    available: true,
+    leagueKey: leagueInfo.key,
+    baselineLeagueKey: baseline.baselineLeagueKey,
+    includedLeagueKeys: baseline.includedLeagueKeys,
+    totalConsumed: baseline.stats.totalConsumed,
+    totalReceived: baseline.stats.totalReceived,
+    receivedByScarab: baseline.stats.receivedByScarab,
+    weights: baseline.stats.weights
+  } : null;
   return computeLeagueAggregateFromStats(
     byKey,
     rawLeague,
@@ -1715,6 +1714,7 @@ async function computeLeagueAggregateFromRawSessions(env, rawLeague) {
   );
 }
 __name(computeLeagueAggregateFromRawSessions, "computeLeagueAggregateFromRawSessions");
+__name2(computeLeagueAggregateFromRawSessions, "computeLeagueAggregateFromRawSessions");
 async function replaceMaterializedLeagueAggregates(env, byKey) {
   const statements = [env.DB.prepare("DELETE FROM league_aggregates")];
   for (const statsRaw of Object.values(byKey || {})) {
@@ -1749,6 +1749,7 @@ async function replaceMaterializedLeagueAggregates(env, byKey) {
   return { leagueCount: statements.length - 1 };
 }
 __name(replaceMaterializedLeagueAggregates, "replaceMaterializedLeagueAggregates");
+__name2(replaceMaterializedLeagueAggregates, "replaceMaterializedLeagueAggregates");
 async function rebuildMaterializedLeagueAggregates(env) {
   const { results: rows } = await env.DB.prepare(
     `SELECT created_at, league, league_key, total_consumed, total_trades, input_value, output_value, divine_rate, scarabs_json
@@ -1764,6 +1765,7 @@ async function rebuildMaterializedLeagueAggregates(env) {
   };
 }
 __name(rebuildMaterializedLeagueAggregates, "rebuildMaterializedLeagueAggregates");
+__name2(rebuildMaterializedLeagueAggregates, "rebuildMaterializedLeagueAggregates");
 async function applyLeagueAggregateDelta(env, sessionRow, direction) {
   const dir = Number(direction) >= 0 ? 1 : -1;
   if (dir < 0) {
@@ -1788,10 +1790,8 @@ async function applyLeagueAggregateDelta(env, sessionRow, direction) {
   const divineRate = Number(sessionRow?.divine_rate) || 0;
   const inputValue = Number(sessionRow?.input_value) || 0;
   const outputValue = Number(sessionRow?.output_value) || 0;
-  const nextCreatedAt = String(sessionRow?.created_at || "").trim() || new Date().toISOString().slice(0, 19).replace("T", " ");
-  const latestCreatedAt = existing?.latest_created_at && String(existing.latest_created_at) > nextCreatedAt
-    ? String(existing.latest_created_at)
-    : nextCreatedAt;
+  const nextCreatedAt = String(sessionRow?.created_at || "").trim() || (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " ");
+  const latestCreatedAt = existing?.latest_created_at && String(existing.latest_created_at) > nextCreatedAt ? String(existing.latest_created_at) : nextCreatedAt;
   const finalized = finalizeWeights(receivedByScarab);
   await env.DB.prepare(
     `INSERT INTO league_aggregates (
@@ -1832,6 +1832,7 @@ async function applyLeagueAggregateDelta(env, sessionRow, direction) {
   return { ok: true, rebuilt: false, leagueKey: leagueInfo.key };
 }
 __name(applyLeagueAggregateDelta, "applyLeagueAggregateDelta");
+__name2(applyLeagueAggregateDelta, "applyLeagueAggregateDelta");
 async function recomputeAggregate(env) {
   const { results: rows } = await env.DB.prepare(
     `SELECT total_consumed, total_trades, input_value, output_value, scarabs_json
@@ -1867,6 +1868,7 @@ async function recomputeAggregate(env) {
   return { totalSessions, totalConsumed, totalTrades, totalInput, totalOutput, receivedByScarab };
 }
 __name(recomputeAggregate, "recomputeAggregate");
+__name2(recomputeAggregate, "recomputeAggregate");
 var src_default = {
   async fetch(request, env) {
     if (request.method === "OPTIONS")
@@ -1874,20 +1876,15 @@ var src_default = {
     const url = new URL(request.url);
     const path = url.pathname;
     await ensureIntakeSchema(env);
-    // --- START REPAIR LOGIC ---
-if (path.startsWith("/api/sync-repair") && request.method === "POST") {
+    if (path.startsWith("/api/sync-repair") && request.method === "POST") {
       try {
         try {
           await env.DB.prepare("ALTER TABLE sessions ADD COLUMN divine_rate REAL").run();
         } catch (_) {
         }
         const sessions = await request.json();
-        
-        // 1. Clear existing sessions to prevent duplicates
         const clearTable = env.DB.prepare("DELETE FROM sessions");
-
-        // 2. Prepare fresh inserts for your 19 clean sessions
-        const inserts = sessions.map(s => {
+        const inserts = sessions.map((s) => {
           const leagueInfo = normalizeLeagueInfo(s.league_key || s.league || "unknown");
           return env.DB.prepare(`
             INSERT INTO sessions (
@@ -1896,8 +1893,8 @@ if (path.startsWith("/api/sync-repair") && request.method === "POST") {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
             s.created_at,
-            s.league || 'Mirage',
-            s.regex || '',
+            s.league || "Mirage",
+            s.regex || "",
             Number(s.total_consumed) || 0,
             Number(s.total_trades) || 0,
             Number(s.input_value) || 0,
@@ -1907,56 +1904,49 @@ if (path.startsWith("/api/sync-repair") && request.method === "POST") {
             leagueInfo.key
           );
         });
-
-        // 3. Execute everything in a single transaction
-        // If any part fails, nothing changes (ACID compliance)
         await env.DB.batch([clearTable, ...inserts]);
         await recomputeAggregate(env);
-        
         return json({ success: true, message: `Database rebuilt with ${sessions.length} clean sessions.` }, 200);
       } catch (e) {
         return json({ error: e.message }, 500);
       }
     }
-if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
+    if (path.startsWith("/api/recalculate-globals") && request.method === "POST") {
       try {
         const { results } = await env.DB.prepare(`SELECT scarabs_json FROM sessions WHERE ${APPROVED_STATE_WHERE}`).all();
-        
-        let receivedByScarab = {}; 
-
+        let receivedByScarab = {};
         for (const row of results) {
-            const scarabs = JSON.parse(row.scarabs_json || "[]");
-            scarabs.forEach(s => {
-                if (s.received > 0) {
-                    // This creates an entry for EVERY scarab type (Ambush, Divination, etc.)
-                    receivedByScarab[s.name] = (receivedByScarab[s.name] || 0) + s.received;
-                }
-            });
+          const scarabs = JSON.parse(row.scarabs_json || "[]");
+          scarabs.forEach((s) => {
+            if (s.received > 0) {
+              receivedByScarab[s.name] = (receivedByScarab[s.name] || 0) + s.received;
+            }
+          });
         }
-
         const finalStats = await env.DB.prepare(`
           SELECT COUNT(*) as total_sessions, SUM(total_consumed) as c, SUM(total_trades) as t, 
           SUM(input_value) as i, SUM(output_value) as o FROM sessions WHERE ${APPROVED_STATE_WHERE}
         `).first();
-
-        // Overwrite the aggregate record with the full map of all scarabs
         await env.DB.prepare(`
           UPDATE aggregate 
           SET total_sessions = ?, total_consumed = ?, total_trades = ?, 
               total_input = ?, total_output = ?, received_by_scarab = ? 
           WHERE id = 1
         `).bind(
-          finalStats.total_sessions, finalStats.c, finalStats.t, 
-          finalStats.i, finalStats.o, JSON.stringify(receivedByScarab)
+          finalStats.total_sessions,
+          finalStats.c,
+          finalStats.t,
+          finalStats.i,
+          finalStats.o,
+          JSON.stringify(receivedByScarab)
         ).run();
         await rebuildMaterializedLeagueAggregates(env);
-
         return json({ success: true, full_inventory: receivedByScarab }, 200);
       } catch (e) {
         return json({ error: e.message }, 500);
       }
     }
-if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POST") {
+    if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POST") {
       const urlKey = url.searchParams.get("key");
       if (!urlKey || urlKey !== env.ADMIN_KEY)
         return json({ error: "Unauthorized" }, 401);
@@ -1967,7 +1957,6 @@ if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POS
         return json({ error: e.message }, 500);
       }
     }
-    // --- END REPAIR LOGIC ---
     if (path === "/health") {
       const row = await env.DB.prepare("SELECT total_sessions AS sessionCount FROM aggregate WHERE id = 1").first();
       return json({ ok: true, sessionCount: row?.sessionCount ?? 0 });
@@ -1976,21 +1965,21 @@ if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POS
       const requestedLeague = url.searchParams.get("league");
       const requestedLeagueKey = String(requestedLeague || "").trim().toLowerCase();
       if (requestedLeagueKey === "all" || requestedLeagueKey === "lifetime") {
-        const row = await env.DB.prepare(
+        const row2 = await env.DB.prepare(
           "SELECT total_sessions, total_consumed, total_trades, total_input, total_output, received_by_scarab FROM aggregate WHERE id = 1"
         ).first();
-        let receivedByScarab = {};
+        let receivedByScarab2 = {};
         try {
-          receivedByScarab = JSON.parse(row?.received_by_scarab || "{}");
+          receivedByScarab2 = JSON.parse(row2?.received_by_scarab || "{}");
         } catch (_) {
         }
         return json({
-          sessionCount: row?.total_sessions ?? 0,
-          totalConsumed: row?.total_consumed ?? 0,
-          totalTrades: row?.total_trades ?? 0,
-          totalInput: row?.total_input ?? 0,
-          totalOutput: row?.total_output ?? 0,
-          receivedByScarab
+          sessionCount: row2?.total_sessions ?? 0,
+          totalConsumed: row2?.total_consumed ?? 0,
+          totalTrades: row2?.total_trades ?? 0,
+          totalInput: row2?.total_input ?? 0,
+          totalOutput: row2?.total_output ?? 0,
+          receivedByScarab: receivedByScarab2
         });
       }
       if (requestedLeague) {
@@ -2184,15 +2173,31 @@ if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POS
           intake_l1_json, intake_l2_json, intake_fingerprint
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        totalConsumed, totalTrades, totalInput, totalOutput, divineRate, scarabsJson, league, regex, leagueInfo.key,
-        intakeState, l2.classification || intakeState, Number(l2.healthPct) || Number(l1.healthPct) || 0, l1.expectedTrades, l1.actualOutputs, l1.drift, intakeReasonsJson,
-        intakeL1Json, intakeL2Json, intakeFingerprint
+        totalConsumed,
+        totalTrades,
+        totalInput,
+        totalOutput,
+        divineRate,
+        scarabsJson,
+        league,
+        regex,
+        leagueInfo.key,
+        intakeState,
+        l2.classification || intakeState,
+        Number(l2.healthPct) || Number(l1.healthPct) || 0,
+        l1.expectedTrades,
+        l1.actualOutputs,
+        l1.drift,
+        intakeReasonsJson,
+        intakeL1Json,
+        intakeL2Json,
+        intakeFingerprint
       );
       const insertResult = await insert.run();
       const sessionId = insertResult?.meta?.last_row_id ? String(insertResult.meta.last_row_id) : null;
       if (APPROVED_INTAKE_STATES.includes(intakeState)) {
         await applySessionAggregateDelta(env, {
-          created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+          created_at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " "),
           league,
           league_key: leagueInfo.key,
           total_consumed: totalConsumed,
@@ -2201,7 +2206,7 @@ if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POS
           output_value: totalOutput,
           divine_rate: divineRate,
           scarabs_json: scarabsJson
-        }, +1);
+        }, 1);
       }
       await insertIntakeEvent(env, {
         sessionId,
@@ -2710,7 +2715,7 @@ if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POS
           "UPDATE sessions SET intake_state = ?, admin_note = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?"
         ).bind(SESSION_STATE_APPROVED_MANUAL, note, id).run();
         if (!APPROVED_INTAKE_STATES.includes(String(previousState || ""))) {
-          await applySessionAggregateDelta(env, row, +1);
+          await applySessionAggregateDelta(env, row, 1);
         }
         await insertIntakeEvent(env, {
           sessionId: String(id),
@@ -2823,18 +2828,17 @@ if (path.startsWith("/api/rebuild-league-aggregates") && request.method === "POS
 };
 export {
   applyLeagueAggregateDelta,
+  buildHistoricalBaselineFromStats,
   buildLeagueStats,
   buildLeagueStatsFromMaterializedRows,
   computeLeagueAggregate,
-  readMaterializedLeagueStatsForLeague,
   computeLeagueAggregateFromRawSessions,
   computeLeagueAggregateFromStats,
-  buildHistoricalBaselineFromStats,
-  readCachedLeagueBaseline,
+  src_default as default,
   getOrCreateLeagueBaseline,
+  readCachedLeagueBaseline,
+  readMaterializedLeagueStatsForLeague,
   rebuildMaterializedLeagueAggregates,
-  replaceMaterializedLeagueAggregates,
-  src_default as default
+  replaceMaterializedLeagueAggregates
 };
 //# sourceMappingURL=index.js.map
-
