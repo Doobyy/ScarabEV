@@ -19,7 +19,6 @@ backend/.tmp-test/
 backend/.tmp-cookies.txt
 .wrangler/
 workers/market-worker/.wrangler/
-agents.md
 **/node_modules/
 **/*.log
 **/*.tmp
