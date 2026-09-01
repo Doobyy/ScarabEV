@@ -1970,21 +1970,17 @@ var src_default = {
       const requestedLeague = url.searchParams.get("league");
       const requestedLeagueKey = String(requestedLeague || "").trim().toLowerCase();
       if (requestedLeagueKey === "all" || requestedLeagueKey === "lifetime") {
-        const row2 = await env.DB.prepare(
-          "SELECT total_sessions, total_consumed, total_trades, total_input, total_output, received_by_scarab FROM aggregate WHERE id = 1"
-        ).first();
-        let receivedByScarab2 = {};
-        try {
-          receivedByScarab2 = JSON.parse(row2?.received_by_scarab || "{}");
-        } catch (_) {
-        }
+        const byKey = await readMaterializedLeagueStats(env);
+        const combined = combineLeagueStats(Object.values(byKey));
         return json({
-          sessionCount: row2?.total_sessions ?? 0,
-          totalConsumed: row2?.total_consumed ?? 0,
-          totalTrades: row2?.total_trades ?? 0,
-          totalInput: row2?.total_input ?? 0,
-          totalOutput: row2?.total_output ?? 0,
-          receivedByScarab: receivedByScarab2
+          sessionCount: combined.sessionCount,
+          totalConsumed: combined.totalConsumed,
+          totalTrades: combined.totalTrades,
+          totalInput: combined.totalInput,
+          totalOutput: combined.totalOutput,
+          totalInputDivine: combined.divineSessionCount > 0 ? combined.totalInputDivine : null,
+          totalOutputDivine: combined.divineSessionCount > 0 ? combined.totalOutputDivine : null,
+          receivedByScarab: combined.receivedByScarab
         });
       }
       if (requestedLeague) {
