@@ -9,11 +9,11 @@ const SCARAB_LIST = state.scarabList;
 let mobileScarabName;
 let applyScarabModifierTooltips;
 let bindStatInfoTooltipEvents;
-let readCurrentLeagueShare;
+let readCurrentLeagueSharePct;
 let maybeShowCurrentLeagueCtaFromShare;
 
 export function configureAnalysis(deps) {
-  ({ mobileScarabName, applyScarabModifierTooltips, bindStatInfoTooltipEvents, readCurrentLeagueShare, maybeShowCurrentLeagueCtaFromShare } = deps);
+  ({ mobileScarabName, applyScarabModifierTooltips, bindStatInfoTooltipEvents, readCurrentLeagueSharePct, maybeShowCurrentLeagueCtaFromShare } = deps);
 }
 // DATA ANALYSIS TAB
 function renderAnalysis() {

@@ -1623,7 +1623,7 @@ function applyEnvironmentBadge() {
   document.body.appendChild(badge);
 }
 
-configureAnalysis({ mobileScarabName, applyScarabModifierTooltips, bindStatInfoTooltipEvents, readCurrentLeagueShare, maybeShowCurrentLeagueCtaFromShare });
+configureAnalysis({ mobileScarabName, applyScarabModifierTooltips, bindStatInfoTooltipEvents, readCurrentLeagueSharePct, maybeShowCurrentLeagueCtaFromShare });
 configureAtlas({
   getPriceTrend,
   mobileScarabName,
