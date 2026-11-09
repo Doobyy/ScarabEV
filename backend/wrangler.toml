@@ -6,6 +6,7 @@ workers_dev = true
 [vars]
 APP_NAME = "scarabev-backend"
 APP_ENV = "dev"
+ARCHIVE_MODE = "true"
 LOG_LEVEL = "debug"
 OBS_SAMPLE_RATE = "1"
 BACKUP_ENABLED = "false"

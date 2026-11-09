@@ -1,6 +1,12 @@
 # Changelog
 
 > Maintainer note: Keep this changelog feature-first. Add entries for major features, major reworks, or meaningful user-visible behavior changes. Avoid standalone entries for minor tune-ups/polish; fold those into the next feature release. When versioning a new release, keep the visible app version tag in `index.html` in sync with the latest `## [x.y]` heading here.
+## [1.6] - 2026-11-09
+### Focus: ScarabEV Archive Mode
+- Archive shutdown: Retired live market, API, session, and Cloudflare-backed refresh paths while preserving the site as a browsable project archive.
+- Retirement notice: Added a thank-you message explaining that the tools and live data connections are no longer active.
+
+---
 ## [1.5] - 2026-04-18
 ### Focus: League-Start Data Quality and Self-Maintenance
 - Data Analysis page refocus: Restructured the Data Analysis experience to prioritize data health visibility instead of primarily comparing estimated vs realized profits.

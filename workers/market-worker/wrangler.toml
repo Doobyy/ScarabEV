@@ -6,6 +6,7 @@ workers_dev = true
 
 [vars]
 APP_ENV = "production"
+ARCHIVE_MODE = "true"
 AGGREGATE_API_URL = "https://scarabev-api.paperpandastacks.workers.dev/api/aggregate"
 
 [[kv_namespaces]]
@@ -15,6 +16,3 @@ id = "45058621c81d439d9ce0d12b61dc0c66"
 [[services]]
 binding = "SCARABEV_API"
 service = "scarabev-api"
-
-[triggers]
-crons = ["*/5 * * * *", "0 18 * * *"]

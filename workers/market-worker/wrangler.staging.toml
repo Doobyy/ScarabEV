@@ -6,6 +6,7 @@ workers_dev = true
 
 [vars]
 APP_ENV = "staging"
+ARCHIVE_MODE = "true"
 STAGING_CRON_ENABLED = "false"
 AGGREGATE_API_URL = "https://scarabev-api-staging.paperpandastacks.workers.dev/api/aggregate"
 

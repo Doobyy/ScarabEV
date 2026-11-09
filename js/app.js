@@ -18,6 +18,7 @@ import { configureBulk, initializeBulk, normalizeBulkNameMap, recomputeBulkNameM
 import { configureAnalysis, renderAnalysis, renderAnalysisFromLocalSessions, renderAnalysisFromAggregate, getAnalysisSortLabel, updateAnalysisChartAxisLabel, showAnalysisBarTooltip, hideAnalysisBarTooltip, setAnalysisWeightFilter, sortAnalysisWeight, renderAnalysisWeightTable } from './analysis.js';
 import { configureVendor, buildSparkline, showSparkTooltip, hideSparkTooltip, syncLoggerRegex, updateRegexUI, resetNinjaSort, setNinjaSort, updateSortArrows, recalculateVendorTargets, renderVendorTable, buildVendorTableRow, setNinjaView, initSlider, positionMarker, onSliderChange, resetSlider, toggleEVMode, setEVMode, updateSliderROI, syncSliderToEV, toggleEstimator, getDivineRate, fmtWithRate, fmtEst, importWealthyCSV, parseWealthyCSV, toggleCSVBreakdown, renderCSVBreakdown, clearCSV, calcEstimator, renderEstimator, toggleEVChart, setEVChartRange, fetchAndRenderEVChart, renderEVChart, copyRegex } from './vendor.js';
 import {
+  ARCHIVE_MODE,
   POOL_API_URL,
   FAQ_SECTIONS,
   CHAR_LIMIT,
@@ -34,7 +35,7 @@ const SCARAB_LIST = state.scarabList;
 
 {
   const p = String(window.location.pathname || '').toLowerCase();
-  if (p === '/admin' || p === '/admin/' || p.startsWith('/admin/')) {
+  if (!ARCHIVE_MODE && (p === '/admin' || p === '/admin/' || p.startsWith('/admin/'))) {
     window.location.replace(BACKEND_ADMIN_UI_URL + window.location.search + window.location.hash);
   }
 }
@@ -306,7 +307,7 @@ function applyScarabModifierTooltipsForTabs() {
 }
 
 async function fetchScarabMetadata() {
-  if (!BACKEND_SCARAB_METADATA_URL) return;
+  if (ARCHIVE_MODE || !BACKEND_SCARAB_METADATA_URL) return;
   try {
     const res = await fetch(BACKEND_SCARAB_METADATA_URL, { cache: 'no-store' });
     if (!res.ok) return;
@@ -461,7 +462,7 @@ function applyRecommendedEVMode(currentLeagueSharePct = getCurrentLeagueSharePct
 }
 
 async function fetchObservedWeights() {
-  if (!POOL_API_URL) return;
+  if (ARCHIVE_MODE || !POOL_API_URL) return;
   const league = document.getElementById('leagueSelect')?.value || '';
   try {
     const url = POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league);
@@ -573,7 +574,7 @@ function computeLoopVendorRate(threshold) {
 
 
 async function fetchPriceHistory() {
-  if (!WORKER_URL) return;
+  if (ARCHIVE_MODE || !WORKER_URL) return;
   try {
     const league = getSelectedLeagueKey();
     const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=PriceHistory`, { cache: 'no-store' });
@@ -929,7 +930,7 @@ configureScarabEngine({
 });
 
 async function fetchCurrentLeague() {
-  if (!WORKER_URL) return;
+  if (ARCHIVE_MODE || !WORKER_URL) return;
   try {
     const res = await fetch(`${WORKER_URL}?type=CurrentLeague`, { cache: 'no-store' });
     if (!res.ok) return;
@@ -955,6 +956,7 @@ async function fetchCurrentLeague() {
 }
 
 async function fetchMarketScarabPrices() {
+  if (ARCHIVE_MODE || !WORKER_URL) return;
   if (state._marketFetchBusy) {
     state._marketFetchPending = true;
     return;
@@ -1623,6 +1625,19 @@ function applyEnvironmentBadge() {
   document.body.appendChild(badge);
 }
 
+function showArchiveNotice() {
+  const notice = document.getElementById('archiveNotice');
+  if (notice) notice.classList.add('show');
+  const status = document.getElementById('ninjaStatus');
+  if (status) status.textContent = 'Archive mode · live data retired';
+  document.body.classList.add('archive-mode');
+}
+
+function dismissArchiveNotice() {
+  const notice = document.getElementById('archiveNotice');
+  if (notice) notice.classList.remove('show');
+}
+
 configureAnalysis({ mobileScarabName, applyScarabModifierTooltips, bindStatInfoTooltipEvents, readCurrentLeagueSharePct, maybeShowCurrentLeagueCtaFromShare });
 configureAtlas({
   getPriceTrend,
@@ -1636,8 +1651,9 @@ configureAtlas({
 });
 atlasLoad();    // restore saved atlas config before any rendering
 applyEnvironmentBadge();
+if (ARCHIVE_MODE) showArchiveNotice();
 updateDailySnapshotCopy();
-(async () => {
+if (!ARCHIVE_MODE) (async () => {
   try {
     const [tokenInit] = await Promise.all([
       initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
@@ -1666,6 +1682,7 @@ initHashRouting(switchTab);
 
 // Expose selected helpers on window for debug tooling and static markup hooks.
 const UI_GLOBALS = {
+  dismissArchiveNotice,
   mobileScarabName,
   toggleTheme,
   switchTab,

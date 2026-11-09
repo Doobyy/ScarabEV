@@ -1,4 +1,7 @@
-import { SCARAB_LIST, ATLAS_BLOCKABLE, ATLAS_BOOSTABLE } from "../../js/config.js";
+import { ATLAS_BLOCKABLE, ATLAS_BOOSTABLE } from "../../js/config.js";
+
+// The worker is permanently archived; the former frontend scarab list is no longer needed.
+const SCARAB_LIST = [];
 
 const CACHE_PREFIX = "market-cache-v2";
 const KEY_CURRENT_LEAGUE = `${CACHE_PREFIX}:current-league`;
@@ -62,10 +65,14 @@ const POLICY = {
 
 export default {
   async fetch(request, env, ctx) {
+    if (parseEnvBool(env?.ARCHIVE_MODE, false)) {
+      return archiveResponse();
+    }
     return handleRequest(request, env, ctx);
   },
 
   async scheduled(event, env, ctx) {
+    if (parseEnvBool(env?.ARCHIVE_MODE, false)) return;
     let runtime;
     try {
       runtime = resolveRuntimeConfig(env);
@@ -103,6 +110,20 @@ export default {
     }
   }
 };
+
+function archiveResponse() {
+  return new Response(JSON.stringify({
+    ok: false,
+    archived: true,
+    message: "ScarabEV is archived; live market data is no longer available."
+  }), {
+    status: 410,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...corsHeaders()
+    }
+  });
+}
 
 async function handleRequest(request, env, ctx) {
   if (request.method === "OPTIONS") {

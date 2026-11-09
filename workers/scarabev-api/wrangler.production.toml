@@ -4,6 +4,9 @@ compatibility_date = "2026-04-19"
 compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = true
 
+[vars]
+ARCHIVE_MODE = "true"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "poepool-db"

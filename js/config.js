@@ -5,6 +5,8 @@
 // Does not hold mutable state or execute app flow logic.
 
 
+export const ARCHIVE_MODE = true;
+
 const FRONTEND_HOST = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.hostname)
   ? String(globalThis.location.hostname).toLowerCase()
   : '';
@@ -27,7 +29,15 @@ const FRONTEND_ENDPOINTS = {
     marketWorkerUrl: 'https://scarabev-market-worker.paperpandastacks.workers.dev'
   }
 };
-const RESOLVED_FRONTEND_ENDPOINTS = FRONTEND_ENDPOINTS[FRONTEND_ENVIRONMENT];
+const RESOLVED_FRONTEND_ENDPOINTS = ARCHIVE_MODE
+  ? {
+      poolApiUrl: '',
+      backendTokenSetUrl: '',
+      backendScarabMetadataUrl: '',
+      backendAdminUiUrl: '',
+      marketWorkerUrl: ''
+    }
+  : FRONTEND_ENDPOINTS[FRONTEND_ENVIRONMENT];
 if (FRONTEND_ENVIRONMENT === 'production') {
   const bad = Object.entries(RESOLVED_FRONTEND_ENDPOINTS).find(([, value]) => String(value || '').toLowerCase().includes('staging'));
   if (bad) {

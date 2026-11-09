@@ -4,6 +4,7 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 export interface Env {
   APP_NAME: string;
   APP_ENV: AppEnv;
+  ARCHIVE_MODE?: string;
   LOG_LEVEL: LogLevel;
   OBS_SAMPLE_RATE: string;
   ERROR_SINK_DSN?: string;

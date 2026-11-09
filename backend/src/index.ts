@@ -3035,6 +3035,23 @@ function createRuntimeDeps(env: Env): RuntimeDeps {
 export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRuntimeDeps): ExportedHandler<Env> {
   return {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+      if (String(env.ARCHIVE_MODE || "").trim().toLowerCase() === "true") {
+        return jsonResponse(
+          {
+            ok: false,
+            archived: true,
+            message: "ScarabEV is archived; live API services are no longer available."
+          },
+          {
+            status: 410,
+            headers: {
+              "access-control-allow-origin": "*",
+              "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+              "access-control-allow-headers": "Content-Type, Authorization, X-CSRF-Token"
+            }
+          }
+        );
+      }
       const reqCtx = createContext();
       const runtimeDeps = depsFactory(env);
 

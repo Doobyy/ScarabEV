@@ -1876,6 +1876,13 @@ __name(recomputeAggregate, "recomputeAggregate");
 __name2(recomputeAggregate, "recomputeAggregate");
 var src_default = {
   async fetch(request, env) {
+    if (String(env?.ARCHIVE_MODE || "").trim().toLowerCase() === "true") {
+      return new Response(JSON.stringify({
+        ok: false,
+        archived: true,
+        message: "ScarabEV is archived; live session services are no longer available."
+      }), { status: 410, headers: { ...CORS, "content-type": "application/json; charset=utf-8" } });
+    }
     if (request.method === "OPTIONS")
       return new Response(null, { status: 204, headers: CORS });
     const url = new URL(request.url);

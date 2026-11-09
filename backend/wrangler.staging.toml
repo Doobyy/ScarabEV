@@ -7,6 +7,7 @@ workers_dev = true
 [vars]
 APP_NAME = "scarabev-backend"
 APP_ENV = "staging"
+ARCHIVE_MODE = "true"
 LOG_LEVEL = "info"
 OBS_SAMPLE_RATE = "1"
 BACKUP_ENABLED = "true"
@@ -25,9 +26,6 @@ STAGING_REFRESH_SOURCE_KV_NAMESPACE_ID = "45058621c81d439d9ce0d12b61dc0c66"
 STAGING_REFRESH_SOURCE_KV_NAMESPACE_LABEL = "EV_HISTORY-production"
 STAGING_REFRESH_TARGET_KV_NAMESPACE_ID = "3acaaaca375f47a4beb918a88d5ff8fd"
 STAGING_REFRESH_TARGET_KV_NAMESPACE_LABEL = "ev-history-staging"
-
-[triggers]
-crons = ["0 9 * * *"]
 
 [[d1_databases]]
 binding = "DB"

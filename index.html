@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ScarabEV - Path of Exile Scarab Vendoring Expected Value (EV)</title>
-<meta name="description" content="ScarabEV is a Path of Exile expected value (EV) tool for scarab vendor analysis, live market pricing, atlas drop optimization, bulk buy analysis, and session tracking.">
+<title>ScarabEV Archive - Path of Exile Scarab Tools</title>
+<meta name="description" content="ScarabEV is a preserved archive of a Path of Exile scarab vendor EV and atlas analysis project.">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <link rel="canonical" href="https://doobyy.github.io/ScarabEV/">
 <meta property="og:type" content="website">
@@ -2952,9 +2952,53 @@ body.graph-palette-ruby {
   }
 }
 
-</style>
-<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2e77fb6a216d4318ae15b73cdea43380"}'></script><!-- End Cloudflare Web Analytics -->
+.archive-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(7, 12, 21, 0.78);
+  backdrop-filter: blur(5px);
+}
+.archive-notice.show { display: flex; }
+.archive-notice-card {
+  width: min(520px, 100%);
+  padding: 30px;
+  border: 1px solid rgba(255, 204, 0, 0.45);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.42);
+  color: var(--text);
+}
+.archive-notice-kicker {
+  margin-bottom: 8px;
+  color: var(--chaos);
+  font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.archive-notice-card h2 { margin: 0 0 14px; font-size: 24px; }
+.archive-notice-card p { margin: 10px 0; color: var(--text-2); line-height: 1.55; }
+.archive-notice-dismiss {
+  margin-top: 16px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 204, 0, 0.6);
+  border-radius: 7px;
+  background: rgba(255, 204, 0, 0.12);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+}
+.archive-notice-dismiss:hover { background: rgba(255, 204, 0, 0.22); }
+body.archive-mode .ninja-banner,
+body.archive-mode .threshold-bar,
+body.archive-mode .tab-pane.active .tool-actions,
+body.archive-mode #tab-ninja .refresh-btn { opacity: .72; }
 
+</style>
 </head>
 <body>
 
@@ -2963,7 +3007,7 @@ body.graph-palette-ruby {
 <nav class="topnav">
   <span class="nav-brand">
     <span class="nav-logo" onclick="switchTab('ninja')" title="Go to Scarab Vendor">Scarab<span>EV</span></span>
-    <span class="nav-tag">1.4</span>
+    <span class="nav-tag">1.6</span>
   </span>
   <div class="nav-tabs">
     <button class="nav-tab ninja-tab active" onclick="switchTab('ninja')">Scarab Vendor</button>
@@ -3000,7 +3044,7 @@ body.graph-palette-ruby {
   <div class="nav-drawer-header">
     <span class="nav-brand">
       <span class="nav-logo" onclick="switchTab('ninja')" title="Go to Scarab Vendor">Scarab<span>EV</span></span>
-      <span class="nav-tag">1.4</span>
+      <span class="nav-tag">1.6</span>
     </span>
   </div>
   <button class="nav-drawer-item ninja-tab active" onclick="switchTab('ninja'); toggleHamburger()">Scarab Vendor</button>
@@ -3009,6 +3053,16 @@ body.graph-palette-ruby {
   <button class="nav-drawer-item" onclick="switchTab('logger'); toggleHamburger()">Session Logger</button>
   <button class="nav-drawer-item" onclick="switchTab('analysis'); toggleHamburger()">Data Analysis</button>
   <button class="nav-drawer-item" onclick="switchTab('faq'); toggleHamburger()">FAQ</button>
+</div>
+
+<div class="archive-notice" id="archiveNotice" role="dialog" aria-modal="true" aria-labelledby="archiveNoticeTitle">
+  <div class="archive-notice-card">
+    <div class="archive-notice-kicker">ScarabEV archive</div>
+    <h2 id="archiveNoticeTitle">Thanks for stopping by.</h2>
+    <p>ScarabEV was built to help Path of Exile players explore scarab vendor value, market prices, and atlas farming ideas. With scarabs being removed in Path of Exile 3.30, the live tools are now retired.</p>
+    <p>The site will remain online as an archive of the project and the people who used it. Its calculators and live data connections are no longer active.</p>
+    <button type="button" class="archive-notice-dismiss" onclick="dismissArchiveNotice()">View the archive</button>
+  </div>
 </div>
 
 <div class="page">
