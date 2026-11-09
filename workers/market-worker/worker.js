@@ -66,7 +66,10 @@ const POLICY = {
 export default {
   async fetch(request, env, ctx) {
     if (parseEnvBool(env?.ARCHIVE_MODE, false)) {
-      return archiveResponse();
+      const type = String(new URL(request.url).searchParams.get("type") || "Scarab").trim();
+      const archiveReadable = request.method === "GET"
+        && ["EVHistory", "PriceHistory", "AtlasEVHistory", "SnapshotStatus"].includes(type);
+      if (!archiveReadable) return archiveResponse();
     }
     return handleRequest(request, env, ctx);
   },

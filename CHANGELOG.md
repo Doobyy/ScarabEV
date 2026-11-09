@@ -1,6 +1,12 @@
 # Changelog
 
 > Maintainer note: Keep this changelog feature-first. Add entries for major features, major reworks, or meaningful user-visible behavior changes. Avoid standalone entries for minor tune-ups/polish; fold those into the next feature release. When versioning a new release, keep the visible app version tag in `index.html` in sync with the latest `## [x.y]` heading here.
+## [1.7] - 2026-11-09
+### Focus: Read-Only Historical Archive
+- Historical archive data: Reconnected the site to preserved production metadata, community aggregates, and cached EV/price/Atlas history without restoring live pricing or submissions.
+- Read-only workers: Production archive endpoints serve approved GET requests only; market refreshes, writes, backups, and scheduled work remain disabled.
+
+---
 ## [1.6] - 2026-11-09
 ### Focus: ScarabEV Archive Mode
 - Archive shutdown: Retired live market, API, session, and Cloudflare-backed refresh paths while preserving the site as a browsable project archive.

@@ -3035,7 +3035,13 @@ function createRuntimeDeps(env: Env): RuntimeDeps {
 export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRuntimeDeps): ExportedHandler<Env> {
   return {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-      if (String(env.ARCHIVE_MODE || "").trim().toLowerCase() === "true") {
+      const archiveMode = String(env.ARCHIVE_MODE || "").trim().toLowerCase() === "true";
+      const archivePath = new URL(request.url).pathname;
+      const archiveRead = request.method === "GET"
+        && (archivePath === "/public/token-set/latest" || archivePath === "/public/scarabs/metadata");
+      const archiveCors = request.method === "OPTIONS"
+        && (archivePath === "/public/token-set/latest" || archivePath === "/public/scarabs/metadata");
+      if (archiveMode && !archiveRead && !archiveCors) {
         return jsonResponse(
           {
             ok: false,
@@ -3055,7 +3061,7 @@ export function createWorker(depsFactory: (env: Env) => RuntimeDeps = createRunt
       const reqCtx = createContext();
       const runtimeDeps = depsFactory(env);
 
-      await maybeStartBackupCatchup(runtimeDeps, ctx);
+      if (!archiveMode) await maybeStartBackupCatchup(runtimeDeps, ctx);
 
       logInfo(runtimeDeps.config, "request.start", {
         requestId: reqCtx.requestId,

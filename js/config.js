@@ -29,14 +29,9 @@ const FRONTEND_ENDPOINTS = {
     marketWorkerUrl: 'https://scarabev-market-worker.paperpandastacks.workers.dev'
   }
 };
+// Archive mode keeps only production read endpoints. It never enables live refreshes.
 const RESOLVED_FRONTEND_ENDPOINTS = ARCHIVE_MODE
-  ? {
-      poolApiUrl: '',
-      backendTokenSetUrl: '',
-      backendScarabMetadataUrl: '',
-      backendAdminUiUrl: '',
-      marketWorkerUrl: ''
-    }
+  ? FRONTEND_ENDPOINTS.production
   : FRONTEND_ENDPOINTS[FRONTEND_ENVIRONMENT];
 if (FRONTEND_ENVIRONMENT === 'production') {
   const bad = Object.entries(RESOLVED_FRONTEND_ENDPOINTS).find(([, value]) => String(value || '').toLowerCase().includes('staging'));

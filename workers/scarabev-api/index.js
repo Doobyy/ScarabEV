@@ -1876,7 +1876,12 @@ __name(recomputeAggregate, "recomputeAggregate");
 __name2(recomputeAggregate, "recomputeAggregate");
 var src_default = {
   async fetch(request, env) {
-    if (String(env?.ARCHIVE_MODE || "").trim().toLowerCase() === "true") {
+    const archiveMode = String(env?.ARCHIVE_MODE || "").trim().toLowerCase() === "true";
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const archiveRead = request.method === "GET" && (path === "/api/aggregate" || path === "/health");
+    const archiveCors = request.method === "OPTIONS" && (path === "/api/aggregate" || path === "/health");
+    if (archiveMode && !archiveRead && !archiveCors) {
       return new Response(JSON.stringify({
         ok: false,
         archived: true,
@@ -1885,9 +1890,8 @@ var src_default = {
     }
     if (request.method === "OPTIONS")
       return new Response(null, { status: 204, headers: CORS });
-    const url = new URL(request.url);
-    const path = url.pathname;
-    await ensureIntakeSchema(env);
+    if (!archiveMode)
+      await ensureIntakeSchema(env);
     if (path.startsWith("/api/sync-repair") && request.method === "POST") {
       try {
         try {

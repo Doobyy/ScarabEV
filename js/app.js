@@ -307,7 +307,7 @@ function applyScarabModifierTooltipsForTabs() {
 }
 
 async function fetchScarabMetadata() {
-  if (ARCHIVE_MODE || !BACKEND_SCARAB_METADATA_URL) return;
+  if (!BACKEND_SCARAB_METADATA_URL) return;
   try {
     const res = await fetch(BACKEND_SCARAB_METADATA_URL, { cache: 'no-store' });
     if (!res.ok) return;
@@ -462,7 +462,7 @@ function applyRecommendedEVMode(currentLeagueSharePct = getCurrentLeagueSharePct
 }
 
 async function fetchObservedWeights() {
-  if (ARCHIVE_MODE || !POOL_API_URL) return;
+  if (!POOL_API_URL) return;
   const league = document.getElementById('leagueSelect')?.value || '';
   try {
     const url = POOL_API_URL + '/api/aggregate?league=' + encodeURIComponent(league);
@@ -574,7 +574,7 @@ function computeLoopVendorRate(threshold) {
 
 
 async function fetchPriceHistory() {
-  if (ARCHIVE_MODE || !WORKER_URL) return;
+  if (!WORKER_URL) return;
   try {
     const league = getSelectedLeagueKey();
     const res = await fetch(`${WORKER_URL}?league=${encodeURIComponent(league)}&type=PriceHistory`, { cache: 'no-store' });
@@ -1633,6 +1633,32 @@ function showArchiveNotice() {
   document.body.classList.add('archive-mode');
 }
 
+function configureArchiveLeague() {
+  const select = document.getElementById('leagueSelect');
+  if (!select) return;
+  select.innerHTML = [
+    ['Allflame', 'Allflame (archived)'],
+    ['Mirage', 'Mirage (archived)'],
+    ['Standard', 'Standard (archived)']
+  ].map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+  select.value = 'Allflame';
+}
+
+async function initializeArchiveData() {
+  configureArchiveLeague();
+  const tokenInit = await initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state });
+  await fetchScarabMetadata();
+  const tokensByName = tokenInit?.tokensByName;
+  const tokenNames = tokensByName && typeof tokensByName === 'object' ? Object.keys(tokensByName) : [];
+  if (tokenNames.length) rebuildRuntimeScarabList(tokenNames);
+  await Promise.allSettled([
+    fetchObservedWeights(),
+    fetchPriceHistory(),
+    fetchAndRenderEVChart(),
+    fetchAndRenderAtlasTrendPreview()
+  ]);
+}
+
 function dismissArchiveNotice() {
   const notice = document.getElementById('archiveNotice');
   if (notice) notice.classList.remove('show');
@@ -1653,7 +1679,13 @@ atlasLoad();    // restore saved atlas config before any rendering
 applyEnvironmentBadge();
 if (ARCHIVE_MODE) showArchiveNotice();
 updateDailySnapshotCopy();
-if (!ARCHIVE_MODE) (async () => {
+if (ARCHIVE_MODE) {
+  initializeArchiveData().catch((e) => {
+    const msg = (e && e.message) ? String(e.message) : String(e);
+    const st = document.getElementById('ninjaStatus');
+    if (st) st.textContent = `Archive data unavailable: ${msg}`;
+  });
+} else (async () => {
   try {
     const [tokenInit] = await Promise.all([
       initializeBackendTokenSource({ BACKEND_TOKEN_SET_URL, configureRegexEngine, state }),
